@@ -1,0 +1,11 @@
+{
+  "local_modules": [
+    "modules"
+  ],
+  "roots": [
+    "game/main.jai",
+    "first.jai"
+  ],
+  "build_root": "first.jai",
+  "intermediate_path": "tmp/"
+}

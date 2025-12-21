@@ -1,0 +1,39 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "jai first.jai -quiet",
+            "problemMatcher": {
+                "owner": "jai",
+                "fileLocation": ["absolute"],
+                "pattern": {
+                    "regexp": "([^:]+):(\\d+),(\\d+):\\s+(Error|Warning):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
+        },
+        {
+            "label": "Build & Run",
+            "type": "shell",
+            "command": "jai first.jai -quiet && ./bin/Voxerra",
+            "problemMatcher": {
+                "owner": "jai",
+                "fileLocation": ["absolute"],
+                "pattern": {
+                    "regexp": "([^:]+):(\\d+),(\\d+):\\s+(Error|Warning):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
+        }
+    ]
+}
