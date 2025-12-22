@@ -3,8 +3,6 @@
 #import "Basic";
 #import "glfw";
 
-#load "../core/input.jai";
-
 key_callback :: (window: *GLFWwindow, key: s32, scancode: s32, action: s32, mods: s32) #c_call {
     // engine := map_key(key);
     // no need for mapping since our keys are based on glfw
@@ -50,9 +48,9 @@ char_callback :: (window: *GLFWwindow, codepoint: u32) #c_call {
     }
 }
 
-#scope_export
+#scope_module
 
-install_callbacks :: (window: *GLFWwindow) {
+input_install_callbacks :: (window: *GLFWwindow) {
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_callback);

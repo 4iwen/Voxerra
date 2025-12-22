@@ -158,8 +158,10 @@ Mouse_Button :: enum {
     MIDDLE :: BUTTON_3;
 };
 
+#scope_module
+
 KEY_CODE_COUNT :: Key_Code.COUNT;
-MOUSE_BUTTON_COUNT :: #run type_info(Key_Code).values.count;
+MOUSE_BUTTON_COUNT :: #run type_info(Mouse_Button).values.count;
 
 Input_State :: struct {
     keys_current: [KEY_CODE_COUNT] bool;
@@ -176,8 +178,6 @@ Input_State :: struct {
 
     text_input: [..] u32;
 };
-
-#scope_module
 
 state: Input_State;
 

@@ -1,5 +1,6 @@
-#load "core/platform.jai";
 #load "core/window.jai";
-// #load "core/input.jai";
+#load "core/input.jai";
 
-#load "renderer/gl.jai";
+#load "platform/platform.jai";
+
+#load "renderer/renderer.jai";

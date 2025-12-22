@@ -1,8 +1,6 @@
-#scope_file
-
-#import "Basic";
+#scope_module
 
 // @Refactor: there should be an option to configure which windowing backend to use
 #if OS == .WINDOWS || OS == .LINUX || OS == .MACOS {
-    #load "../platform/glfw/glfw_window.jai";
+    #load "glfw/glfw_platform.jai";
 }
