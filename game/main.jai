@@ -1,5 +1,4 @@
 #import "Basic";
-
 #import "engine";
 
 main :: () {
@@ -13,7 +12,7 @@ main :: () {
     defer renderer_shutdown();
 
     while !window_should_close(window) {
-        input_begin_frame();
+        input_poll();
 
         window_poll_events();
 

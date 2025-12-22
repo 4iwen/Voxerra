@@ -39,10 +39,23 @@ cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
     state.mouse_y = y;
 }
 
+scroll_callback :: (window: *GLFWwindow, xoffset: float64, yoffset: float64) #c_call {
+    state.scroll_x = xoffset;
+    state.scroll_y = yoffset;
+}
+
+char_callback :: (window: *GLFWwindow, codepoint: u32) #c_call {
+    push_context {
+        array_add(*state.text_input, codepoint);
+    }
+}
+
 #scope_export
 
 install_callbacks :: (window: *GLFWwindow) {
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+    glfwSetCharCallback(window, char_callback);
 }

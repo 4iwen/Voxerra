@@ -170,6 +170,11 @@ Input_State :: struct {
 
     mouse_x: float64;
     mouse_y: float64;
+
+    scroll_x: float64;
+    scroll_y: float64;
+
+    text_input: [..] u32;
 };
 
 #scope_module
@@ -178,9 +183,14 @@ state: Input_State;
 
 #scope_export
 
-input_begin_frame :: () {
+input_poll :: () {
     state.keys_previous  = state.keys_current;
     state.mouse_previous = state.mouse_current;
+
+    state.scroll_x = 0;
+    state.scroll_y = 0;
+
+    array_reset(*state.text_input);
 }
 
 input_key_down :: (key: Key_Code) -> bool {
@@ -209,4 +219,12 @@ input_mouse_released :: (button: Mouse_Button) -> bool {
 
 input_mouse_position :: () -> float64, float64 {
     return state.mouse_x, state.mouse_y;
+}
+
+input_scroll :: () -> float64, float64 {
+    return state.scroll_x, state.scroll_y;
+}
+
+input_text :: () -> [..] u32 {
+    return state.text_input;
 }
