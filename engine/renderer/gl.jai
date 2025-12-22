@@ -2,7 +2,7 @@
 
 #import "Basic";
 #import "GL";
-#import,file "../../modules/glfw/module.jai";
+#import "glfw";
 
 #scope_export
 
@@ -13,15 +13,19 @@ Color :: struct {
     a: float;
 };
 
-init :: () {
+renderer_init :: () {
     gl_load(*gl, glfwGetProcAddress.(*void));
 }
 
-shutdown :: () {
+renderer_shutdown :: () {
 
 }
 
-clear :: (color: Color) {
+renderer_begin_frame :: (color: Color) {
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(color.r, color.g, color.b, color.a);
+}
+
+renderer_end_frame :: () {
+
 }

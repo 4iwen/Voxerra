@@ -5,7 +5,7 @@
             "name": "Debug",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceRoot}/bin/",
+            "program": "${workspaceRoot}/bin/Voxerra",
             "cwd": "${workspaceRoot}/bin",
             "preLaunchTask": "Build"
         }

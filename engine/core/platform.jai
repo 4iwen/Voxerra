@@ -1,11 +1,11 @@
 #scope_file
 
 #import "Basic";
-#import,file "../../modules/glfw/module.jai";
+#import "glfw";
 
 #scope_export
 
-init :: () -> bool {
+platform_init :: () -> bool {
     if (!glfwInit()) {
         log("Initializing glfw failed");
         return false;
@@ -14,6 +14,6 @@ init :: () -> bool {
     return true;
 }
 
-shutdown :: () {
+platform_shutdown :: () {
     glfwTerminate();
 } 

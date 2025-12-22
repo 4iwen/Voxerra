@@ -2,8 +2,9 @@
 
 #import "Basic";
 #import "GL";
+#import "glfw";
 
-#import,file "../../modules/glfw/module.jai";
+#load "../platform/glfw.jai";
 
 #scope_export
 
@@ -11,7 +12,7 @@ Window :: struct {
     handle: *GLFWwindow;
 };
 
-create :: (width: s32, height: s32, title: *u8) -> Window {
+window_create :: (width: s32, height: s32, title: *u8) -> Window {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -25,22 +26,24 @@ create :: (width: s32, height: s32, title: *u8) -> Window {
 
     glfwMakeContextCurrent(handle);
 
+    install_callbacks(handle);
+
     return Window.{ handle = handle };
 }
 
-destroy :: (window: Window) {
+window_destroy :: (window: Window) {
     glfwDestroyWindow(window.handle);
 }
 
-should_close :: (window: Window) -> bool {
+window_should_close :: (window: Window) -> bool {
     return cast(bool) glfwWindowShouldClose(window.handle);
 }
 
-poll_events :: () {
+window_poll_events :: () {
     glfwPollEvents();
 }
 
-swap_buffers :: (window: Window) {
+window_swap_buffers :: (window: Window) {
     glfwSwapBuffers(window.handle);    
 }
 

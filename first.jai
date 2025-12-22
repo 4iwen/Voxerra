@@ -13,12 +13,20 @@ build :: () {
         return;
     }
 
+    // build options for executable
     build_options := get_build_options(workspace);
     copy_commonly_propagated_fields(get_build_options(), *build_options);
     build_options.output_executable_name = "Voxerra";
     make_directory_if_it_does_not_exist("./bin");
     build_options.output_path = "./bin";
     build_options.output_type = .EXECUTABLE;
+
+    // modify the include path
+    new_path: [..] string;
+    array_add(*new_path, ..build_options.import_path);
+    array_add(*new_path, "./");
+    build_options.import_path = new_path;
+
     set_build_options(build_options, workspace);
 
     add_build_file("./game/main.jai", workspace);

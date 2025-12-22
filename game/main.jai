@@ -1,25 +1,26 @@
 #import "Basic";
-#import "GL";
 
-Platform :: #import,file "../engine/core/platform.jai";
-Window :: #import,file "../engine/core/window.jai";
-Renderer :: #import,file "../engine/renderer/gl.jai";
+#import "engine";
 
 main :: () {
-    Platform.init();
-    defer Platform.shutdown();
+    platform_init();
+    defer platform_shutdown();
 
-    window := Window.create(960, 600, "Voxerra");
-    defer Window.destroy(window);
+    window := window_create(960, 600, "Voxerra");
+    defer window_destroy(window);
 
-    Renderer.init();
-    defer Renderer.shutdown();
+    renderer_init();
+    defer renderer_shutdown();
 
-    while !Window.should_close(window) {
-        Window.poll_events();
+    while !window_should_close(window) {
+        input_begin_frame();
+
+        window_poll_events();
+
+        renderer_begin_frame(.{ 0.0, 0.0, 0.2, 1.0 });
         
-        Renderer.clear(.{ 0.0, 0.0, 0.2, 1.0 });
-        
-        Window.swap_buffers(window);
+        renderer_end_frame();
+
+        window_swap_buffers(window);
     }
 }
