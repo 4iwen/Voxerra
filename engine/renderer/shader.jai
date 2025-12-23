@@ -1,6 +1,7 @@
 #scope_file
 
 #import "Basic";
+#import "GL";
 
 #scope_export
 
