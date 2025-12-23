@@ -2,7 +2,7 @@
 
 #import "Basic";
 #import "GL";
-#import "glfw";
+#load "opengl_shader.jai";
 
 #scope_export
 
@@ -33,9 +33,7 @@ void main() {
 }
 DONE
 
-vertex_shader_id: u32;
-fragment_shader_id: u32;
-shader_program_id: u32;
+shader: Shader;
 
 vertex_buffer_object_id: u32;
 vertex_array_object_id: u32;
@@ -57,49 +55,7 @@ renderer_init :: () {
     LOG_BUFFER_SIZE :: 512;
     success: GLint;
     
-    // vertex shader
-    vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
-    vertex_src: *u8 = cast(*u8) VERTEX_SRC;
-    glShaderSource(vertex_shader_id, 1, *vertex_src, null);
-    glCompileShader(vertex_shader_id);
-
-    // check for compilation errors
-    glGetShaderiv(vertex_shader_id, GL_COMPILE_STATUS, *success);
-    if !success {
-        log_data: [LOG_BUFFER_SIZE] u8;
-        glGetShaderInfoLog(vertex_shader_id, log_data.count, null, log_data.data);
-        log("%", to_string(log_data.data), flags = .ERROR);
-    }
-
-    // fragment shader
-    fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-    fragment_src: *u8 = cast(*u8) FRAGMENT_SRC;
-    glShaderSource(fragment_shader_id, 1, *fragment_src, null);
-    glCompileShader(fragment_shader_id);
-
-    // check for compilation errors
-    glGetShaderiv(fragment_shader_id, GL_COMPILE_STATUS, *success);
-    if !success {
-        log_data: [LOG_BUFFER_SIZE] u8;
-        glGetShaderInfoLog(fragment_shader_id, log_data.count, null, log_data.data);
-        log("%", to_string(log_data.data), flags = .ERROR);
-    }
-
-    // link shaders
-    shader_program_id = glCreateProgram();
-    glAttachShader(shader_program_id, vertex_shader_id);
-    glAttachShader(shader_program_id, fragment_shader_id);
-    glLinkProgram(shader_program_id);
-
-    // check for linking program errors 
-    glGetProgramiv(shader_program_id, GL_LINK_STATUS, *success);
-    if !success {
-        log_data: [LOG_BUFFER_SIZE] u8;
-        glGetProgramInfoLog(shader_program_id, log_data.count, null, log_data.data);
-        log("%", to_string(log_data.data), flags = .ERROR);
-    }
-    glDeleteShader(vertex_shader_id);
-    glDeleteShader(fragment_shader_id);
+    shader = shader_create(VERTEX_SRC, FRAGMENT_SRC);
 
     // triangle opengl data stuff
     glGenVertexArrays(1, *vertex_array_object_id);
@@ -126,15 +82,15 @@ renderer_shutdown :: () {
     glDeleteVertexArrays(1, *vertex_array_object_id);
     glDeleteBuffers(1, *vertex_buffer_object_id);
     glDeleteBuffers(1, *element_buffer_object_id);
-    glDeleteProgram(shader_program_id);
+
+    shader_destroy(shader);
 }
 
 renderer_begin_frame :: (color: Color) {
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // use shader
-    glUseProgram(shader_program_id);
+    shader_use(shader);
     
     // draw triangle
     glBindVertexArray(vertex_array_object_id);

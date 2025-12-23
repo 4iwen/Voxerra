@@ -22,8 +22,8 @@ window_create :: (width: s32, height: s32, title: *u8) -> *GLFWwindow {
     // input callbacks
     input_install_callbacks(handle);
 
-    // viewport resize callback
-    glfwSetFramebufferSizeCallback(handle, window_size_callback);
+    // window resize callback
+    glfwSetWindowSizeCallback(handle, window_size_callback);
 
     return handle;
 }
@@ -47,6 +47,8 @@ window_swap_buffers :: (handle: *GLFWwindow) {
 #scope_file
 
 window_size_callback :: (window: *GLFWwindow, width: s32, height: s32) #c_call {
+    glfwGetFramebufferSize(window, *width, *height);
+
     push_context {
         renderer_set_viewport_size(width, height);
     }
