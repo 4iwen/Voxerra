@@ -34,10 +34,6 @@ DONE
 
 shader: Shader;
 
-vertex_buffer_object_id: u32;
-vertex_array_object_id: u32;
-element_buffer_object_id: u32;
-
 vertices: [9] float = .[
     -0.5, -0.5, 0.0,
     0.5, -0.5, 0.0,
@@ -48,40 +44,18 @@ indices: [3] u32 = .[
     0, 1, 2
 ];
 
+triangle_mesh: Mesh;
+
 renderer_init :: () {
     gl_load(*gl, glfwGetProcAddress.(*void));
-
-    LOG_BUFFER_SIZE :: 512;
-    success: GLint;
     
     shader = shader_create(VERTEX_SRC, FRAGMENT_SRC);
 
-    // triangle opengl data stuff
-    glGenVertexArrays(1, *vertex_array_object_id);
-    glGenBuffers(1, *vertex_buffer_object_id);
-    glGenBuffers(1, *element_buffer_object_id);
-
-    glBindVertexArray(vertex_array_object_id);
-
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object_id);
-    glBufferData(GL_ARRAY_BUFFER, size_of(type_of(vertices)), vertices.data, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_object_id);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size_of(type_of(indices)), indices.data, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(float), null);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0); 
-
-    glBindVertexArray(0); 
+    triangle_mesh = mesh_create(vertices, indices);
 }
 
 renderer_shutdown :: () {
-    glDeleteVertexArrays(1, *vertex_array_object_id);
-    glDeleteBuffers(1, *vertex_buffer_object_id);
-    glDeleteBuffers(1, *element_buffer_object_id);
-
+    mesh_destroy(triangle_mesh);
     shader_destroy(shader);
 }
 
@@ -91,9 +65,7 @@ renderer_begin_frame :: (color: Color) {
 
     shader_use(shader);
     
-    // draw triangle
-    glBindVertexArray(vertex_array_object_id);
-    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, cast(*void) 0);
+    mesh_draw(triangle_mesh);
 }
 
 renderer_end_frame :: () {
