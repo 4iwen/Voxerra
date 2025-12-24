@@ -174,6 +174,9 @@ Input_State :: struct {
     mouse_x: float64;
     mouse_y: float64;
 
+    mouse_delta_x: float64;
+    mouse_delta_y: float64;
+
     scroll_x: float64;
     scroll_y: float64;
 
@@ -185,8 +188,11 @@ state: Input_State;
 #scope_export
 
 input_poll :: () {
-    state.keys_previous  = state.keys_current;
+    state.keys_previous = state.keys_current;
     state.mouse_previous = state.mouse_current;
+
+    state.mouse_delta_x = 0;
+    state.mouse_delta_y = 0;
 
     state.scroll_x = 0;
     state.scroll_y = 0;
@@ -220,6 +226,10 @@ input_mouse_released :: (button: Mouse_Button) -> bool {
 
 input_mouse_position :: () -> float64, float64 {
     return state.mouse_x, state.mouse_y;
+}
+
+input_mouse_delta :: () -> float64, float64 {
+    return state.mouse_delta_x, state.mouse_delta_y;
 }
 
 input_scroll :: () -> float64, float64 {
@@ -262,6 +272,9 @@ mouse_button_callback :: (window: *GLFWwindow, button: s32, action: s32, mods: s
 }
 
 cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
+    state.mouse_delta_x = x - state.mouse_x;
+    state.mouse_delta_y = y - state.mouse_y;
+
     state.mouse_x = x;
     state.mouse_y = y;
 }

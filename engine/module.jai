@@ -3,6 +3,7 @@
 #load "core/window.jai";
 #load "core/input.jai";
 #load "core/platform.jai";
+#load "core/time.jai";
 
 #load "math/math.jai";
 

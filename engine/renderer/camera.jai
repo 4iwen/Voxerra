@@ -37,8 +37,6 @@ camera_get_projection_matrix :: (camera: Camera, aspect: float) -> Matrix4 {
     return make_projection_matrix(degrees_to_radians(camera.fov), aspect, camera.near, camera.far);
 }
 
-#scope_file
-
 camera_update_vectors :: (camera: *Camera) {
     yaw_radians := degrees_to_radians(camera.yaw);
     pitch_radians := degrees_to_radians(camera.pitch);

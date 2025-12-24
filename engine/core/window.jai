@@ -10,6 +10,13 @@ Window :: struct {
     handle: *GLFWwindow;
 }
 
+Cursor_Mode :: enum {
+    DISABLED :: GLFW_CURSOR_DISABLED;
+    HIDDEN :: GLFW_CURSOR_HIDDEN;
+    CAPTURED :: GLFW_CURSOR_CAPTURED;
+    NORMAL :: GLFW_CURSOR_NORMAL;
+}
+
 window_create :: (width: s32, height: s32, title: *u8) -> *Window {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -60,6 +67,10 @@ window_swap_buffers :: (window: *Window) {
 
 window_set_vsync :: (vsync: bool) {
     glfwSwapInterval(cast(s32) ifx vsync then 1 else 0); 
+}
+
+window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {
+    glfwSetInputMode(window.handle, GLFW_CURSOR, cast(s32) mode);
 }
 
 #scope_file
