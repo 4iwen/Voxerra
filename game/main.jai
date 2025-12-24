@@ -64,7 +64,7 @@ main :: () {
         shader_use(shader);
         
         view := camera_get_view_matrix(camera);
-        projection := camera_get_projection_matrix(camera, 960.0 / 600.0);
+        projection := camera_get_projection_matrix(camera, cast(float32) window.width / window.height);
         model := Matrix4_Identity;
         shader_set_mat4(shader, "projection", projection);
         shader_set_mat4(shader, "view", view);

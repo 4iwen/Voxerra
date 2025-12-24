@@ -4,7 +4,13 @@
 
 #scope_export
 
-window_create :: (width: s32, height: s32, title: *u8) -> *GLFWwindow {
+Window :: struct {
+    width: s32;
+    height: s32;
+    handle: *GLFWwindow;
+}
+
+window_create :: (width: s32, height: s32, title: *u8) -> *Window {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
@@ -18,29 +24,37 @@ window_create :: (width: s32, height: s32, title: *u8) -> *GLFWwindow {
 
     glfwMakeContextCurrent(handle);
 
+    window := New(Window);
+    window.width = width;
+    window.height = height;
+    window.handle = handle;
+
+    glfwSetWindowUserPointer(handle, window);
+
     // input callbacks
     input_install_callbacks(handle);
 
     // window resize callback
     glfwSetWindowSizeCallback(handle, window_size_callback);
 
-    return handle;
+    return window;
 }
 
-window_destroy :: (handle: *GLFWwindow) {
-    glfwDestroyWindow(handle);
+window_destroy :: (window: *Window) {
+    glfwDestroyWindow(window.handle);
+    free(window);
 }
 
-window_should_close :: (handle: *GLFWwindow) -> bool {
-    return cast(bool) glfwWindowShouldClose(handle);
+window_should_close :: (window: *Window) -> bool {
+    return cast(bool) glfwWindowShouldClose(window.handle);
 }
 
 window_poll_events :: () {
     glfwPollEvents();
 }
 
-window_swap_buffers :: (handle: *GLFWwindow) {
-    glfwSwapBuffers(handle);
+window_swap_buffers :: (window: *Window) {
+    glfwSwapBuffers(window.handle);
 }
 
 window_set_vsync :: (vsync: bool) {
@@ -53,6 +67,10 @@ window_size_callback :: (window: *GLFWwindow, width: s32, height: s32) #c_call {
     glfwGetFramebufferSize(window, *width, *height);
 
     push_context {
+        window_ptr := cast(*Window) glfwGetWindowUserPointer(window);
+        window_ptr.width = width;
+        window_ptr.height = height;
+        
         renderer_set_viewport_size(width, height);
     }
 }
