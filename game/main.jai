@@ -119,10 +119,10 @@ cam_process_keyboard :: (camera: *Camera, delta_time: float64) {
     if input_key_down(.D) {
         camera.position = camera.position + camera.right * velocity;
     }
-    if input_key_down(.SPACE) || input_key_down(.E) {
+    if input_key_down(.E) {
         camera.position = camera.position + camera.world_up * velocity;
     }
-    if input_key_down(.LEFT_SHIFT) || input_key_down(.Q) {
+    if input_key_down(.Q) {
         camera.position = camera.position - camera.world_up * velocity;
     }
 }
@@ -130,7 +130,7 @@ cam_process_keyboard :: (camera: *Camera, delta_time: float64) {
 cam_process_mouse :: (camera: *Camera) {
     dx, dy := input_mouse_delta();
 
-    camera.yaw   += cast(float32) dx * 0.2;
+    camera.yaw += cast(float32) dx * 0.2;
     camera.pitch -= cast(float32) dy * 0.2;
 
     if camera.pitch > 89.0  then camera.pitch = 89.0;

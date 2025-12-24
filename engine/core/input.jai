@@ -272,8 +272,8 @@ mouse_button_callback :: (window: *GLFWwindow, button: s32, action: s32, mods: s
 }
 
 cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
-    state.mouse_delta_x = x - state.mouse_x;
-    state.mouse_delta_y = y - state.mouse_y;
+    state.mouse_delta_x += x - state.mouse_x;
+    state.mouse_delta_y += y - state.mouse_y;
 
     state.mouse_x = x;
     state.mouse_y = y;
