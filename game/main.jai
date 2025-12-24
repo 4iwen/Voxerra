@@ -123,7 +123,7 @@ cam_process_keyboard :: (camera: *Camera, delta_time: float64) {
         camera.position = camera.position + camera.world_up * velocity;
     }
     if input_key_down(.LEFT_SHIFT) || input_key_down(.Q) {
-        camera.position = camera.position - camera.world_up * velocity;q
+        camera.position = camera.position - camera.world_up * velocity;
     }
 }
 
