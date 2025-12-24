@@ -1,6 +1,7 @@
 #scope_file
 
 #import "Basic";
+#import "Math";
 #import "GL";
 
 #scope_export
@@ -51,6 +52,11 @@ shader_destroy :: (shader: Shader) {
 
 shader_use :: (shader: Shader) {
     glUseProgram(shader.id);
+}
+
+shader_set_mat4 :: (shader: Shader, name: string, matrix: Matrix4) {
+    location := glGetUniformLocation(shader.id, temp_c_string(name));
+    glUniformMatrix4fv(location, 1, GL_TRUE, *matrix.coef[0][0]);
 }
 
 #scope_file

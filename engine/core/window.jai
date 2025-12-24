@@ -43,6 +43,10 @@ window_swap_buffers :: (handle: *GLFWwindow) {
     glfwSwapBuffers(handle);
 }
 
+window_set_vsync :: (vsync: bool) {
+    glfwSwapInterval(cast(s32) ifx vsync then 1 else 0); 
+}
+
 #scope_file
 
 window_size_callback :: (window: *GLFWwindow, width: s32, height: s32) #c_call {
