@@ -20,6 +20,7 @@ window_create :: (width: s32, height: s32, title: *u8) -> *Window {
     if (!handle) {
         log("Failed to create glfw window", flags = .ERROR);
         glfwTerminate();
+        return null;
     }
 
     glfwMakeContextCurrent(handle);
@@ -64,13 +65,18 @@ window_set_vsync :: (vsync: bool) {
 #scope_file
 
 window_size_callback :: (window: *GLFWwindow, width: s32, height: s32) #c_call {
-    glfwGetFramebufferSize(window, *width, *height);
-
     push_context {
-        window_ptr := cast(*Window) glfwGetWindowUserPointer(window);
-        window_ptr.width = width;
-        window_ptr.height = height;
+        window_pointer := cast(*Window) glfwGetWindowUserPointer(window);
+        if !window_pointer {
+            log("Failed to get window user pointer on size callback");
+            return;
+        }
+
+        window_pointer.width = width;
+        window_pointer.height = height;
         
-        renderer_set_viewport_size(width, height);
+        framebuffer_width, framebuffer_height: s32;
+        glfwGetFramebufferSize(window, *framebuffer_width, *framebuffer_height);
+        renderer_set_viewport_size(framebuffer_width, framebuffer_height);
     }
 }
