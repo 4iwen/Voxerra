@@ -9,7 +9,7 @@
 default_texture: Texture;
 
 DEFAULT_TEXTURE_SPEC :: Texture_Spec.{
-    min_filter = .LINEAR,
+    min_filter = .LINEAR_MIPMAP_LINEAR,
     mag_filter = .NEAREST,
     wrap_s = .REPEAT,
     wrap_t = .REPEAT,
@@ -66,13 +66,11 @@ Texture :: struct {
 }
 
 Texture_Spec :: struct {
-    min_filter: Texture_Filter = .LINEAR;
+    min_filter: Texture_Filter = .LINEAR_MIPMAP_LINEAR;
     mag_filter: Texture_Filter = .NEAREST;
     wrap_s: Texture_Wrap = .REPEAT;
     wrap_t: Texture_Wrap = .REPEAT;
     generate_mipmaps: bool = true;
-    use_anisotropic: bool = false;
-    anisotropic_level: float = 4.0;
 }
 
 Texture_Filter :: enum {
@@ -97,10 +95,11 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Text
     // flip texture
     stbi_set_flip_vertically_on_load(1);
 
+    desired_channels: s32 = 4;
     width: s32;
     height: s32;
     channels: s32;
-    data := stbi_load(temp_c_string(path), *width, *height, *channels, 4);
+    data := stbi_load(temp_c_string(path), *width, *height, *channels, desired_channels);
 
     if !data {
         log_error("Failed to load texture: %, using default", path);
@@ -123,7 +122,7 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Text
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA,
+        GL_RGBA8,
         cast(u32) width,
         cast(u32) height,
         0,
@@ -134,6 +133,13 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Text
 
     if spec.generate_mipmaps {
         glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
+    if spec.generate_mipmaps && !is_mipmapped_filter(spec.min_filter) {
+        log("Texture created with mipmaps but min_filter does not use them", flags = .WARNING);
+    }
+    if !spec.generate_mipmaps && is_mipmapped_filter(spec.min_filter) {
+        log("Mipmapped min_filter used but mipmaps are not generated", flags = .WARNING);
     }
 
     return texture;
@@ -155,7 +161,7 @@ texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA,
+        GL_RGBA8,
         cast(u32) width,
         cast(u32) height,
         0,
@@ -167,7 +173,14 @@ texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT
     if spec.generate_mipmaps {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
-    
+
+    if spec.generate_mipmaps && !is_mipmapped_filter(spec.min_filter) {
+        log("Texture created with mipmaps but min_filter does not use them", flags = .WARNING);
+    }
+    if !spec.generate_mipmaps && is_mipmapped_filter(spec.min_filter) {
+        log("Mipmapped min_filter used but mipmaps are not generated", flags = .WARNING);
+    }
+
     return texture;
 }
 
@@ -203,4 +216,11 @@ to_opengl_wrap :: (wrap: Texture_Wrap) -> GLint {
         case .MIRRORED_REPEAT; return GL_MIRRORED_REPEAT;
         case; return GL_REPEAT;
     }
+}
+
+is_mipmapped_filter :: (filter: Texture_Filter) -> bool {
+    return filter == .NEAREST_MIPMAP_NEAREST ||
+           filter == .LINEAR_MIPMAP_NEAREST ||
+           filter == .NEAREST_MIPMAP_LINEAR ||
+           filter == .LINEAR_MIPMAP_LINEAR;
 }
