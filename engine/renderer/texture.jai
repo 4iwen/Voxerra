@@ -8,14 +8,6 @@
 
 default_texture: Texture;
 
-DEFAULT_TEXTURE_SPEC :: Texture_Spec.{
-    min_filter = .LINEAR_MIPMAP_LINEAR,
-    mag_filter = .NEAREST,
-    wrap_s = .REPEAT,
-    wrap_t = .REPEAT,
-    generate_mipmaps = true,
-};
-
 texture_init_default :: () {
     width :: 8;
     height :: 8;
@@ -66,12 +58,36 @@ Texture :: struct {
 }
 
 Texture_Spec :: struct {
-    min_filter: Texture_Filter = .LINEAR_MIPMAP_LINEAR;
-    mag_filter: Texture_Filter = .NEAREST;
-    wrap_s: Texture_Wrap = .REPEAT;
-    wrap_t: Texture_Wrap = .REPEAT;
-    generate_mipmaps: bool = true;
+    min_filter: Texture_Filter;
+    mag_filter: Texture_Filter;
+    wrap_s: Texture_Wrap;
+    wrap_t: Texture_Wrap;
+    generate_mipmaps: bool;
 }
+
+DEFAULT_TEXTURE_SPEC :: Texture_Spec.{
+    min_filter = .LINEAR_MIPMAP_LINEAR,
+    mag_filter = .NEAREST,
+    wrap_s = .REPEAT,
+    wrap_t = .REPEAT,
+    generate_mipmaps = true,
+};
+
+PIXELART_TEXTURE_SPEC :: Texture_Spec.{
+    min_filter = .NEAREST,
+    mag_filter = .NEAREST,
+    wrap_s = .REPEAT,
+    wrap_t = .REPEAT,
+    generate_mipmaps = false,
+};
+
+UI_TEXTURE_SPEC :: Texture_Spec.{
+    min_filter = .LINEAR,
+    mag_filter = .LINEAR,
+    wrap_s = .CLAMP_TO_EDGE,
+    wrap_t = .CLAMP_TO_EDGE,
+    generate_mipmaps = false,
+};
 
 Texture_Filter :: enum {
     NEAREST;
@@ -119,6 +135,8 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Text
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, to_opengl_wrap(spec.wrap_s));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, to_opengl_wrap(spec.wrap_t));
 
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
@@ -158,6 +176,8 @@ texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, to_opengl_wrap(spec.wrap_s));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, to_opengl_wrap(spec.wrap_t));
     
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
     glTexImage2D(
         GL_TEXTURE_2D,
         0,

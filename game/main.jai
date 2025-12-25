@@ -65,7 +65,7 @@ main :: () {
     quad_mesh := mesh_create(vertices, indices);
     defer mesh_destroy(quad_mesh);
 
-    texture := texture_create_from_file("assets/mushroom_geometry.png");
+    texture := texture_create_from_file("assets/atsgisoti.png");
     defer texture_destroy(texture);
     
     camera := camera_create(.{0.0, 0.0, 3.0});
