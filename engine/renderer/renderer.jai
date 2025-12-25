@@ -17,10 +17,12 @@ renderer_init :: () {
     
     // enable features
     glEnable(GL_DEPTH_TEST);
+
+    texture_init_default();
 }
 
 renderer_shutdown :: () {
-
+    texture_cleanup_default();
 }
 
 renderer_begin_frame :: (color: Color) {

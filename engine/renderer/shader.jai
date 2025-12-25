@@ -64,6 +64,13 @@ shader_set_int :: (shader: Shader, name: string, value: s32) {
     glUniform1i(location, value);
 }
 
+shader_set_texture :: (shader: Shader, name: string, texture: Texture, slot: u32 = 0) {
+    tex := ifx texture.id == 0 then texture_get_default() else texture;
+    
+    texture_bind(tex, slot);
+    shader_set_int(shader, name, xx slot);
+}
+
 #scope_file
 
 check_for_shader_compilation_errors :: (shader_id: u32) {

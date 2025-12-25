@@ -106,8 +106,9 @@ main :: () {
             shader_use(shader);
 
             // texture stuff
-            texture_bind(texture, 0);
-            shader_set_int(shader, "u_texture", 0);
+            shader_set_texture(shader, "u_texture", texture);
+            // texture_bind(texture, 0);
+            // shader_set_int(shader, "u_texture", 0);
 
             // camera stuff
             view := camera_get_view_matrix(camera);
