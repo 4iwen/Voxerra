@@ -44,9 +44,13 @@ mesh_create :: (vertices: [] float, indices: [] u32) -> Mesh {
         GL_STATIC_DRAW
     );
 
-    // set vertex attributes
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(float), null);
+    // position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * size_of(float), null);
     glEnableVertexAttribArray(0);
+
+    // uv
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * size_of(float), cast(*void)(3 * size_of(float)));
+    glEnableVertexAttribArray(1);
 
     // unbind
     glBindBuffer(GL_ARRAY_BUFFER, 0);

@@ -59,6 +59,11 @@ shader_set_mat4 :: (shader: Shader, name: string, matrix: Matrix4) {
     glUniformMatrix4fv(location, 1, GL_TRUE, *matrix.coef[0][0]);
 }
 
+shader_set_int :: (shader: Shader, name: string, value: s32) {
+    location := glGetUniformLocation(shader.id, temp_c_string(name));
+    glUniform1i(location, value);
+}
+
 #scope_file
 
 check_for_shader_compilation_errors :: (shader_id: u32) {
@@ -69,7 +74,7 @@ check_for_shader_compilation_errors :: (shader_id: u32) {
     if !success {
         log_data: [LOG_BUFFER_SIZE] u8;
         glGetShaderInfoLog(shader_id, log_data.count, null, log_data.data);
-        log("%", to_string(log_data.data), flags = .ERROR);
+        log_error("Failed to compile shader: %", to_string(log_data.data));
     }
 }
 
@@ -81,6 +86,6 @@ check_for_program_linking_errors :: (program_id: u32) {
     if !success {
         log_data: [LOG_BUFFER_SIZE] u8;
         glGetProgramInfoLog(program_id, log_data.count, null, log_data.data);
-        log("%", to_string(log_data.data), flags = .ERROR);
+        log_error("Failed to link shader program: %", to_string(log_data.data));
     }
 }

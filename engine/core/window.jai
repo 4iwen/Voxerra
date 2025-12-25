@@ -25,7 +25,7 @@ window_create :: (width: s32, height: s32, title: *u8) -> *Window {
 
     handle := glfwCreateWindow(width, height, title, null, null);
     if (!handle) {
-        log("Failed to create glfw window", flags = .ERROR);
+        log_error("Failed to create glfw window");
         glfwTerminate();
         return null;
     }

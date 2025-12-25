@@ -11,3 +11,4 @@
 #load "renderer/shader.jai";
 #load "renderer/mesh.jai";
 #load "renderer/camera.jai";
+#load "renderer/texture.jai";

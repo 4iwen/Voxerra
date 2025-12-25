@@ -18,6 +18,9 @@ main :: () {
     #version 330 core
 
     layout (location = 0) in vec3 pos;
+    layout (location = 1) in vec2 uv;
+
+    out vec2 v_uv;
 
     uniform mat4 projection;
     uniform mat4 view;
@@ -25,34 +28,45 @@ main :: () {
 
     void main() {
         gl_Position = projection * view * model * vec4(pos, 1.0);
+        v_uv = uv;
     }
     DONE
 
     FRAGMENT_SRC :: #string DONE
     #version 330 core
 
+    in vec2 v_uv;
+
     out vec4 color;
 
+    uniform sampler2D u_texture;
+
     void main() {
-        color = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+        color = texture(u_texture, v_uv);
     }
     DONE
 
-    vertices: [9] float = .[
-        -0.5, -0.5, 0.0,
-        0.5, -0.5, 0.0,
-        0.0, 0.5, 0.0
+    vertices: [20] float = .[
+        // position (x, y, z), uv (u, v)
+        -1.0, -1.0, 0.0, 0.0, 0.0,
+        1.0, -1.0, 0.0, 1.0, 0.0,
+        1.0, 1.0, 0.0, 1.0, 1.0,
+        -1.0, 1.0, 0.0, 0.0, 1.0,
     ];  
 
-    indices: [3] u32 = .[
-        0, 1, 2
+    indices: [6] u32 = .[
+        0, 1, 2,
+        2, 3, 0
     ];
 
     shader := shader_create(VERTEX_SRC, FRAGMENT_SRC);
     defer shader_destroy(shader);
     
-    triangle_mesh := mesh_create(vertices, indices);
-    defer mesh_destroy(triangle_mesh);
+    quad_mesh := mesh_create(vertices, indices);
+    defer mesh_destroy(quad_mesh);
+
+    texture := texture_create_from_file("assets/mushroom_geometry.png");
+    defer texture_destroy(texture);
     
     camera := camera_create(.{0.0, 0.0, 3.0});
     movement_speed: float = 2.0;
@@ -90,13 +104,20 @@ main :: () {
 
         {
             shader_use(shader);
+
+            // texture stuff
+            texture_bind(texture, 0);
+            shader_set_int(shader, "u_texture", 0);
+
+            // camera stuff
             view := camera_get_view_matrix(camera);
             projection := camera_get_projection_matrix(camera, cast(float32) window.width / window.height);
             model := Matrix4_Identity;
             shader_set_mat4(shader, "projection", projection);
             shader_set_mat4(shader, "view", view);
             shader_set_mat4(shader, "model", model);
-            mesh_draw(triangle_mesh);
+            
+            mesh_draw(quad_mesh);
         }
 
         renderer_end_frame();

@@ -6,7 +6,7 @@
 
 platform_init :: () -> bool {
     if (!glfwInit()) {
-        log("Initializing glfw failed", flags = .ERROR);
+        log_error("Initializing glfw failed");
         return false;
     }
 
