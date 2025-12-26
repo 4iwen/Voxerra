@@ -8,41 +8,15 @@
 
 default_texture: Texture;
 
-texture_init_default :: () {
-    width :: 8;
-    height :: 8;
+texture_init :: () {
+    // flip texture
+    stbi_set_flip_vertically_on_load(1);
 
-    data := cast(*u8) alloc(width * height * 4);
-
-    for y: 0..height-1 {
-        for x: 0..width-1 {
-            index := (y * width + x) * 4;
-            
-            // checkerboard pattern
-            is_purple := ((x / 2) + (y / 2)) % 2 == 0;
-            
-            if is_purple {
-                data[index + 0] = 255; // r
-                data[index + 1] = 0; // g
-                data[index + 2] = 255; // b
-                data[index + 3] = 255; // a
-            } else {
-                data[index + 0] = 0; // r
-                data[index + 1] = 0; // g
-                data[index + 2] = 0; // b
-                data[index + 3] = 255; // a
-            }
-        }
-    }
-
-    default_texture = texture_create_from_data(width, height, data);
-    free(data);
+    create_default_texture();
 }
 
-texture_cleanup_default :: () {
-    if default_texture.id != 0 {
-        texture_destroy(default_texture);
-    }
+texture_shutdown :: () {
+    destroy_default_texture();
 }
 
 texture_get_default :: () -> Texture {
@@ -107,9 +81,6 @@ Texture_Wrap :: enum {
 
 texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Texture {
     texture: Texture;
-
-    // flip texture
-    stbi_set_flip_vertically_on_load(1);
 
     desired_channels: s32 = 4;
     width: s32;
@@ -243,4 +214,41 @@ is_mipmapped_filter :: (filter: Texture_Filter) -> bool {
            filter == .LINEAR_MIPMAP_NEAREST ||
            filter == .NEAREST_MIPMAP_LINEAR ||
            filter == .LINEAR_MIPMAP_LINEAR;
+}
+
+create_default_texture :: () {
+    width :: 8;
+    height :: 8;
+
+    data := cast(*u8) alloc(width * height * 4);
+
+    for y: 0..height-1 {
+        for x: 0..width-1 {
+            index := (y * width + x) * 4;
+            
+            // checkerboard pattern
+            is_purple := ((x / 2) + (y / 2)) % 2 == 0;
+            
+            if is_purple {
+                data[index + 0] = 255; // r
+                data[index + 1] = 0; // g
+                data[index + 2] = 255; // b
+                data[index + 3] = 255; // a
+            } else {
+                data[index + 0] = 0; // r
+                data[index + 1] = 0; // g
+                data[index + 2] = 0; // b
+                data[index + 3] = 255; // a
+            }
+        }
+    }
+
+    default_texture = texture_create_from_data(width, height, data);
+    free(data);
+}
+
+destroy_default_texture :: () {
+    if default_texture.id != 0 {
+        texture_destroy(default_texture);
+    }
 }

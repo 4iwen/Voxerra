@@ -18,11 +18,11 @@ renderer_init :: () {
     // enable features
     glEnable(GL_DEPTH_TEST);
 
-    texture_init_default();
+    texture_init();
 }
 
 renderer_shutdown :: () {
-    texture_cleanup_default();
+    texture_shutdown();
 }
 
 renderer_begin_frame :: (color: Color) {
