@@ -70,3 +70,20 @@ mesh_draw :: (mesh: Mesh) {
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, null);
     glBindVertexArray(0);
 }
+
+mesh_create_quad :: () -> Mesh {
+    vertices: [20] float = .[
+        // position, uv
+        -1.0, -1.0, 0.0, 0.0, 0.0,
+         1.0, -1.0, 0.0, 1.0, 0.0,
+         1.0,  1.0, 0.0, 1.0, 1.0,
+        -1.0,  1.0, 0.0, 0.0, 1.0,
+    ];
+    
+    indices: [6] u32 = .[
+        0, 1, 2,
+        2, 3, 0
+    ];
+    
+    return mesh_create(vertices, indices);
+}

@@ -2,6 +2,7 @@
 
 #import "Basic";
 #import "Math";
+#import "File";
 #import "GL";
 
 #scope_export
@@ -11,6 +12,13 @@ Shader :: struct {
     vertex_id: u32;
     fragment_id: u32;
 }
+
+shader_create_from_file :: (vertex_path: string, fragment_path: string) -> Shader {
+    vertex_source := read_entire_file(vertex_path);
+    fragment_source := read_entire_file(fragment_path);
+
+    return shader_create(vertex_source, fragment_source);
+} 
 
 shader_create :: (vertex_source: string, fragment_source: string) -> Shader {
     // vertex shader
@@ -52,6 +60,26 @@ shader_destroy :: (shader: Shader) {
 
 shader_use :: (shader: Shader) {
     glUseProgram(shader.id);
+
+    shader_set_default_matrices(shader);
+}
+
+shader_set_default_matrices :: (shader: Shader) {
+    projection_loc := glGetUniformLocation(shader.id, "projection");
+    view_loc := glGetUniformLocation(shader.id, "view");
+    model_loc := glGetUniformLocation(shader.id, "model");
+    
+    identity := Matrix4_Identity;
+    
+    if projection_loc != -1 {
+        glUniformMatrix4fv(projection_loc, 1, GL_TRUE, *identity.coef[0][0]);
+    }
+    if view_loc != -1 {
+        glUniformMatrix4fv(view_loc, 1, GL_TRUE, *identity.coef[0][0]);
+    }
+    if model_loc != -1 {
+        glUniformMatrix4fv(model_loc, 1, GL_TRUE, *identity.coef[0][0]);
+    }
 }
 
 shader_set_mat4 :: (shader: Shader, name: string, matrix: Matrix4) {

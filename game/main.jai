@@ -2,76 +2,36 @@
 #import "Math";
 #import "engine";
 
+#load "camera_controller.jai";
+
 main :: () {
     platform_init();
     defer platform_shutdown();
 
     window := window_create(960, 600, "Voxerra");
     defer window_destroy(window);
-
     window_set_vsync(true);
 
     renderer_init();
     defer renderer_shutdown();
 
-    VERTEX_SRC :: #string DONE
-    #version 330 core
-
-    layout (location = 0) in vec3 pos;
-    layout (location = 1) in vec2 uv;
-
-    out vec2 v_uv;
-
-    uniform mat4 projection;
-    uniform mat4 view;
-    uniform mat4 model;
-
-    void main() {
-        gl_Position = projection * view * model * vec4(pos, 1.0);
-        v_uv = uv;
-    }
-    DONE
-
-    FRAGMENT_SRC :: #string DONE
-    #version 330 core
-
-    in vec2 v_uv;
-
-    out vec4 color;
-
-    uniform sampler2D u_texture;
-
-    void main() {
-        color = texture(u_texture, v_uv);
-    }
-    DONE
-
-    vertices: [20] float = .[
-        // position (x, y, z), uv (u, v)
-        -1.0, -1.0, 0.0, 0.0, 0.0,
-        1.0, -1.0, 0.0, 1.0, 0.0,
-        1.0, 1.0, 0.0, 1.0, 1.0,
-        -1.0, 1.0, 0.0, 0.0, 1.0,
-    ];  
-
-    indices: [6] u32 = .[
-        0, 1, 2,
-        2, 3, 0
-    ];
-
-    shader := shader_create(VERTEX_SRC, FRAGMENT_SRC);
+    // load shader from files
+    vertex_path := "assets/shaders/texture.vert";
+    fragment_path := "assets/shaders/texture.frag";
+    shader := shader_create_from_file(vertex_path, fragment_path);
     defer shader_destroy(shader);
     
-    quad_mesh := mesh_create(vertices, indices);
+    // create quad mesh
+    quad_mesh := mesh_create_quad();
     defer mesh_destroy(quad_mesh);
 
-    texture := texture_create_from_file("assets/atsgisoti.png");
+    texture := generate_worley_texture(512, 512);
     defer texture_destroy(texture);
     
-    camera := camera_create(.{0.0, 0.0, 3.0});
-    movement_speed: float = 2.0;
-    sensitivity: float = 0.1;
-    camera_active := false;
+    controller := camera_controller_create(.{0.0, 0.0, 3.0});
+
+    queue := render_queue_create();
+    defer render_queue_destroy(*queue);
 
     last_time := time_get();
 
@@ -82,81 +42,43 @@ main :: () {
 
         input_poll();
         window_poll_events();
+        camera_controller_update(*controller, window, delta_time);
 
-        {
-            if input_mouse_pressed(.RIGHT) {
-                window_set_cursor_mode(window, .DISABLED);
-                camera_active = true;
-            }
-
-            if input_key_pressed(.ESCAPE) {
-                window_set_cursor_mode(window, .NORMAL);
-                camera_active = false;
-            }
-
-            if camera_active {
-                cam_process_keyboard(*camera, delta_time);
-                cam_process_mouse(*camera);
-            }
-        }
+        render_queue_clear(*queue);
+        render_queue_submit(*queue, quad_mesh, shader, texture);
 
         renderer_begin_frame(.{ 0.0, 0.0, 0.2, 1.0 });
 
-        {
-            shader_use(shader);
-
-            // texture stuff
-            shader_set_texture(shader, "u_texture", texture);
-            // texture_bind(texture, 0);
-            // shader_set_int(shader, "u_texture", 0);
-
-            // camera stuff
-            view := camera_get_view_matrix(camera);
-            projection := camera_get_projection_matrix(camera, cast(float32) window.width / window.height);
-            model := Matrix4_Identity;
-            shader_set_mat4(shader, "projection", projection);
-            shader_set_mat4(shader, "view", view);
-            shader_set_mat4(shader, "model", model);
-            
-            mesh_draw(quad_mesh);
-        }
+        view := camera_get_view_matrix(controller.camera);
+        projection := camera_get_projection_matrix(controller.camera, cast(float32) window.width / window.height);
+        render_queue_flush(*queue, view, projection);
 
         renderer_end_frame();
         window_swap_buffers(window);
     }
 }
 
-cam_process_keyboard :: (camera: *Camera, delta_time: float64) {
-    velocity := 2 * delta_time;
+generate_worley_texture :: (width: s32, height: s32, zoom: float = 32.0, seed: u64 = 157) -> Texture {
+    pixel_count := width * height * 4;
+    data := cast(*u8) alloc(pixel_count);
     
-    if input_key_down(.W) {
-        camera.position = camera.position + camera.front * velocity;
+    for y: 0..height-1 {
+        for x: 0..width-1 {
+            spec := Worley_Noise_Spec.{seed = seed, zoom = zoom};
+            d := worley_noise_2d(cast(float64) x, cast(float64) y, spec);
+            
+            d = clamp(d * 1.5, 0.0, 1.0);
+            v := cast(u8)(d * 255.0);
+            
+            index := (y * width + x) * 4;
+            data[index + 0] = v;
+            data[index + 1] = v;
+            data[index + 2] = v;
+            data[index + 3] = 255;
+        }
     }
-    if input_key_down(.S) {
-        camera.position = camera.position - camera.front * velocity;
-    }
-    if input_key_down(.A) {
-        camera.position = camera.position - camera.right * velocity;
-    }
-    if input_key_down(.D) {
-        camera.position = camera.position + camera.right * velocity;
-    }
-    if input_key_down(.E) {
-        camera.position = camera.position + camera.world_up * velocity;
-    }
-    if input_key_down(.Q) {
-        camera.position = camera.position - camera.world_up * velocity;
-    }
-}
-
-cam_process_mouse :: (camera: *Camera) {
-    dx, dy := input_mouse_delta();
-
-    camera.yaw += cast(float32) dx * 0.2;
-    camera.pitch -= cast(float32) dy * 0.2;
-
-    if camera.pitch > 89.0  then camera.pitch = 89.0;
-    if camera.pitch < -89.0 then camera.pitch = -89.0;
-
-    camera_update_vectors(camera);
+    
+    texture := texture_create_from_data(width, height, data);
+    free(data);
+    return texture;
 }
