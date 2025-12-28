@@ -5,9 +5,9 @@
 #scope_export
 
 Render_Item :: struct {
-    mesh: Mesh;
-    shader: Shader;
-    texture: Texture;
+    mesh: *Mesh;
+    shader: *Shader;
+    texture: *Texture;
     transform: Matrix4;
 }
 
@@ -28,7 +28,7 @@ render_queue_clear :: (queue: *Render_Queue) {
     array_reset(*queue.items);
 }
 
-render_queue_submit :: (queue: *Render_Queue, mesh: Mesh, shader: Shader, texture: Texture, transform := Matrix4_Identity) {
+render_queue_submit :: (queue: *Render_Queue, mesh: *Mesh, shader: *Shader, texture: *Texture, transform := Matrix4_Identity) {
     item: Render_Item;
     item.mesh = mesh;
     item.shader = shader;

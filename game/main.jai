@@ -8,6 +8,9 @@ main :: () {
     platform_init();
     defer platform_shutdown();
 
+    asset_manager_init();
+    defer asset_manager_shutdown();
+
     window := window_create(960, 600, "Voxerra");
     defer window_destroy(window);
     window_set_vsync(true);
@@ -18,15 +21,19 @@ main :: () {
     // load shader from files
     vertex_path := "assets/shaders/texture.vert";
     fragment_path := "assets/shaders/texture.frag";
-    shader := shader_create_from_file(vertex_path, fragment_path);
-    defer shader_destroy(shader);
+    shader := asset_manager_load_shader(vertex_path, fragment_path, true);
+
+    texture_path := "assets/textures/forest.png";
+    texture := asset_manager_load_texture(texture_path, true, PIXELART_TEXTURE_SPEC);
+    // shader := shader_create_from_file(vertex_path, fragment_path);
+    // defer shader_destroy(shader);
     
     // create quad mesh
     quad_mesh := mesh_create_quad();
     defer mesh_destroy(quad_mesh);
 
-    texture := generate_worley_texture(512, 512);
-    defer texture_destroy(texture);
+    // texture := generate_worley_texture(512, 512);
+    // defer texture_destroy(texture);
     
     controller := camera_controller_create(.{0.0, 0.0, 3.0});
 
@@ -35,10 +42,14 @@ main :: () {
 
     last_time := time_get();
 
+    counter: int = 0;
+
     while !window_should_close(window) {
         current_time := time_get();
         delta_time := current_time - last_time;
         last_time = current_time;
+
+        asset_manager_update();
 
         input_poll();
         window_poll_events();

@@ -1,0 +1,221 @@
+#scope_file
+
+#import "Basic";
+#import "String";
+#import "Hash_Table";
+#import "File";
+#import "File_Watcher";
+
+manager: Asset_Manager;
+
+#scope_export
+
+Texture_Asset :: struct {
+    texture: *Texture;
+    path: string;
+    spec: Texture_Spec;
+}
+
+Shader_Asset :: struct {
+    shader: *Shader;
+    vertex_path: string;
+    fragment_path: string;
+}
+
+Asset_Manager :: struct {
+    textures: Table(string, Texture_Asset);
+    shaders: Table(string, Shader_Asset);
+    
+    hot_reload_textures: Table(string, bool);
+    hot_reload_shaders: Table(string, bool);
+    
+    watcher: *File_Watcher(void);
+}
+
+asset_manager_init :: () {
+    // initialize tables
+    init(*manager.textures);
+    init(*manager.shaders);
+    init(*manager.hot_reload_textures);
+    init(*manager.hot_reload_shaders);
+
+    // initialize file watcher
+    manager.watcher = New(File_Watcher(void));
+    if !init(
+        manager.watcher,
+        file_change_callback,
+        null,
+        events_to_watch = .MODIFIED,
+        merge_window_seconds = 0.5
+    ) {
+        log_error("Failed to initialize file watcher");
+    }
+}
+
+asset_manager_shutdown :: () {
+    // unload assets
+    for asset: manager.textures {
+        texture_destroy(asset.texture);
+    }
+    for asset: manager.shaders {
+        shader_destroy(asset.shader);
+    }
+    
+    // deinit tables
+    deinit(*manager.textures);
+    deinit(*manager.shaders);
+    deinit(*manager.hot_reload_textures);
+    deinit(*manager.hot_reload_shaders);
+    
+    // deinit file watcher
+    deinit(manager.watcher);
+    free(manager.watcher);
+}
+
+asset_manager_update :: () {
+    process_changes(manager.watcher);
+}
+
+asset_manager_load_texture :: (path: string, hot_reload := false, spec := DEFAULT_TEXTURE_SPEC) -> *Texture {
+    absoulte_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for texture: %", path);
+
+    // check if already present
+    found, existing_asset := table_find(*manager.textures, absoulte_path);
+    if found {
+        return existing_asset.texture;
+    }
+
+    // load new
+    texture := texture_create_from_file(path, spec);
+    
+    asset: Texture_Asset;
+    asset.texture = texture;
+    asset.path = copy_string(absoulte_path);
+    asset.spec = spec;
+    
+    // add to manager
+    table_add(*manager.textures, copy_string(absoulte_path), asset);
+
+    if hot_reload {
+        table_add(*manager.hot_reload_textures, copy_string(absoulte_path), true);
+        add_directories(manager.watcher, absoulte_path);
+    }
+
+    log("Loaded texture:\n%", absoulte_path);
+    return texture;
+}
+
+asset_manager_load_shader :: (vertex_path: string, fragment_path: string, hot_reload := false) -> *Shader {
+    vertex_absolute, vert_success := get_absolute_path(vertex_path);
+    assert(vert_success, "Failed to get absolute path for vertex shader: %", vertex_path);
+    fragment_absolute, frag_success := get_absolute_path(fragment_path);
+    assert(frag_success, "Failed to get absolute path for fragment shader: %", fragment_path);
+    
+    key := tprint("%%", vertex_absolute, fragment_absolute);
+
+    // check if already present
+    found, existing_asset := table_find(*manager.shaders, key);
+    if found {
+        return existing_asset.shader;
+    }
+
+    // load new
+    shader := shader_create_from_file(vertex_absolute, fragment_absolute);
+
+    asset: Shader_Asset;
+    asset.shader = shader;
+    asset.vertex_path = copy_string(vertex_absolute);
+    asset.fragment_path = copy_string(fragment_absolute);
+
+    // add to manager
+    table_add(*manager.shaders, copy_string(key), asset);
+
+    if hot_reload {
+        table_add(*manager.hot_reload_shaders, copy_string(key), true);
+        add_directories(manager.watcher, vertex_absolute);
+        add_directories(manager.watcher, fragment_absolute);
+    }
+
+    log("Loaded shader:\n%\n%", vertex_absolute, fragment_absolute);
+    return shader;
+}
+
+asset_manager_unload_texture :: (path: string) {
+    absolute_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for texture: %", path);
+
+    found, asset := table_find(*manager.textures, absolute_path);
+    if !found {
+        return;
+    }
+    
+    texture_destroy(asset.texture);
+    table_remove(*manager.textures, absolute_path);
+    table_remove(*manager.hot_reload_textures, absolute_path);
+    
+    log("Unloaded texture:\n%", path);
+}
+
+asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
+    vertex_absolute, vert_success := get_absolute_path(vertex_path);
+    assert(vert_success, "Failed to get absolute path for vertex shader: %", vertex_path);
+    fragment_absolute, frag_success := get_absolute_path(fragment_path);
+    assert(frag_success, "Failed to get absolute path for fragment shader: %", fragment_path);
+
+    key := tprint("%%", vertex_path, fragment_path);
+    
+    found, asset := table_find(*manager.shaders, key);
+    if !found {
+        return;
+    }
+    
+    shader_destroy(asset.shader);
+    table_remove(*manager.shaders, key);
+    table_remove(*manager.hot_reload_shaders, key);
+    
+    log("Unloaded shader:\n%", key);
+}
+
+#scope_file
+
+file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, user_data: *void) {
+    path := change.full_path;
+    
+    for * asset, key: manager.textures {
+        if asset.path != path {
+            continue;
+        }
+        
+        found, enabled := table_find(*manager.hot_reload_textures, path);
+        if !found || !enabled {
+            continue;
+        }
+
+        if texture_reload_from_file(asset.texture, path, asset.spec) {
+            log("Hot reloaded texture:\n%", path);
+        } else {
+            log_error("Hot reload failed:\n%", path);
+        }
+        return;
+    }
+    
+    // Check if this shader has hot reload enabled
+    for * asset, key: manager.shaders {
+        found, enabled := table_find(*manager.hot_reload_shaders, key);
+        if !found || !enabled {
+            continue;
+        }
+        
+        if asset.vertex_path != path && asset.fragment_path != path {
+            continue;
+        }
+        
+        if shader_reload_from_file(asset.shader, asset.vertex_path, asset.fragment_path) {
+            log("Hot reloaded shader:\n%\n%", asset.vertex_path, asset.fragment_path);
+        } else {
+            log_error("Hot reload failed:\n%\n%", asset.vertex_path, asset.fragment_path);
+        }
+        return;
+    }
+}

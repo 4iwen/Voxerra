@@ -14,9 +14,8 @@ Mesh :: struct {
     index_count: u32;
 }
 
-mesh_create :: (vertices: [] float, indices: [] u32) -> Mesh {
-    mesh: Mesh;
-
+mesh_create :: (vertices: [] float, indices: [] u32) -> *Mesh {
+    mesh := New(Mesh);
     mesh.vertex_count = cast(u32) vertices.count;
     mesh.index_count = cast(u32) indices.count;
 
@@ -59,19 +58,20 @@ mesh_create :: (vertices: [] float, indices: [] u32) -> Mesh {
     return mesh;
 }
 
-mesh_destroy :: (mesh: Mesh) {
+mesh_destroy :: (mesh: *Mesh) {
     glDeleteVertexArrays(1, *mesh.vao_id);
     glDeleteBuffers(1, *mesh.vbo_id);
     glDeleteBuffers(1, *mesh.ebo_id);
+    free(mesh);
 }
 
-mesh_draw :: (mesh: Mesh) {
+mesh_draw :: (mesh: *Mesh) {
     glBindVertexArray(mesh.vao_id);
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, null);
     glBindVertexArray(0);
 }
 
-mesh_create_quad :: () -> Mesh {
+mesh_create_quad :: () -> *Mesh {
     vertices: [20] float = .[
         // position, uv
         -1.0, -1.0, 0.0, 0.0, 0.0,

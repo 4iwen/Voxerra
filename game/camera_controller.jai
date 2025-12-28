@@ -6,7 +6,7 @@
 
 Camera_Controller :: struct {
     camera: Camera;
-    active: bool;
+    active: bool = false;
     movement_speed: float = 2.0;
     mouse_sensitivity: float = 0.2;
 }

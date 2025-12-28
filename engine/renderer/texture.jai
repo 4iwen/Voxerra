@@ -6,7 +6,7 @@
 
 #scope_module
 
-default_texture: Texture;
+default_texture: *Texture;
 
 texture_init :: () {
     // flip texture
@@ -19,7 +19,7 @@ texture_shutdown :: () {
     destroy_default_texture();
 }
 
-texture_get_default :: () -> Texture {
+texture_get_default :: () -> *Texture {
     return default_texture;
 }
 
@@ -79,8 +79,8 @@ Texture_Wrap :: enum {
     MIRRORED_REPEAT;
 }
 
-texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Texture {
-    texture: Texture;
+texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> *Texture {
+    texture := New(Texture);
 
     desired_channels: s32 = 4;
     width: s32;
@@ -134,8 +134,8 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> Text
     return texture;
 }
 
-texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT_TEXTURE_SPEC) -> Texture {
-    texture: Texture;
+texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT_TEXTURE_SPEC) -> *Texture {
+    texture := New(Texture);
     texture.width = width;
     texture.height = height;
 
@@ -175,13 +175,67 @@ texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT
     return texture;
 }
 
-texture_bind :: (texture: Texture, slot: u32 = 0) {
+texture_bind :: (texture: *Texture, slot: u32 = 0) {
     glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(GL_TEXTURE_2D, texture.id);
 }
 
-texture_destroy :: (texture: Texture) {
+texture_destroy :: (texture: *Texture) {
     glDeleteTextures(1, *texture.id);
+    free(texture);
+}
+
+#scope_module
+
+texture_reload_from_file :: (texture: *Texture, path: string, spec := DEFAULT_TEXTURE_SPEC) -> bool {
+    desired_channels: s32 = 4;
+    width: s32;
+    height: s32;
+    channels: s32;
+    data := stbi_load(temp_c_string(path), *width, *height, *channels, desired_channels);
+
+    if !data {
+        log_error("Failed to reload texture: %", path);
+        return false;
+    }
+
+    defer stbi_image_free(data);
+
+    // delete old texture on gpu
+    if texture.id != 0 {
+        glDeleteTextures(1, *texture.id);
+    }
+
+    texture.width = width;
+    texture.height = height;
+
+    glGenTextures(1, *texture.id);
+    glBindTexture(GL_TEXTURE_2D, texture.id);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, to_opengl_filter(spec.min_filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, to_opengl_filter(spec.mag_filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, to_opengl_wrap(spec.wrap_s));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, to_opengl_wrap(spec.wrap_t));
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA8,
+        cast(u32) width,
+        cast(u32) height,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        data
+    );
+
+    if spec.generate_mipmaps {
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
+    return true;
 }
 
 #scope_file

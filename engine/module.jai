@@ -14,3 +14,5 @@
 #load "renderer/camera.jai";
 #load "renderer/texture.jai";
 #load "renderer/render_queue.jai";
+
+#load "assets/asset_manager.jai";
