@@ -22,12 +22,20 @@ Shader_Asset :: struct {
     fragment_path: string;
 }
 
+Font_Asset :: struct {
+    font: *Font;
+    path: string;
+    pixel_size: u32;
+}
+
 Asset_Manager :: struct {
     textures: Table(string, Texture_Asset);
     shaders: Table(string, Shader_Asset);
+    fonts: Table(string, Font_Asset);
     
     hot_reload_textures: Table(string, bool);
     hot_reload_shaders: Table(string, bool);
+    hot_reload_fonts: Table(string, bool);
     
     watcher: *File_Watcher(void);
 }
@@ -36,8 +44,10 @@ asset_manager_init :: () {
     // initialize tables
     init(*manager.textures);
     init(*manager.shaders);
+    init(*manager.fonts);
     init(*manager.hot_reload_textures);
     init(*manager.hot_reload_shaders);
+    init(*manager.hot_reload_fonts);
 
     // initialize file watcher
     manager.watcher = New(File_Watcher(void));
@@ -60,12 +70,17 @@ asset_manager_shutdown :: () {
     for asset: manager.shaders {
         shader_destroy(asset.shader);
     }
+    for asset: manager.fonts {
+        font_destroy(asset.font);
+    }
     
     // deinit tables
     deinit(*manager.textures);
     deinit(*manager.shaders);
+    deinit(*manager.fonts);
     deinit(*manager.hot_reload_textures);
     deinit(*manager.hot_reload_shaders);
+    deinit(*manager.hot_reload_fonts);
     
     // deinit file watcher
     deinit(manager.watcher);
@@ -177,6 +192,60 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     log("Unloaded shader:\n%", key);
 }
 
+asset_manager_load_font :: (path: string, pixel_size: u32, hot_reload := false) -> *Font {
+    absolute_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for font: %", path);
+    
+    key := tprint("%%", absolute_path, pixel_size);
+
+    // check if already present
+    found, existing_asset := table_find(*manager.fonts, key);
+    if found {
+        return existing_asset.font;
+    }
+
+    // load new
+    font := font_create_from_file(path, pixel_size);
+    if !font {
+        log_error("Failed to load font: %", path);
+        return null;
+    }
+
+    asset: Font_Asset;
+    asset.font = font;
+    asset.path = copy_string(absolute_path);
+    asset.pixel_size = pixel_size;
+
+    // add to manager
+    table_add(*manager.fonts, copy_string(key), asset);
+
+    if hot_reload {
+        table_add(*manager.hot_reload_fonts, copy_string(key), true);
+        add_directories(manager.watcher, absolute_path);
+    }
+
+    log("Loaded font:\n% (size %)", absolute_path, pixel_size);
+    return font;
+}
+
+asset_manager_unload_font :: (path: string, pixel_size: u32) {
+    absolute_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for font: %", path);
+
+    key := tprint("%%", absolute_path, pixel_size);
+    
+    found, asset := table_find(*manager.fonts, key);
+    if !found {
+        return;
+    }
+    
+    font_destroy(asset.font);
+    table_remove(*manager.fonts, key);
+    table_remove(*manager.hot_reload_fonts, key);
+    
+    log("Unloaded font:\n%", path);
+}
+
 #scope_file
 
 file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, user_data: *void) {
@@ -200,7 +269,6 @@ file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, use
         return;
     }
     
-    // Check if this shader has hot reload enabled
     for * asset, key: manager.shaders {
         found, enabled := table_find(*manager.hot_reload_shaders, key);
         if !found || !enabled {
@@ -215,6 +283,24 @@ file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, use
             log("Hot reloaded shader:\n%\n%", asset.vertex_path, asset.fragment_path);
         } else {
             log_error("Hot reload failed:\n%\n%", asset.vertex_path, asset.fragment_path);
+        }
+        return;
+    }
+    
+    for * asset, key: manager.fonts {
+        if asset.path != path {
+            continue;
+        }
+        
+        found, enabled := table_find(*manager.hot_reload_fonts, key);
+        if !found || !enabled {
+            continue;
+        }
+        
+        if font_reload_from_file(asset.font, path, asset.pixel_size) {
+            log("Hot reloaded font:\n%", path);
+        } else {
+            log_error("Hot reload failed:\n%", path);
         }
         return;
     }

@@ -8,15 +8,18 @@ main :: () {
     platform_init();
     defer platform_shutdown();
 
-    asset_manager_init();
-    defer asset_manager_shutdown();
-
     window := window_create(960, 600, "Voxerra");
     defer window_destroy(window);
     window_set_vsync(true);
 
     renderer_init();
     defer renderer_shutdown();
+
+    text_init();
+    defer text_shutdown();
+
+    asset_manager_init();
+    defer asset_manager_shutdown();
 
     // load shader from files
     vertex_path := "assets/shaders/texture.vert";
@@ -40,9 +43,9 @@ main :: () {
     queue := render_queue_create();
     defer render_queue_destroy(*queue);
 
-    last_time := time_get();
+    font := asset_manager_load_font("assets/fonts/natural_mono_2/NaturalMono-Regular.ttf", 48, true);
 
-    counter: int = 0;
+    last_time := time_get();
 
     while !window_should_close(window) {
         current_time := time_get();
@@ -55,14 +58,20 @@ main :: () {
         window_poll_events();
         camera_controller_update(*controller, window, delta_time);
 
+        renderer_begin_frame(.{ 0.0, 0.0, 0.2, 1.0 });
+        
         render_queue_clear(*queue);
         render_queue_submit(*queue, quad_mesh, shader, texture);
-
-        renderer_begin_frame(.{ 0.0, 0.0, 0.2, 1.0 });
 
         view := camera_get_view_matrix(controller.camera);
         projection := camera_get_projection_matrix(controller.camera, cast(float32) window.width / window.height);
         render_queue_flush(*queue, view, projection);
+
+        if font {
+            text_draw(font, "Voxerra Engine", 20, cast(float) window.height - 40, 32.0, .{1.0, 1.0, 1.0, 1.0});
+            fps_text := tprint("FPS: %", cast(s32)(1.0 / delta_time));
+            text_draw(font, fps_text, 20, cast(float) window.height - 70, 24.0, .{0.8, 0.8, 0.8, 1.0});
+        }
 
         renderer_end_frame();
         window_swap_buffers(window);

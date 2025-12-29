@@ -183,61 +183,61 @@ Input_State :: struct {
     text_input: [..] u32;
 }
 
-state: Input_State;
+input_state: Input_State;
 
 #scope_export
 
 input_poll :: () {
-    state.keys_previous = state.keys_current;
-    state.mouse_previous = state.mouse_current;
+    input_state.keys_previous = input_state.keys_current;
+    input_state.mouse_previous = input_state.mouse_current;
 
-    state.mouse_delta_x = 0;
-    state.mouse_delta_y = 0;
+    input_state.mouse_delta_x = 0;
+    input_state.mouse_delta_y = 0;
 
-    state.scroll_x = 0;
-    state.scroll_y = 0;
+    input_state.scroll_x = 0;
+    input_state.scroll_y = 0;
 
-    array_reset(*state.text_input);
+    array_reset(*input_state.text_input);
 }
 
 input_key_down :: (key: Key_Code) -> bool {
-    return state.keys_current[key];
+    return input_state.keys_current[key];
 }
 
 input_key_pressed :: (key: Key_Code) -> bool {
-    return state.keys_current[key] && !state.keys_previous[key];
+    return input_state.keys_current[key] && !input_state.keys_previous[key];
 }
 
 input_key_released :: (key: Key_Code) -> bool {
-    return !state.keys_current[key] && state.keys_previous[key];
+    return !input_state.keys_current[key] && input_state.keys_previous[key];
 }
 
 input_mouse_down :: (button: Mouse_Button) -> bool {
-    return state.mouse_current[button];
+    return input_state.mouse_current[button];
 }
 
 input_mouse_pressed :: (button: Mouse_Button) -> bool {
-    return state.mouse_current[button] && !state.mouse_previous[button];
+    return input_state.mouse_current[button] && !input_state.mouse_previous[button];
 }
 
 input_mouse_released :: (button: Mouse_Button) -> bool {
-    return !state.mouse_current[button] && state.mouse_previous[button];
+    return !input_state.mouse_current[button] && input_state.mouse_previous[button];
 }
 
 input_mouse_position :: () -> float64, float64 {
-    return state.mouse_x, state.mouse_y;
+    return input_state.mouse_x, input_state.mouse_y;
 }
 
 input_mouse_delta :: () -> float64, float64 {
-    return state.mouse_delta_x, state.mouse_delta_y;
+    return input_state.mouse_delta_x, input_state.mouse_delta_y;
 }
 
 input_scroll :: () -> float64, float64 {
-    return state.scroll_x, state.scroll_y;
+    return input_state.scroll_x, input_state.scroll_y;
 }
 
 input_text :: () -> [..] u32 {
-    return state.text_input;
+    return input_state.text_input;
 }
 
 #scope_file
@@ -251,10 +251,10 @@ key_callback :: (window: *GLFWwindow, key: s32, scancode: s32, action: s32, mods
     }
 
     if action == GLFW_PRESS {
-        state.keys_current[engine_key] = true;
+        input_state.keys_current[engine_key] = true;
     }
     if action == GLFW_RELEASE {
-        state.keys_current[engine_key] = false;
+        input_state.keys_current[engine_key] = false;
     }
 }
 
@@ -264,29 +264,29 @@ mouse_button_callback :: (window: *GLFWwindow, button: s32, action: s32, mods: s
     }
 
     if action == GLFW_PRESS {
-        state.mouse_current[button] = true;
+        input_state.mouse_current[button] = true;
     }
     if action == GLFW_RELEASE {
-        state.mouse_current[button] = false;
+        input_state.mouse_current[button] = false;
     }
 }
 
 cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
-    state.mouse_delta_x += x - state.mouse_x;
-    state.mouse_delta_y += y - state.mouse_y;
+    input_state.mouse_delta_x += x - input_state.mouse_x;
+    input_state.mouse_delta_y += y - input_state.mouse_y;
 
-    state.mouse_x = x;
-    state.mouse_y = y;
+    input_state.mouse_x = x;
+    input_state.mouse_y = y;
 }
 
 scroll_callback :: (window: *GLFWwindow, xoffset: float64, yoffset: float64) #c_call {
-    state.scroll_x = xoffset;
-    state.scroll_y = yoffset;
+    input_state.scroll_x = xoffset;
+    input_state.scroll_y = yoffset;
 }
 
 char_callback :: (window: *GLFWwindow, codepoint: u32) #c_call {
     push_context {
-        array_add(*state.text_input, codepoint);
+        array_add(*input_state.text_input, codepoint);
     }
 }
 

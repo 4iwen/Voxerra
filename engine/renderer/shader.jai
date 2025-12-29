@@ -13,7 +13,10 @@ Shader :: struct {
     fragment_id: u32;
 }
 
-shader_create_from_file :: (vertex_path: string, fragment_path: string) -> *Shader {
+shader_create_from_file :: (
+    vertex_path: string,
+    fragment_path: string
+) -> *Shader {
     vertex_source := read_entire_file(vertex_path);
     fragment_source := read_entire_file(fragment_path);
 
@@ -94,7 +97,12 @@ shader_set_int :: (shader: *Shader, name: string, value: s32) {
     glUniform1i(location, value);
 }
 
-shader_set_texture :: (shader: *Shader, name: string, texture: *Texture, slot: u32 = 0) {
+shader_set_texture :: (
+    shader: *Shader,
+    name: string,
+    texture: *Texture,
+    slot: u32 = 0
+) {
     texture_to_bind: *Texture;
 
     if texture == null || texture.id == 0 {
@@ -141,7 +149,11 @@ check_for_program_linking_errors :: (program_id: u32) -> bool {
 
 #scope_module
 
-shader_reload_from_file :: (shader: *Shader, vertex_path: string, fragment_path: string) -> bool {
+shader_reload_from_file :: (
+    shader: *Shader,
+    vertex_path: string,
+    fragment_path: string
+) -> bool {
     vertex_source := read_entire_file(vertex_path);
     if !vertex_source {
         log_error("Failed to read vertex shader: %", vertex_path);
