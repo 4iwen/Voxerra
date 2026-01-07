@@ -5,31 +5,32 @@
 #load "camera_controller.jai";
 
 main :: () {
-    platform_init();
-    defer platform_shutdown();
+    if !engine_init() {
+        log_error("Failed to init engine");
+        return;
+    }
 
-    window := window_create(960, 600, "Voxerra");
-    defer window_destroy(window);
+    window := window_init(960, 600, "Voxerra");
+    if !window {
+        log_error("Failed to init window");
+        engine_shutdown();
+        return;
+    }
     window_set_vsync(true);
 
-    renderer_init();
-    defer renderer_shutdown();
-
-    text_init();
-    defer text_shutdown();
-
-    asset_manager_init();
-    defer asset_manager_shutdown();
+    defer engine_shutdown();
 
     // load shader from files
     vertex_path := "assets/shaders/texture.vert";
     fragment_path := "assets/shaders/texture.frag";
     shader := asset_manager_load_shader(vertex_path, fragment_path, true);
 
-    texture_path := "assets/textures/forest.png";
-    texture := asset_manager_load_texture(texture_path, true, PIXELART_TEXTURE_SPEC);
-    // shader := shader_create_from_file(vertex_path, fragment_path);
-    // defer shader_destroy(shader);
+    texture_path := "assets/textures/atsgisoti.png";
+    texture := asset_manager_load_texture(
+        texture_path,
+        PIXELART_TEXTURE_SPEC,
+        true
+    );
     
     // create quad mesh
     quad_mesh := mesh_create_quad();
@@ -43,19 +44,10 @@ main :: () {
     queue := render_queue_create();
     defer render_queue_destroy(*queue);
 
-    font := asset_manager_load_font("assets/fonts/natural_mono_2/NaturalMono-Regular.ttf", 48, true);
-
-    last_time := time_get();
+    font := font_get_default();
 
     while !window_should_close(window) {
-        current_time := time_get();
-        delta_time := current_time - last_time;
-        last_time = current_time;
-
-        asset_manager_update();
-
-        input_poll();
-        window_poll_events();
+        delta_time := engine_update();
         camera_controller_update(*controller, window, delta_time);
 
         renderer_begin_frame(.{ 0.0, 0.0, 0.2, 1.0 });
@@ -64,21 +56,34 @@ main :: () {
         render_queue_submit(*queue, quad_mesh, shader, texture);
 
         view := camera_get_view_matrix(controller.camera);
-        projection := camera_get_projection_matrix(controller.camera, cast(float32) window.width / window.height);
+        projection := camera_get_projection_matrix(
+            controller.camera,
+            cast(float32) window.width / window.height
+        );
         render_queue_flush(*queue, view, projection);
 
-        if font {
-            text_draw(font, "Voxerra Engine", 20, cast(float) window.height - 40, 32.0, .{1.0, 1.0, 1.0, 1.0});
-            fps_text := tprint("FPS: %", cast(s32)(1.0 / delta_time));
-            text_draw(font, fps_text, 20, cast(float) window.height - 70, 24.0, .{0.8, 0.8, 0.8, 1.0});
-        }
+        font_size := 32.0;
+        text_draw(
+            font,
+            "Voxerra",
+            16,
+            cast(float) (window.framebuffer_height - 16 - font_size),
+            font_size,
+            .{1.0, 1.0, 1.0, 1.0}
+        );
+        fps_counter_draw();
 
         renderer_end_frame();
         window_swap_buffers(window);
     }
 }
 
-generate_worley_texture :: (width: s32, height: s32, zoom: float = 32.0, seed: u64 = 157) -> Texture {
+generate_worley_texture :: (
+    width: s32,
+    height: s32,
+    zoom: float = 32.0,
+    seed: u64 = 157
+) -> Texture {
     pixel_count := width * height * 4;
     data := cast(*u8) alloc(pixel_count);
     

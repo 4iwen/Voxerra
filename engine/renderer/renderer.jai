@@ -19,10 +19,13 @@ renderer_init :: () {
     glEnable(GL_DEPTH_TEST);
 
     texture_init();
+
+    log("Initialized renderer");
 }
 
 renderer_shutdown :: () {
     texture_shutdown();
+    log("Shutdown renderer");
 }
 
 renderer_begin_frame :: (color: Color) {

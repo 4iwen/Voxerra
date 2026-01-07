@@ -10,9 +10,11 @@ platform_init :: () -> bool {
         return false;
     }
 
+    log("Initialized glfw");
     return true;
 }
 
 platform_shutdown :: () {
     glfwTerminate();
+    log("Shutdown glfw");
 } 

@@ -1,9 +1,12 @@
 #scope_export
 
+#load "core/logging.jai";
+
 #load "core/window.jai";
 #load "core/input.jai";
 #load "core/platform.jai";
 #load "core/time.jai";
+#load "core/engine.jai";
 
 #load "math/math.jai";
 #load "math/noise.jai";
@@ -17,3 +20,5 @@
 #load "renderer/text.jai";
 
 #load "assets/asset_manager.jai";
+
+#load "debug/fps_counter.jai";

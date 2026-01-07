@@ -16,6 +16,10 @@ Text_State :: struct {
 
 text_state: Text_State;
 
+#scope_module
+
+default_font: *Font;
+
 #scope_export
 
 Glyph :: struct {
@@ -56,10 +60,25 @@ text_init :: () {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    text_state.shader = shader_create_from_file("assets/shaders/text.vert", "assets/shaders/text.frag");
+    text_state.shader = shader_create_from_file(
+        "assets/shaders/text.vert",
+        "assets/shaders/text.frag"
+    );
+
+    default_font = font_create_from_file(
+        "assets/fonts/natural_mono_2/NaturalMono-Regular.ttf",
+        48
+    );
+
+    log("Initialized text");
 }
 
 text_shutdown :: () {
+    if default_font {
+        font_destroy(default_font);
+        default_font = null;
+    }
+
     FT_Done_FreeType(text_state.library);
     
     glDeleteVertexArrays(1, *text_state.vao_id);
@@ -68,7 +87,13 @@ text_shutdown :: () {
     if text_state.shader {
         shader_destroy(text_state.shader);
         text_state.shader = null;
-    }   
+    }
+
+    log("Shutdown text");
+}
+
+font_get_default :: () -> *Font {
+    return default_font;
 }
 
 font_create_from_file :: (path: string, pixel_size: u32) -> *Font {
@@ -105,7 +130,6 @@ font_destroy :: (font: *Font) {
 font_reload_from_file :: (font: *Font, path: string, pixel_size: u32) -> bool {
     if !font return false;
     
-    // Try to load the new face FIRST before destroying anything
     new_face: FT_Face;
     error := FT_New_Face(text_state.library, temp_c_string(path), 0, *new_face);
     if error != 0 {
@@ -113,7 +137,6 @@ font_reload_from_file :: (font: *Font, path: string, pixel_size: u32) -> bool {
         return false;
     }
     
-    // New face loaded successfully, now safe to destroy old resources
     for c: 0..127 {
         if font.glyphs[c].texture_id != 0 {
             glDeleteTextures(1, *font.glyphs[c].texture_id);
@@ -129,7 +152,14 @@ font_reload_from_file :: (font: *Font, path: string, pixel_size: u32) -> bool {
     return true;
 }
 
-text_draw :: (font: *Font, text: string, x: float, y: float, font_size: float, color := Color.{ 1.0, 1.0, 1.0, 1.0 }) -> width: float {
+text_draw :: (
+    font: *Font,
+    text: string,
+    x: float,
+    y: float,
+    font_size: float,
+    color := Color.{ 1.0, 1.0, 1.0, 1.0 }
+) -> width: float {
     scale := font_size / cast(float) font.size;
 
     viewport: [4] s32;
@@ -148,13 +178,16 @@ text_draw :: (font: *Font, text: string, x: float, y: float, font_size: float, c
 
     shader_use(text_state.shader);
     
-    projection := orthographic_projection_matrix(0, cast(float) screen_width, 0, cast(float) screen_height, -1, 1);
+    projection := orthographic_projection_matrix(
+        0, cast(float) screen_width,
+        0, cast(float) screen_height,
+        -1, 1
+    );
     shader_set_mat4(text_state.shader, "u_projection", projection);
     
     color_location := glGetUniformLocation(text_state.shader.id, "u_text_color");
     glUniform4f(color_location, color.r, color.g, color.b, color.a);
     
-    // Bind texture sampler to texture unit 0
     sampler_location := glGetUniformLocation(text_state.shader.id, "u_text");
     glUniform1i(sampler_location, 0);
     

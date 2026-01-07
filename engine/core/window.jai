@@ -7,6 +7,10 @@
 Window :: struct {
     width: s32;
     height: s32;
+    framebuffer_width: s32;
+    framebuffer_height: s32;
+    content_scale_x: float32;
+    content_scale_y: float32;
     handle: *GLFWwindow;
 }
 
@@ -30,12 +34,24 @@ window_create :: (width: s32, height: s32, title: *u8) -> *Window {
         return null;
     }
 
+    log("Created glfw window");
+
     glfwMakeContextCurrent(handle);
 
     window := New(Window);
     window.width = width;
     window.height = height;
     window.handle = handle;
+    glfwGetWindowContentScale(
+        handle,
+        *window.content_scale_x,
+        *window.content_scale_y
+    );
+    glfwGetFramebufferSize(
+        handle,
+        *window.framebuffer_width,
+        *window.framebuffer_height
+    );
 
     glfwSetWindowUserPointer(handle, window);
 
@@ -51,6 +67,7 @@ window_create :: (width: s32, height: s32, title: *u8) -> *Window {
 window_destroy :: (window: *Window) {
     glfwDestroyWindow(window.handle);
     free(window);
+    log("Destroyed glfw window");
 }
 
 window_should_close :: (window: *Window) -> bool {
@@ -79,15 +96,23 @@ window_size_callback :: (window: *GLFWwindow, width: s32, height: s32) #c_call {
     push_context {
         window_pointer := cast(*Window) glfwGetWindowUserPointer(window);
         if !window_pointer {
-            log("Failed to get window user pointer on size callback");
+            log_warning("Failed to get window user pointer on size callback");
             return;
         }
 
         window_pointer.width = width;
         window_pointer.height = height;
         
+        glfwGetWindowContentScale(
+            window,
+            *window_pointer.content_scale_x,
+            *window_pointer.content_scale_y
+        );
+
         framebuffer_width, framebuffer_height: s32;
         glfwGetFramebufferSize(window, *framebuffer_width, *framebuffer_height);
+        window_pointer.framebuffer_width  = framebuffer_width;
+        window_pointer.framebuffer_height = framebuffer_height;
         renderer_set_viewport_size(framebuffer_width, framebuffer_height);
     }
 }
