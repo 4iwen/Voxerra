@@ -1,3 +1,6 @@
 [submodule "modules/glfw"]
 	path = modules/glfw
 	url = https://github.com/bugulo/jai-glfw
+[submodule "modules/jassimp"]
+	path = modules/jassimp
+	url = https://github.com/bloeys/jassimp/

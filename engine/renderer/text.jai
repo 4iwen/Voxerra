@@ -160,6 +160,7 @@ text_draw :: (
     font_size: float,
     color := Color.{ 1.0, 1.0, 1.0, 1.0 }
 ) -> width: float {
+    // ascii only for now, utf-8 glyphs are ignored
     scale := font_size / cast(float) font.size;
 
     viewport: [4] s32;
@@ -249,7 +250,7 @@ text_get_width :: (font: *Font, text: string, font_size: float) -> float {
 
     scale := font_size / cast(float) font.size;
     width: float = 0;
-    for i: 0..text.count-1 {
+    for i: 0..text.count - 1 {
         c := text[i];
         if c >= 128 continue;
         width += cast(float) font.glyphs[c].advance * scale;

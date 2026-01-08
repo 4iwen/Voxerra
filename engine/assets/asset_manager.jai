@@ -28,14 +28,22 @@ Font_Asset :: struct {
     pixel_size: u32;
 }
 
+Mesh_Asset :: struct {
+    mesh: *Mesh;
+    path: string;
+    options: Mesh_Load_Options;
+}
+
 Asset_Manager :: struct {
     textures: Table(string, Texture_Asset);
     shaders: Table(string, Shader_Asset);
     fonts: Table(string, Font_Asset);
+    meshes: Table(string, Mesh_Asset);
     
     hot_reload_textures: Table(string, bool);
     hot_reload_shaders: Table(string, bool);
     hot_reload_fonts: Table(string, bool);
+    hot_reload_meshes: Table(string, bool);
     
     watcher: *File_Watcher(void);
 }
@@ -45,9 +53,11 @@ asset_manager_init :: () {
     init(*manager.textures);
     init(*manager.shaders);
     init(*manager.fonts);
+    init(*manager.meshes);
     init(*manager.hot_reload_textures);
     init(*manager.hot_reload_shaders);
     init(*manager.hot_reload_fonts);
+    init(*manager.hot_reload_meshes);
 
     // initialize file watcher
     manager.watcher = New(File_Watcher(void));
@@ -60,7 +70,7 @@ asset_manager_init :: () {
     );
     if !watcher_ok {
         log_error("Failed to initialize file watcher");
-        log("Initialized asset manager (file watcher disabled)", flags = .WARNING);
+        log_warning("Initialized asset manager (file watcher disabled)");
 
         deinit(manager.watcher);
         free(manager.watcher);
@@ -85,14 +95,20 @@ asset_manager_shutdown :: () {
         log("Unloading font:\n%", asset.path);
         font_destroy(asset.font);
     }
+    for asset: manager.meshes {
+        log("Unloading mesh:\n%", asset.path);
+        mesh_destroy(asset.mesh);
+    }
     
     // deinit tables
     deinit(*manager.textures);
     deinit(*manager.shaders);
     deinit(*manager.fonts);
+    deinit(*manager.meshes);
     deinit(*manager.hot_reload_textures);
     deinit(*manager.hot_reload_shaders);
     deinit(*manager.hot_reload_fonts);
+    deinit(*manager.hot_reload_meshes);
     
     // deinit file watcher
     if manager.watcher {
@@ -111,7 +127,11 @@ asset_manager_update :: () {
     process_changes(manager.watcher);
 }
 
-asset_manager_load_texture :: (path: string, spec := DEFAULT_TEXTURE_SPEC, hot_reload := false) -> *Texture {
+asset_manager_load_texture :: (
+    path: string,
+    spec := DEFAULT_TEXTURE_SPEC,
+    hot_reload := false
+) -> *Texture {
     absoulte_path, success := get_absolute_path(path);
     assert(success, "Failed to get absolute path for texture: %", path);
 
@@ -133,7 +153,11 @@ asset_manager_load_texture :: (path: string, spec := DEFAULT_TEXTURE_SPEC, hot_r
     table_add(*manager.textures, copy_string(absoulte_path), asset);
 
     if hot_reload {
-        table_add(*manager.hot_reload_textures, copy_string(absoulte_path), true);
+        table_add(
+            *manager.hot_reload_textures,
+            copy_string(absoulte_path),
+            true
+        );
         if manager.watcher {
             add_directories(manager.watcher, absoulte_path);
         }
@@ -143,11 +167,39 @@ asset_manager_load_texture :: (path: string, spec := DEFAULT_TEXTURE_SPEC, hot_r
     return texture;
 }
 
-asset_manager_load_shader :: (vertex_path: string, fragment_path: string, hot_reload := false) -> *Shader {
+asset_manager_unload_texture :: (path: string) {
+    absolute_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for texture: %", path);
+
+    found, asset := table_find(*manager.textures, absolute_path);
+    if !found {
+        return;
+    }
+    
+    texture_destroy(asset.texture);
+    table_remove(*manager.textures, absolute_path);
+    table_remove(*manager.hot_reload_textures, absolute_path);
+    
+    log("Unloaded texture:\n%", path);
+}
+
+asset_manager_load_shader :: (
+    vertex_path: string,
+    fragment_path: string,
+    hot_reload := false
+) -> *Shader {
     vertex_absolute, vert_success := get_absolute_path(vertex_path);
-    assert(vert_success, "Failed to get absolute path for vertex shader: %", vertex_path);
+    assert(
+        vert_success,
+        "Failed to get absolute path for vertex shader: %",
+        vertex_path
+    );
     fragment_absolute, frag_success := get_absolute_path(fragment_path);
-    assert(frag_success, "Failed to get absolute path for fragment shader: %", fragment_path);
+    assert(
+        frag_success,
+        "Failed to get absolute path for fragment shader: %",
+        fragment_path
+    );
     
     key := tprint("%%", vertex_absolute, fragment_absolute);
 
@@ -180,27 +232,19 @@ asset_manager_load_shader :: (vertex_path: string, fragment_path: string, hot_re
     return shader;
 }
 
-asset_manager_unload_texture :: (path: string) {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for texture: %", path);
-
-    found, asset := table_find(*manager.textures, absolute_path);
-    if !found {
-        return;
-    }
-    
-    texture_destroy(asset.texture);
-    table_remove(*manager.textures, absolute_path);
-    table_remove(*manager.hot_reload_textures, absolute_path);
-    
-    log("Unloaded texture:\n%", path);
-}
-
 asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     vertex_absolute, vert_success := get_absolute_path(vertex_path);
-    assert(vert_success, "Failed to get absolute path for vertex shader: %", vertex_path);
+    assert(
+        vert_success,
+        "Failed to get absolute path for vertex shader: %",
+        vertex_path
+    );
     fragment_absolute, frag_success := get_absolute_path(fragment_path);
-    assert(frag_success, "Failed to get absolute path for fragment shader: %", fragment_path);
+    assert(
+        frag_success,
+        "Failed to get absolute path for fragment shader: %",
+        fragment_path
+    );
 
     key := tprint("%%", vertex_absolute, fragment_absolute);
     
@@ -216,7 +260,11 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     log("Unloaded shader:\n%", key);
 }
 
-asset_manager_load_font :: (path: string, pixel_size: u32, hot_reload := false) -> *Font {
+asset_manager_load_font :: (
+    path: string,
+    pixel_size: u32,
+    hot_reload := false
+) -> *Font {
     absolute_path, success := get_absolute_path(path);
     assert(success, "Failed to get absolute path for font: %", path);
     
@@ -272,9 +320,62 @@ asset_manager_unload_font :: (path: string, pixel_size: u32) {
     log("Unloaded font:\n%", path);
 }
 
+asset_manager_load_mesh :: (
+    path: string,
+    options: Mesh_Load_Options = DEFAULT_MESH_LOAD_OPTIONS,
+    hot_reload := false
+) -> *Mesh {
+    absolute_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for mesh: %", path);
+
+    found, existing_asset := table_find(*manager.meshes, absolute_path);
+    if found {
+        return existing_asset.mesh;
+    }
+
+    mesh := mesh_create_from_file(path, options);
+
+    asset: Mesh_Asset;
+    asset.mesh = mesh;
+    asset.path = copy_string(absolute_path);
+    asset.options = options;
+
+    table_add(*manager.meshes, copy_string(absolute_path), asset);
+
+    if hot_reload {
+        table_add(*manager.hot_reload_meshes, copy_string(absolute_path), true);
+        if manager.watcher {
+            add_directories(manager.watcher, absolute_path);
+        }
+    }
+
+    log("Loaded mesh:\n%", absolute_path);
+    return mesh;
+}
+
+asset_manager_unload_mesh :: (path: string) {
+    absolute_path, success := get_absolute_path(path);
+    assert(success, "Failed to get absolute path for mesh: %", path);
+
+    found, asset := table_find(*manager.meshes, absolute_path);
+    if !found {
+        return;
+    }
+
+    mesh_destroy(asset.mesh);
+    table_remove(*manager.meshes, absolute_path);
+    table_remove(*manager.hot_reload_meshes, absolute_path);
+
+    log("Unloaded mesh:\n%", path);
+}
+
 #scope_file
 
-file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, user_data: *void) {
+file_change_callback :: (
+    watcher: *File_Watcher(void),
+    change: *File_Change,
+    user_data: *void
+) {
     path := change.full_path;
     
     for * asset, key: manager.textures {
@@ -305,10 +406,22 @@ file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, use
             continue;
         }
         
-        if shader_reload_from_file(asset.shader, asset.vertex_path, asset.fragment_path) {
-            log("Hot reloaded shader:\n%\n%", asset.vertex_path, asset.fragment_path);
+        if shader_reload_from_file(
+            asset.shader,
+            asset.vertex_path,
+            asset.fragment_path
+        ) {
+            log(
+                "Hot reloaded shader:\n%\n%",
+                asset.vertex_path,
+                asset.fragment_path
+            );
         } else {
-            log_error("Hot reload failed:\n%\n%", asset.vertex_path, asset.fragment_path);
+            log_error(
+                "Hot reload failed:\n%\n%",
+                asset.vertex_path,
+                asset.fragment_path
+            );
         }
         return;
     }
@@ -325,6 +438,24 @@ file_change_callback :: (watcher: *File_Watcher(void), change: *File_Change, use
         
         if font_reload_from_file(asset.font, path, asset.pixel_size) {
             log("Hot reloaded font:\n%", path);
+        } else {
+            log_error("Hot reload failed:\n%", path);
+        }
+        return;
+    }
+
+    for * asset, key: manager.meshes {
+        if asset.path != path {
+            continue;
+        }
+
+        found, enabled := table_find(*manager.hot_reload_meshes, path);
+        if !found || !enabled {
+            continue;
+        }
+
+        if mesh_reload_from_file(asset.mesh, path, asset.options) {
+            log("Hot reloaded mesh:\n%", path);
         } else {
             log_error("Hot reload failed:\n%", path);
         }

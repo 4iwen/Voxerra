@@ -70,9 +70,9 @@ shader_use :: (shader: *Shader) {
 }
 
 shader_set_default_matrices :: (shader: *Shader) {
-    projection_loc := glGetUniformLocation(shader.id, "projection");
-    view_loc := glGetUniformLocation(shader.id, "view");
-    model_loc := glGetUniformLocation(shader.id, "model");
+    projection_loc := glGetUniformLocation(shader.id, "u_projection");
+    view_loc := glGetUniformLocation(shader.id, "u_view");
+    model_loc := glGetUniformLocation(shader.id, "u_model");
     
     identity := Matrix4_Identity;
     

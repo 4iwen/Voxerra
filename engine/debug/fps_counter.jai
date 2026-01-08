@@ -23,8 +23,10 @@ fps_counter_update :: (update_interval_seconds: float64 = 0.5) -> s32 {
         fps_counter.frame_count += 1;
     }
 
-    if fps_counter.elapsed_seconds >= update_interval_seconds && fps_counter.frame_count > 0 {
-        fps_f := cast(float64) fps_counter.frame_count / fps_counter.elapsed_seconds;
+    if fps_counter.elapsed_seconds >= update_interval_seconds &&
+       fps_counter.frame_count > 0 {
+        fps_f := 
+            cast(float64) fps_counter.frame_count / fps_counter.elapsed_seconds;
         fps_counter.fps = cast(s32) fps_f;
         fps_counter.elapsed_seconds = 0;
         fps_counter.frame_count = 0;

@@ -6,7 +6,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/bin/Voxerra",
-            "cwd": "${workspaceRoot}/bin",
+            "cwd": "${workspaceRoot}",
             "preLaunchTask": "Build"
         }
     ]

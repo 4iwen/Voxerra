@@ -5,6 +5,7 @@
 
 #scope_export
 
+// @Cleanup: move this elsewhere 
 Color :: struct {
     r: float;
     g: float;

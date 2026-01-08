@@ -79,7 +79,10 @@ Texture_Wrap :: enum {
     MIRRORED_REPEAT;
 }
 
-texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> *Texture {
+texture_create_from_file :: (
+    path: string,
+    spec := DEFAULT_TEXTURE_SPEC
+) -> *Texture {
     texture := New(Texture);
 
     desired_channels: s32 = 4;
@@ -101,10 +104,26 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> *Tex
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, to_opengl_filter(spec.min_filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, to_opengl_filter(spec.mag_filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, to_opengl_wrap(spec.wrap_s));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, to_opengl_wrap(spec.wrap_t));
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MIN_FILTER,
+        to_opengl_filter(spec.min_filter)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MAG_FILTER,
+        to_opengl_filter(spec.mag_filter)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_S,
+        to_opengl_wrap(spec.wrap_s)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_T,
+        to_opengl_wrap(spec.wrap_t)
+    );
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -125,16 +144,25 @@ texture_create_from_file :: (path: string, spec := DEFAULT_TEXTURE_SPEC) -> *Tex
     }
 
     if spec.generate_mipmaps && !is_mipmapped_filter(spec.min_filter) {
-        log("Texture created with mipmaps but min_filter does not use them", flags = .WARNING);
+        log_warning(
+            "Texture created with mipmaps but min_filter does not use them"
+        );
     }
     if !spec.generate_mipmaps && is_mipmapped_filter(spec.min_filter) {
-        log("Mipmapped min_filter used but mipmaps are not generated", flags = .WARNING);
+        log_warning(
+            "Mipmapped min_filter used but mipmaps are not generated"
+        );
     }
 
     return texture;
 }
 
-texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT_TEXTURE_SPEC) -> *Texture {
+texture_create_from_data :: (
+    width: s32,
+    height: s32,
+    data: *u8,
+    spec := DEFAULT_TEXTURE_SPEC
+) -> *Texture {
     texture := New(Texture);
     texture.width = width;
     texture.height = height;
@@ -142,10 +170,26 @@ texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
     
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, to_opengl_filter(spec.min_filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, to_opengl_filter(spec.mag_filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, to_opengl_wrap(spec.wrap_s));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, to_opengl_wrap(spec.wrap_t));
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MIN_FILTER,
+        to_opengl_filter(spec.min_filter)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MAG_FILTER,
+        to_opengl_filter(spec.mag_filter)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_S,
+        to_opengl_wrap(spec.wrap_s)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_T,
+        to_opengl_wrap(spec.wrap_t)
+    );
     
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -166,10 +210,14 @@ texture_create_from_data :: (width: s32, height: s32, data: *u8, spec := DEFAULT
     }
 
     if spec.generate_mipmaps && !is_mipmapped_filter(spec.min_filter) {
-        log("Texture created with mipmaps but min_filter does not use them", flags = .WARNING);
+        log_warning(
+            "Texture created with mipmaps but min_filter does not use them"
+        );
     }
     if !spec.generate_mipmaps && is_mipmapped_filter(spec.min_filter) {
-        log("Mipmapped min_filter used but mipmaps are not generated", flags = .WARNING);
+        log_warning(
+            "Mipmapped min_filter used but mipmaps are not generated"
+        );
     }
 
     return texture;
@@ -187,12 +235,22 @@ texture_destroy :: (texture: *Texture) {
 
 #scope_module
 
-texture_reload_from_file :: (texture: *Texture, path: string, spec := DEFAULT_TEXTURE_SPEC) -> bool {
+texture_reload_from_file :: (
+    texture: *Texture,
+    path: string,
+    spec := DEFAULT_TEXTURE_SPEC
+) -> bool {
     desired_channels: s32 = 4;
     width: s32;
     height: s32;
     channels: s32;
-    data := stbi_load(temp_c_string(path), *width, *height, *channels, desired_channels);
+    data := stbi_load(
+        temp_c_string(path),
+        *width,
+        *height,
+        *channels,
+        desired_channels
+    );
 
     if !data {
         log_error("Failed to reload texture: %", path);
@@ -212,10 +270,26 @@ texture_reload_from_file :: (texture: *Texture, path: string, spec := DEFAULT_TE
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, to_opengl_filter(spec.min_filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, to_opengl_filter(spec.mag_filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, to_opengl_wrap(spec.wrap_s));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, to_opengl_wrap(spec.wrap_t));
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MIN_FILTER,
+        to_opengl_filter(spec.min_filter)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MAG_FILTER,
+        to_opengl_filter(spec.mag_filter)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_S,
+        to_opengl_wrap(spec.wrap_s)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_T,
+        to_opengl_wrap(spec.wrap_t)
+    );
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 

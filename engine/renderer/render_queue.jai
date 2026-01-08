@@ -1,6 +1,7 @@
 #scope_file
 
 #import "Basic";
+#import "Math";
 
 #scope_export
 
@@ -8,7 +9,7 @@ Render_Item :: struct {
     mesh: *Mesh;
     shader: *Shader;
     texture: *Texture;
-    transform: Matrix4;
+    transform: Transform;
 }
 
 Render_Queue :: struct {
@@ -28,7 +29,13 @@ render_queue_clear :: (queue: *Render_Queue) {
     array_reset(*queue.items);
 }
 
-render_queue_submit :: (queue: *Render_Queue, mesh: *Mesh, shader: *Shader, texture: *Texture, transform := Matrix4_Identity) {
+render_queue_submit :: (
+    queue: *Render_Queue,
+    mesh: *Mesh,
+    shader: *Shader,
+    texture: *Texture,
+    transform := Transform.{}
+) {
     item: Render_Item;
     item.mesh = mesh;
     item.shader = shader;
@@ -37,13 +44,18 @@ render_queue_submit :: (queue: *Render_Queue, mesh: *Mesh, shader: *Shader, text
     array_add(*queue.items, item);
 }
 
-render_queue_flush :: (queue: *Render_Queue, view: Matrix4, projection: Matrix4) {
+render_queue_flush :: (
+    queue: *Render_Queue,
+    view: Matrix4,
+    projection: Matrix4
+) {
     for item: queue.items {
         shader_use(item.shader);
         shader_set_texture(item.shader, "u_texture", item.texture);
         shader_set_mat4(item.shader, "u_projection", projection);
         shader_set_mat4(item.shader, "u_view", view);
-        shader_set_mat4(item.shader, "u_model", item.transform);
+        model := transform_to_matrix(item.transform);
+        shader_set_mat4(item.shader, "u_model", model);
         mesh_draw(item.mesh);
     }
 }

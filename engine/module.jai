@@ -10,6 +10,7 @@
 
 #load "math/math.jai";
 #load "math/noise.jai";
+#load "math/transform.jai";
 
 #load "renderer/renderer.jai";
 #load "renderer/shader.jai";
@@ -18,6 +19,7 @@
 #load "renderer/texture.jai";
 #load "renderer/render_queue.jai";
 #load "renderer/text.jai";
+#load "renderer/material.jai";
 
 #load "assets/asset_manager.jai";
 

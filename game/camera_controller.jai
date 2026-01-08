@@ -17,7 +17,11 @@ camera_controller_create :: (position: Vector3) -> Camera_Controller {
     return controller;
 }
 
-camera_controller_update :: (controller: *Camera_Controller, window: *Window, delta_time: float64) {
+camera_controller_update :: (
+    controller: *Camera_Controller,
+    window: *Window,
+    delta_time: float64
+) {
     // toggle camera control
     if input_mouse_pressed(.RIGHT) {
         window_set_cursor_mode(window, .DISABLED);
@@ -43,12 +47,24 @@ process_keyboard :: (controller: *Camera_Controller, delta_time: float64) {
 
     velocity := speed * delta_time;
     
-    if input_key_down(.W) then controller.camera.position += controller.camera.front * velocity;
-    if input_key_down(.S) then controller.camera.position -= controller.camera.front * velocity;
-    if input_key_down(.A) then controller.camera.position -= controller.camera.right * velocity;
-    if input_key_down(.D) then controller.camera.position += controller.camera.right * velocity;
-    if input_key_down(.E) then controller.camera.position += controller.camera.world_up * velocity;
-    if input_key_down(.Q) then controller.camera.position -= controller.camera.world_up * velocity;
+    if input_key_down(.W) {
+        controller.camera.position += controller.camera.front * velocity;
+    }
+    if input_key_down(.S) {
+        controller.camera.position -= controller.camera.front * velocity;
+    }
+    if input_key_down(.A) {
+        controller.camera.position -= controller.camera.right * velocity;
+    }
+    if input_key_down(.D) {
+        controller.camera.position += controller.camera.right * velocity;
+    }
+    if input_key_down(.E) {
+        controller.camera.position += controller.camera.world_up * velocity;
+    }
+    if input_key_down(.Q) {
+        controller.camera.position -= controller.camera.world_up * velocity;
+    }
 }
 
 process_mouse :: (controller: *Camera_Controller) {

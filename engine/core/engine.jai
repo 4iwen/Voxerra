@@ -52,7 +52,10 @@ window_init :: (
     renderer_init();
     engine_state.renderer_initialized = true;
 
-    renderer_set_viewport_size(window.framebuffer_width, window.framebuffer_height);
+    renderer_set_viewport_size(
+        window.framebuffer_width,
+        window.framebuffer_height
+    );
 
     text_init();
     engine_state.text_initialized = true;
@@ -100,8 +103,10 @@ engine_shutdown :: () {
         engine_state.renderer_initialized = false;
     }
 
-    window_destroy(engine_state.window);
-    engine_state.window = null;
+    if engine_state.window {
+        window_destroy(engine_state.window);
+        engine_state.window = null;
+    }
 
     if engine_state.platform_initialized {
         platform_shutdown();

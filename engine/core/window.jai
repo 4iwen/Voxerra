@@ -88,6 +88,7 @@ window_set_vsync :: (vsync: bool) {
 
 window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {
     glfwSetInputMode(window.handle, GLFW_CURSOR, cast(s32) mode);
+    input_reset_mouse_position(window.handle);
 }
 
 #scope_file

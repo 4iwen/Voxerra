@@ -48,7 +48,14 @@ install_logger :: () {
     // log(format_string, ..args, level = .WARNING);
 // }
 
-log_warning :: (format_string: string, args: .. Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags : u32 = 0, section : *Log_Section = null) {
+log_warning :: (
+    format_string: string,
+    args: .. Any,
+    loc := #caller_location,
+    flags := Log_Flags.NONE,
+    user_flags: u32 = 0,
+    section: *Log_Section = null
+) {
     new_flags := flags | .WARNING;
     log(format_string, ..args, loc, new_flags, user_flags, section);
 } @PrintLike

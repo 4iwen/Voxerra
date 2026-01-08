@@ -217,11 +217,13 @@ input_mouse_down :: (button: Mouse_Button) -> bool {
 }
 
 input_mouse_pressed :: (button: Mouse_Button) -> bool {
-    return input_state.mouse_current[button] && !input_state.mouse_previous[button];
+    return input_state.mouse_current[button] &&
+          !input_state.mouse_previous[button];
 }
 
 input_mouse_released :: (button: Mouse_Button) -> bool {
-    return !input_state.mouse_current[button] && input_state.mouse_previous[button];
+    return !input_state.mouse_current[button] &&
+            input_state.mouse_previous[button];
 }
 
 input_mouse_position :: () -> float64, float64 {
@@ -242,7 +244,13 @@ input_text :: () -> [..] u32 {
 
 #scope_file
 
-key_callback :: (window: *GLFWwindow, key: s32, scancode: s32, action: s32, mods: s32) #c_call {
+key_callback :: (
+    window: *GLFWwindow,
+    key: s32,
+    scancode: s32,
+    action: s32,
+    mods: s32
+) #c_call {
     // engine := map_key(key);
     // no need for mapping since our keys are based on glfw
     engine_key := key;
@@ -258,7 +266,12 @@ key_callback :: (window: *GLFWwindow, key: s32, scancode: s32, action: s32, mods
     }
 }
 
-mouse_button_callback :: (window: *GLFWwindow, button: s32, action: s32, mods: s32) #c_call {
+mouse_button_callback :: (
+    window: *GLFWwindow,
+    button: s32,
+    action: s32,
+    mods: s32
+) #c_call {
     if button < 0 || button >= MOUSE_BUTTON_COUNT {
         return;
     }
@@ -279,7 +292,11 @@ cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
     input_state.mouse_y = y;
 }
 
-scroll_callback :: (window: *GLFWwindow, xoffset: float64, yoffset: float64) #c_call {
+scroll_callback :: (
+    window: *GLFWwindow,
+    xoffset: float64,
+    yoffset: float64
+) #c_call {
     input_state.scroll_x = xoffset;
     input_state.scroll_y = yoffset;
 }
@@ -300,3 +317,11 @@ input_install_callbacks :: (window: *GLFWwindow) {
     glfwSetCharCallback(window, char_callback);
 }
 
+input_reset_mouse_position :: (window: *GLFWwindow) {
+    x, y: float64;
+    glfwGetCursorPos(window, *x, *y);
+    input_state.mouse_x = x;
+    input_state.mouse_y = y;
+    input_state.mouse_delta_x = 0;
+    input_state.mouse_delta_y = 0;
+}

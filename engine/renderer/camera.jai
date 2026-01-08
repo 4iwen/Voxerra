@@ -30,11 +30,21 @@ camera_create :: (position: Vector3) -> Camera {
 
 camera_get_view_matrix :: (camera: Camera) -> Matrix4 {
     center := camera.position + camera.front;
-    return make_look_at_matrix(camera.position, center, camera.up, x_is_forward = false);
+    return make_look_at_matrix(
+        camera.position,
+        center,
+        camera.up,
+        x_is_forward = false
+    );
 }
 
 camera_get_projection_matrix :: (camera: Camera, aspect: float) -> Matrix4 {
-    return make_projection_matrix(degrees_to_radians(camera.fov), aspect, camera.near, camera.far);
+    return make_projection_matrix(
+        degrees_to_radians(camera.fov),
+        aspect,
+        camera.near,
+        camera.far
+    );
 }
 
 camera_update_vectors :: (camera: *Camera) {
