@@ -28,22 +28,22 @@ Font_Asset :: struct {
     pixel_size: u32;
 }
 
-Mesh_Asset :: struct {
-    mesh: *Mesh;
+Model_Asset :: struct {
+    model: *Model;
     path: string;
-    options: Mesh_Load_Options;
+    options: Model_Load_Options;
 }
 
 Asset_Manager :: struct {
     textures: Table(string, Texture_Asset);
     shaders: Table(string, Shader_Asset);
     fonts: Table(string, Font_Asset);
-    meshes: Table(string, Mesh_Asset);
+    models: Table(string, Model_Asset);
     
     hot_reload_textures: Table(string, bool);
     hot_reload_shaders: Table(string, bool);
     hot_reload_fonts: Table(string, bool);
-    hot_reload_meshes: Table(string, bool);
+    hot_reload_models: Table(string, bool);
     
     watcher: *File_Watcher(void);
 }
@@ -53,11 +53,11 @@ asset_manager_init :: () {
     init(*manager.textures);
     init(*manager.shaders);
     init(*manager.fonts);
-    init(*manager.meshes);
+    init(*manager.models);
     init(*manager.hot_reload_textures);
     init(*manager.hot_reload_shaders);
     init(*manager.hot_reload_fonts);
-    init(*manager.hot_reload_meshes);
+    init(*manager.hot_reload_models);
 
     // initialize file watcher
     manager.watcher = New(File_Watcher(void));
@@ -84,31 +84,31 @@ asset_manager_init :: () {
 asset_manager_shutdown :: () {
     // unload assets
     for asset: manager.textures {
-        log("Unloading texture:\n%", asset.path);
+        log("Unloading texture: %", asset.path);
         texture_destroy(asset.texture);
     }
     for asset: manager.shaders {
-        log("Unloading shader:\n%\n%", asset.vertex_path, asset.fragment_path);
+        log("Unloading shader: %, %", asset.vertex_path, asset.fragment_path);
         shader_destroy(asset.shader);
     }
     for asset: manager.fonts {
-        log("Unloading font:\n%", asset.path);
+        log("Unloading font: %", asset.path);
         font_destroy(asset.font);
     }
-    for asset: manager.meshes {
-        log("Unloading mesh:\n%", asset.path);
-        mesh_destroy(asset.mesh);
+    for asset: manager.models {
+        log("Unloading model: %", asset.path);
+        model_destroy(asset.model);
     }
     
     // deinit tables
     deinit(*manager.textures);
     deinit(*manager.shaders);
     deinit(*manager.fonts);
-    deinit(*manager.meshes);
+    deinit(*manager.models);
     deinit(*manager.hot_reload_textures);
     deinit(*manager.hot_reload_shaders);
     deinit(*manager.hot_reload_fonts);
-    deinit(*manager.hot_reload_meshes);
+    deinit(*manager.hot_reload_models);
     
     // deinit file watcher
     if manager.watcher {
@@ -163,7 +163,7 @@ asset_manager_load_texture :: (
         }
     }
 
-    log("Loaded texture:\n%", absoulte_path);
+    log("Loaded texture: %", absoulte_path);
     return texture;
 }
 
@@ -180,7 +180,7 @@ asset_manager_unload_texture :: (path: string) {
     table_remove(*manager.textures, absolute_path);
     table_remove(*manager.hot_reload_textures, absolute_path);
     
-    log("Unloaded texture:\n%", path);
+    log("Unloaded texture: %", path);
 }
 
 asset_manager_load_shader :: (
@@ -228,7 +228,7 @@ asset_manager_load_shader :: (
         }
     }
 
-    log("Loaded shader:\n%\n%", vertex_absolute, fragment_absolute);
+    log("Loaded shader: %, %", vertex_absolute, fragment_absolute);
     return shader;
 }
 
@@ -257,7 +257,7 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     table_remove(*manager.shaders, key);
     table_remove(*manager.hot_reload_shaders, key);
     
-    log("Unloaded shader:\n%", key);
+    log("Unloaded shader: %", key);
 }
 
 asset_manager_load_font :: (
@@ -298,7 +298,7 @@ asset_manager_load_font :: (
         }
     }
 
-    log("Loaded font:\n%", absolute_path);
+    log("Loaded font: %", absolute_path);
     return font;
 }
 
@@ -317,56 +317,60 @@ asset_manager_unload_font :: (path: string, pixel_size: u32) {
     table_remove(*manager.fonts, key);
     table_remove(*manager.hot_reload_fonts, key);
     
-    log("Unloaded font:\n%", path);
+    log("Unloaded font: %", path);
 }
 
-asset_manager_load_mesh :: (
+asset_manager_load_model :: (
     path: string,
-    options: Mesh_Load_Options = DEFAULT_MESH_LOAD_OPTIONS,
+    options: Model_Load_Options = DEFAULT_MODEL_LOAD_OPTIONS,
     hot_reload := false
-) -> *Mesh {
+) -> *Model {
     absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for mesh: %", path);
+    assert(success, "Failed to get absolute path for model: %", path);
 
-    found, existing_asset := table_find(*manager.meshes, absolute_path);
+    found, existing_asset := table_find(*manager.models, absolute_path);
     if found {
-        return existing_asset.mesh;
+        return existing_asset.model;
     }
 
-    mesh := mesh_create_from_file(path, options);
-
-    asset: Mesh_Asset;
-    asset.mesh = mesh;
+    model := model_create_from_file(path, options);
+    if !model {
+        log_error("Failed to load mesh from file: %", path);
+        return null;
+    }
+    
+    asset: Model_Asset;
+    asset.model = model;
     asset.path = copy_string(absolute_path);
     asset.options = options;
 
-    table_add(*manager.meshes, copy_string(absolute_path), asset);
+    table_add(*manager.models, copy_string(absolute_path), asset);
 
     if hot_reload {
-        table_add(*manager.hot_reload_meshes, copy_string(absolute_path), true);
+        table_add(*manager.hot_reload_models, copy_string(absolute_path), true);
         if manager.watcher {
             add_directories(manager.watcher, absolute_path);
         }
     }
 
-    log("Loaded mesh:\n%", absolute_path);
-    return mesh;
+    log("Loaded model: %", absolute_path);
+    return model;
 }
 
-asset_manager_unload_mesh :: (path: string) {
+asset_manager_unload_model :: (path: string) {
     absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for mesh: %", path);
+    assert(success, "Failed to get absolute path for model: %", path);
 
-    found, asset := table_find(*manager.meshes, absolute_path);
+    found, asset := table_find(*manager.models, absolute_path);
     if !found {
         return;
     }
 
-    mesh_destroy(asset.mesh);
-    table_remove(*manager.meshes, absolute_path);
-    table_remove(*manager.hot_reload_meshes, absolute_path);
+    mesh_destroy(asset.model);
+    table_remove(*manager.models, absolute_path);
+    table_remove(*manager.hot_reload_models, absolute_path);
 
-    log("Unloaded mesh:\n%", path);
+    log("Unloaded model: %", path);
 }
 
 #scope_file
@@ -389,9 +393,9 @@ file_change_callback :: (
         }
 
         if texture_reload_from_file(asset.texture, path, asset.spec) {
-            log("Hot reloaded texture:\n%", path);
+            log("Hot reloaded texture: %", path);
         } else {
-            log_error("Hot reload failed:\n%", path);
+            log_error("Hot reload failed: %", path);
         }
         return;
     }
@@ -412,13 +416,13 @@ file_change_callback :: (
             asset.fragment_path
         ) {
             log(
-                "Hot reloaded shader:\n%\n%",
+                "Hot reloaded shader: %, %",
                 asset.vertex_path,
                 asset.fragment_path
             );
         } else {
             log_error(
-                "Hot reload failed:\n%\n%",
+                "Hot reload failed: %, %",
                 asset.vertex_path,
                 asset.fragment_path
             );
@@ -437,27 +441,27 @@ file_change_callback :: (
         }
         
         if font_reload_from_file(asset.font, path, asset.pixel_size) {
-            log("Hot reloaded font:\n%", path);
+            log("Hot reloaded font: %", path);
         } else {
-            log_error("Hot reload failed:\n%", path);
+            log_error("Hot reload failed: %", path);
         }
         return;
     }
 
-    for * asset, key: manager.meshes {
+    for * asset, key: manager.models {
         if asset.path != path {
             continue;
         }
 
-        found, enabled := table_find(*manager.hot_reload_meshes, path);
+        found, enabled := table_find(*manager.hot_reload_models, path);
         if !found || !enabled {
             continue;
         }
 
-        if mesh_reload_from_file(asset.mesh, path, asset.options) {
-            log("Hot reloaded mesh:\n%", path);
+        if model_reload_from_file(asset.model, path, asset.options) {
+            log("Hot reloaded model: %", path);
         } else {
-            log_error("Hot reload failed:\n%", path);
+            log_error("Hot reload failed: %", path);
         }
         return;
     }

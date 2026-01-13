@@ -30,3 +30,9 @@ transform_to_matrix :: (transform: Transform) -> Matrix4 {
     scale_matrix := scale(Matrix4_Identity, transform.scale);
     return translation * rotation * scale_matrix;
 }
+
+transform_reset :: (transform: *Transform) {
+    transform.position = .{0, 0, 0};
+    transform.rotation = .{0, 0, 0, 1};
+    transform.scale = .{1, 1, 1};
+}

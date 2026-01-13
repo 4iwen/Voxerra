@@ -20,6 +20,8 @@
 #load "renderer/render_queue.jai";
 #load "renderer/text.jai";
 #load "renderer/material.jai";
+#load "renderer/model.jai";
+#load "renderer/light.jai";
 
 #load "assets/asset_manager.jai";
 

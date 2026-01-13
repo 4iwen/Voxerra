@@ -92,9 +92,29 @@ shader_set_mat4 :: (shader: *Shader, name: string, matrix: Matrix4) {
     glUniformMatrix4fv(location, 1, GL_TRUE, *matrix.coef[0][0]);
 }
 
+shader_set_mat3 :: (shader: *Shader, name: string, matrix: Matrix3) {
+    location := glGetUniformLocation(shader.id, temp_c_string(name));
+    glUniformMatrix3fv(location, 1, GL_TRUE, *matrix.coef[0][0]);
+}
+
 shader_set_int :: (shader: *Shader, name: string, value: s32) {
     location := glGetUniformLocation(shader.id, temp_c_string(name));
     glUniform1i(location, value);
+}
+
+shader_set_float :: (shader: *Shader, name: string, value: float) {
+    location := glGetUniformLocation(shader.id, temp_c_string(name));
+    glUniform1f(location, value);
+}
+
+shader_set_vec3 :: (shader: *Shader, name: string, vector: Vector3) {
+    location := glGetUniformLocation(shader.id, temp_c_string(name));
+    glUniform3fv(location, 1, *vector.x);
+}
+
+shader_set_vec4 :: (shader: *Shader, name: string, vector: Vector4) {
+    location := glGetUniformLocation(shader.id, temp_c_string(name));
+    glUniform4fv(location, 1, *vector.x);
 }
 
 shader_set_texture :: (

@@ -39,7 +39,7 @@ fps_counter_draw :: (
     x: float = 16,
     y: float = 16,
     font_size: float = 24.0,
-    color := Color.{1.0, 1.0, 1.0, 1.0},
+    color := Vector4.{1.0, 1.0, 1.0, 1.0},
     update_interval_seconds: float64 = 0.5
 ) -> width: float {
     font := font_get_default();

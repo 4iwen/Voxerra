@@ -16,13 +16,13 @@ colored_logger :: (message: string, data: *void, info: Log_Info) {
 
     if is_error {
         tag = "ERROR";
-        color = .HI_RED;
+        color = .RED;
     } else if is_warning {
         tag = "WARN";
-        color = .HI_YELLOW;
+        color = .YELLOW;
     } else {
         tag = "INFO";
-        color = .HI_WHITE;
+        color = .GREEN;
     }
 
     with_console_color(color, #code {

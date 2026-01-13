@@ -158,7 +158,7 @@ text_draw :: (
     x: float,
     y: float,
     font_size: float,
-    color := Color.{ 1.0, 1.0, 1.0, 1.0 }
+    color := Vector4.{1.0, 1.0, 1.0, 1.0}
 ) -> width: float {
     // ascii only for now, utf-8 glyphs are ignored
     scale := font_size / cast(float) font.size;
@@ -187,7 +187,7 @@ text_draw :: (
     shader_set_mat4(text_state.shader, "u_projection", projection);
     
     color_location := glGetUniformLocation(text_state.shader.id, "u_text_color");
-    glUniform4f(color_location, color.r, color.g, color.b, color.a);
+    glUniform4f(color_location, color.x, color.y, color.z, color.w);
     
     sampler_location := glGetUniformLocation(text_state.shader.id, "u_text");
     glUniform1i(sampler_location, 0);

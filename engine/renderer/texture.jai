@@ -37,11 +37,12 @@ Texture_Spec :: struct {
     wrap_s: Texture_Wrap;
     wrap_t: Texture_Wrap;
     generate_mipmaps: bool;
+    srgb: bool;
 }
 
 DEFAULT_TEXTURE_SPEC :: Texture_Spec.{
     min_filter = .LINEAR_MIPMAP_LINEAR,
-    mag_filter = .NEAREST,
+    mag_filter = .LINEAR,
     wrap_s = .REPEAT,
     wrap_t = .REPEAT,
     generate_mipmaps = true,
@@ -371,7 +372,18 @@ create_default_texture :: () {
         }
     }
 
-    default_texture = texture_create_from_data(width, height, data);
+    default_texture = texture_create_from_data(
+        width,
+        height,
+        data,
+        .{
+            min_filter = .LINEAR_MIPMAP_LINEAR,
+            mag_filter = .NEAREST,
+            wrap_s = .REPEAT,
+            wrap_t = .REPEAT,
+            generate_mipmaps = true,
+        }
+    );
     free(data);
 }
 

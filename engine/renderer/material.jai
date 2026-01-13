@@ -6,10 +6,18 @@
 #scope_export
 
 Material :: struct {
+    name: string;
     color: Vector4 = .{1.0, 1.0, 1.0, 1.0};
     metallic: float = 0.0;
     roughness: float = 0.5;
-    diffuse_texture: *Texture;
+    alpha_cutoff: float = 0.01;
+    is_transparent: bool = false;
+
+    albedo_texture: *Texture = null;
+    normal_texture: *Texture = null;
+    metallic_roughness_texture: *Texture = null;
+    occlusion_texture: *Texture = null;
+    emissive_texture: *Texture = null;
 }
 
 material_create :: () -> *Material {

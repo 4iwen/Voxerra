@@ -7,7 +7,7 @@
 Camera_Controller :: struct {
     camera: Camera;
     active: bool = false;
-    movement_speed: float = 2.0;
+    movement_speed: float = 3.0;
     mouse_sensitivity: float = 0.2;
 }
 
@@ -73,7 +73,7 @@ process_mouse :: (controller: *Camera_Controller) {
     controller.camera.yaw += cast(float32) dx * controller.mouse_sensitivity;
     controller.camera.pitch -= cast(float32) dy * controller.mouse_sensitivity;
     
-    controller.camera.pitch = clamp(controller.camera.pitch, -90.0, 90.0);
+    controller.camera.pitch = clamp(controller.camera.pitch, -89.9, 89.9);
     
     camera_update_vectors(*controller.camera);
 }
