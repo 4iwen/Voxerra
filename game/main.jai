@@ -1,4 +1,4 @@
-#import "Basic";
+#import "Basic"()(MEMORY_DEBUGGER = true); // @TODO: should be only imported in debug builds
 #import "Math";
 #import "engine";
 
@@ -6,6 +6,7 @@
 #load "skybox.jai";
 
 main :: () {
+    {
     if !engine_init() {
         log_error("Failed to init engine");
         return;
@@ -27,27 +28,24 @@ main :: () {
     shader := asset_manager_load_shader(vertex_path, fragment_path, true);
 
     skybox := skybox_init();
+    defer skybox_shutdown(skybox);
 
     lights := light_system_create(.{0.1, 0.1, 0.1});
+    defer light_system_destroy(*lights);
+
     // sun
     sun_direction := Vector3.{-0.2, -1.0, -0.3}; 
     sun_color := Vector3.{1.0, 0.95, 0.9};
     sun_intensity := 2.0;
-    // light_add_directional(*lights, sun_direction, sun_color, sun_intensity);
+    light_add_directional(*lights, sun_direction, sun_color, sun_intensity);
     // point light
-    light_add_point(*lights, .{3, 3, 0}, .{1, 1, 1});
+    // light_add_point(*lights, .{3, 3, 0}, .{1, 1, 1});
 
-    sponza := asset_manager_load_model("assets/models/Sponza/glTF/Sponza.gltf");
-    helmet := asset_manager_load_model(
-        "assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf"
+    model := asset_manager_load_model(
+        "assets/models/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf"
     );
-
-    quad_mesh := mesh_create_quad();
-
-    texture := generate_worley_texture(512, 512);
-    defer texture_destroy(texture);
     
-    controller := camera_controller_create(.{0.0, 3.0, 0.0});
+    controller := camera_controller_create(.{0.0, 1.5, 0.0});
 
     queue := render_queue_create();
     defer render_queue_destroy(*queue);
@@ -55,6 +53,8 @@ main :: () {
     font := font_get_default();
 
     while !window_should_close(window) {
+        memory_visualizer_per_frame_update(); // @TODO: should only be called in debug builds
+
         delta_time := engine_update();
         camera_controller_update(*controller, window, delta_time);
 
@@ -63,15 +63,9 @@ main :: () {
         render_queue_clear(*queue);
 
         xf: Transform;
-        xf.position = .{0, 0, .4};
-        xf.scale = {.01, .01, .01};
-        render_queue_submit(*queue, sponza, shader, xf);
-
-        transform_reset(*xf);
-        xf.position = {0, 1, 0};
-        xf.rotation = quaternion_from_euler_xyz(.{degrees_to_radians(90), 0, 0});
-        xf.scale = {.5, .5, .5};
-        render_queue_submit(*queue, helmet, shader, xf);
+        xf.position = .{0.5, 0, 0};
+        xf.rotation = quaternion_from_euler_xyz(.{0, PI / 2, 0});
+        render_queue_submit(*queue, model, shader, xf);
 
         view := camera_get_view_matrix(controller.camera);
         projection := camera_get_projection_matrix(
@@ -86,13 +80,13 @@ main :: () {
             *lights
         );
 
-        // skybox_draw(
-        //     skybox,
-        //     view,
-        //     projection,
-        //     sun_direction,
-        //     sun_color
-        // );
+        skybox_draw(
+            skybox,
+            view,
+            projection,
+            sun_direction,
+            sun_color
+        );
 
         text: string;
         if controller.active {
@@ -124,6 +118,8 @@ main :: () {
         renderer_end_frame();
         window_swap_buffers(window);
     }
+    }
+    memory_visualizer_per_frame_update();
 }
 
 generate_worley_texture :: (

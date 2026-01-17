@@ -18,6 +18,9 @@ Material :: struct {
     metallic_roughness_texture: *Texture = null;
     occlusion_texture: *Texture = null;
     emissive_texture: *Texture = null;
+
+    emissive_color: Vector3 = .{0, 0, 0};
+    emissive_strength: float = 1.0;
 }
 
 material_create :: () -> *Material {

@@ -20,7 +20,12 @@ shader_create_from_file :: (
     vertex_source := read_entire_file(vertex_path);
     fragment_source := read_entire_file(fragment_path);
 
-    return shader_create(vertex_source, fragment_source);
+    shader := shader_create(vertex_source, fragment_source);
+    
+    free(vertex_source);
+    free(fragment_source);
+
+    return shader;
 } 
 
 shader_create :: (vertex_source: string, fragment_source: string) -> *Shader {

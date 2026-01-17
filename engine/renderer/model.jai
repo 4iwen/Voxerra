@@ -1,11 +1,14 @@
 #scope_file
 
+#import "Basic";
+#import "Math";
 #import "jassimp";
 #import "stb_image";
 
 #scope_export
 
 Model :: struct {
+    name: string;
     submeshes: [..] *Sub_Mesh;
     materials: [..] *Material;
 }
@@ -38,6 +41,7 @@ model_create_from_file :: (
     }
     
     model := New(Model);
+    model.name = copy_string(path);
     model.materials = materials;
     
     for mesh, idx: meshes {
@@ -52,10 +56,17 @@ model_create_from_file :: (
         array_add(*model.submeshes, submesh);
     }
     
+    array_free(meshes);
+    array_free(material_indices);
+
     return model;
 }
 
 model_destroy :: (model: *Model) {
+    if model.name {
+        free(model.name);
+    }
+
     for model.submeshes {
         mesh_destroy(it.mesh);
         free(it);
@@ -77,7 +88,7 @@ model_reload_from_file :: (
 ) -> bool {
     ok, meshes, materials, material_indices := assimp_load_meshes(path, options);
     if !ok || meshes.count == 0 {
-        for meshes { 
+        for meshes {
             mesh_destroy(it);
         }
         for materials {
@@ -110,6 +121,9 @@ model_reload_from_file :: (
         }
         array_add(*model.submeshes, sm);
     }
+
+    array_free(meshes);
+    array_free(material_indices);
 
     return true;
 }
@@ -187,6 +201,20 @@ assimp_load_meshes :: (
             return false, 0.0;
         }
 
+        // color
+        try_load_color :: (mat: *aiMaterial, key: string) -> bool, Vector3 {
+            c: aiColor4D;
+            
+            key_c := to_c_string(key);
+            defer free(key_c);
+            
+            if aiGetMaterialColor(mat, key_c, 0, 0, *c) == .SUCCESS {
+                return true, .{c.r, c.g, c.b};
+            }
+            
+            return false, .{0, 0, 0};
+        }
+
         found_metallic  := false;
         found_roughness := false;
 
@@ -242,6 +270,23 @@ assimp_load_meshes :: (
             }
         }
 
+        // emissive
+        {
+            ok, c := try_load_color(ai_mat, "$clr.emissive");
+            if ok {
+                material.emissive_color = c;
+            }
+
+            ok2, s := try_load_float(ai_mat, "$mat.emissiveIntensity");
+            if !ok2 {
+                ok2, s = try_load_float(ai_mat, "$mat.emissiveStrength");
+            }
+            
+            if ok2 {
+                material.emissive_strength = s;
+            }
+        }
+
         // textures
         // albedo
         {
@@ -288,68 +333,13 @@ assimp_load_meshes :: (
     }
 
     // meshes
-    for mesh_idx: 0..scene.mNumMeshes - 1 {
-        ai_mesh := scene.mMeshes[mesh_idx];
-        
-        if !ai_mesh.mVertices {
-            log_warning("Mesh % has no vertices, skipping", mesh_idx);
-            continue;
-        }
-
-        vertices: [..] Vertex;
-        indices: [..] u32;
-        
-        // vertices
-        for i: 0..ai_mesh.mNumVertices - 1 {
-            vertex: Vertex;
-            
-            // position
-            pos := ai_mesh.mVertices[i];
-            vertex.position = .{pos.x, pos.y, pos.z};
-            
-            // normal
-            if ai_mesh.mNormals {
-                normal := ai_mesh.mNormals[i];
-                vertex.normal = .{normal.x, normal.y, normal.z};
-            } else {
-                vertex.normal = .{0.0, 1.0, 0.0};
-            }
-            
-            // tangent
-            if ai_mesh.mTangents {
-                tangent := ai_mesh.mTangents[i];
-                vertex.tangent = .{tangent.x, tangent.y, tangent.z};
-            } else {
-                vertex.tangent = .{1.0, 0.0, 0.0};
-            }
-            
-            // uv
-            if ai_mesh.mTextureCoords[0] {
-                uv := ai_mesh.mTextureCoords[0][i];
-                vertex.uv = .{uv.x, uv.y};
-            } else {
-                vertex.uv = .{0.0, 0.0};
-            }
-            
-            array_add(*vertices, vertex);
-        }
-
-        // indices
-        for i: 0..ai_mesh.mNumFaces - 1 {
-            face := ai_mesh.mFaces[i];
-            for j: 0..face.mNumIndices - 1 {
-                array_add(*indices, face.mIndices[j]);
-            }
-        }
-        
-        mesh := mesh_create(vertices, indices);
-        
-        array_add(*meshes, mesh);
-        array_add(*material_indices, ai_mesh.mMaterialIndex);
-        
-        array_reset(*vertices);
-        array_reset(*indices);
-    }
+    process_node(
+        scene.mRootNode,
+        scene,
+        Matrix4_Identity,
+        *meshes,
+        *material_indices
+    );
 
     return true, meshes, materials, material_indices;
 }
@@ -458,4 +448,126 @@ load_texture_from_material :: (
     }
     
     return null; 
+}
+
+process_node :: (
+    node: *aiNode,
+    scene: *aiScene,
+    parent_transform: Matrix4,
+    meshes_out: *[..] *Mesh,
+    material_indices_out: *[..] u32
+) {
+    if !node {
+        return;
+    }
+
+    local_transform := matrix4_from_assimp(node.mTransformation);
+    global_transform := parent_transform * local_transform;
+
+    // process meshes referenced by this node
+    if node.mMeshes {
+        for i: 0..node.mNumMeshes - 1 {
+            mesh_index := node.mMeshes[i];
+
+            if mesh_index >= scene.mNumMeshes {
+                log_error("Mesh index % out of bounds", mesh_index);
+                continue;
+            }
+
+            ai_mesh := scene.mMeshes[mesh_index];
+            if !ai_mesh {
+                log_error("Mesh pointer at index % is null", mesh_index);
+                continue;
+            }
+
+            mesh := build_mesh_from_ai_mesh(ai_mesh, global_transform);
+
+            if mesh {
+                array_add(meshes_out, mesh);
+                array_add(material_indices_out, ai_mesh.mMaterialIndex);
+            }
+        }
+    }
+
+    // recurse
+    if node.mChildren {
+        for i: 0..node.mNumChildren - 1 {
+            child := node.mChildren[i];
+            process_node(
+                child,
+                scene,
+                global_transform,
+                meshes_out,
+                material_indices_out
+            );
+        }
+    }
+}
+
+build_mesh_from_ai_mesh :: (
+    ai_mesh: *aiMesh,
+    transform: Matrix4
+) -> *Mesh {
+    vertices: [..] Vertex;
+    indices: [..] u32;
+
+    success, inverse := inverse(transform);
+    assert(success, "Failed to compute inverse");
+    normal_matrix := transpose(inverse);
+
+    for i: 0..ai_mesh.mNumVertices - 1 {
+        v: Vertex;
+
+        pos := ai_mesh.mVertices[i];
+        world_pos := transform * Vector4.{pos.x, pos.y, pos.z, 1.0};
+        v.position = world_pos.xyz;
+
+        if ai_mesh.mNormals {
+            n := ai_mesh.mNormals[i];
+            world_n := normal_matrix * Vector4.{n.x, n.y, n.z, 0.0};
+            v.normal = normalize(world_n.xyz);
+        } else {
+            v.normal = .{0, 1, 0};
+        }
+
+        if ai_mesh.mTangents {
+            t := ai_mesh.mTangents[i];
+            world_t := transform * Vector4.{t.x, t.y, t.z, 0.0};
+            v.tangent = normalize(world_t.xyz);
+        } else {
+            v.tangent = .{1, 0, 0};
+        }
+
+        if ai_mesh.mTextureCoords[0] {
+            uv := ai_mesh.mTextureCoords[0][i];
+            v.uv = .{uv.x, uv.y};
+        } else {
+            v.uv = .{0, 0};
+        }
+
+        array_add(*vertices, v);
+    }
+
+    for i: 0..ai_mesh.mNumFaces - 1 {
+        face := ai_mesh.mFaces[i];
+        for j: 0..face.mNumIndices - 1 {
+            array_add(*indices, face.mIndices[j]);
+        }
+    }
+
+    mesh := mesh_create(vertices, indices);
+
+    array_free(vertices);
+    array_free(indices);
+
+    return mesh;
+}
+
+matrix4_from_assimp :: (m: aiMatrix4x4) -> Matrix4 {
+    result: Matrix4;
+    result._11 = m.a1; result._12 = m.a2; result._13 = m.a3; result._14 = m.a4;
+    result._21 = m.b1; result._22 = m.b2; result._23 = m.b3; result._24 = m.b4;
+    result._31 = m.c1; result._32 = m.c2; result._33 = m.c3; result._34 = m.c4;
+    result._41 = m.d1; result._42 = m.d2; result._43 = m.d3; result._44 = m.d4;
+    return result;
 }

@@ -90,7 +90,9 @@ texture_create_from_file :: (
     width: s32;
     height: s32;
     channels: s32;
-    data := stbi_load(temp_c_string(path), *width, *height, *channels, desired_channels);
+    path_c_string := to_c_string(path);
+    defer free(path_c_string);
+    data := stbi_load(path_c_string, *width, *height, *channels, desired_channels);
 
     if !data {
         log_error("Failed to load texture: %, using default", path);
@@ -245,8 +247,10 @@ texture_reload_from_file :: (
     width: s32;
     height: s32;
     channels: s32;
+    path_c_string := to_c_string(path);
+    defer free(path_c_string);
     data := stbi_load(
-        temp_c_string(path),
+        path_c_string,
         *width,
         *height,
         *channels,

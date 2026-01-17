@@ -23,12 +23,34 @@ Mesh :: struct {
 
     vertex_count: u32;
     index_count: u32;
+
+    bounds_min: Vector3;
+    bounds_max: Vector3;
 }
 
 mesh_create :: (vertices: [] Vertex, indices: [] u32) -> *Mesh {
     mesh := New(Mesh);
     mesh.vertex_count = cast(u32) vertices.count;
     mesh.index_count = cast(u32) indices.count;
+
+    // calculate bounds
+    if vertices.count > 0 {
+        min := vertices[0].position;
+        max := vertices[0].position;
+
+        for v: vertices {
+            if v.position.x < min.x then min.x = v.position.x;
+            if v.position.y < min.y then min.y = v.position.y;
+            if v.position.z < min.z then min.z = v.position.z;
+
+            if v.position.x > max.x then max.x = v.position.x;
+            if v.position.y > max.y then max.y = v.position.y;
+            if v.position.z > max.z then max.z = v.position.z;
+        }
+
+        mesh.bounds_min = min;
+        mesh.bounds_max = max;
+    }
 
     // generate buffers
     glGenVertexArrays(1, *mesh.vao_id);

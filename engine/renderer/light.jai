@@ -36,6 +36,10 @@ light_system_create :: (ambient: Vector3 = .{0, 0, 0}) -> Light_System {
     return system;
 }
 
+light_system_destroy :: (system: *Light_System) {
+    array_reset(*system.lights);
+}
+
 light_add_directional :: (
     system: *Light_System,
     direction: Vector3,

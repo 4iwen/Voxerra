@@ -20,12 +20,14 @@ Shader_Asset :: struct {
     shader: *Shader;
     vertex_path: string;
     fragment_path: string;
+    key: string;
 }
 
 Font_Asset :: struct {
     font: *Font;
     path: string;
     pixel_size: u32;
+    key: string;
 }
 
 Model_Asset :: struct {
@@ -84,20 +86,16 @@ asset_manager_init :: () {
 asset_manager_shutdown :: () {
     // unload assets
     for asset: manager.textures {
-        log("Unloading texture: %", asset.path);
-        texture_destroy(asset.texture);
+        asset_manager_unload_texture(asset.path);
     }
     for asset: manager.shaders {
-        log("Unloading shader: %, %", asset.vertex_path, asset.fragment_path);
-        shader_destroy(asset.shader);
+        asset_manager_unload_shader(asset.vertex_path, asset.fragment_path);
     }
     for asset: manager.fonts {
-        log("Unloading font: %", asset.path);
-        font_destroy(asset.font);
+        asset_manager_unload_font(asset.path, asset.pixel_size);
     }
     for asset: manager.models {
-        log("Unloading model: %", asset.path);
-        model_destroy(asset.model);
+        asset_manager_unload_model(asset.path);
     }
     
     // deinit tables
@@ -132,11 +130,11 @@ asset_manager_load_texture :: (
     spec := DEFAULT_TEXTURE_SPEC,
     hot_reload := false
 ) -> *Texture {
-    absoulte_path, success := get_absolute_path(path);
+    absolute_path, success := get_absolute_path(path);
     assert(success, "Failed to get absolute path for texture: %", path);
 
     // check if already present
-    found, existing_asset := table_find(*manager.textures, absoulte_path);
+    found, existing_asset := table_find(*manager.textures, absolute_path);
     if found {
         return existing_asset.texture;
     }
@@ -146,24 +144,24 @@ asset_manager_load_texture :: (
     
     asset: Texture_Asset;
     asset.texture = texture;
-    asset.path = copy_string(absoulte_path);
+    asset.path = copy_string(absolute_path);
     asset.spec = spec;
     
     // add to manager
-    table_add(*manager.textures, copy_string(absoulte_path), asset);
+    table_add(*manager.textures, asset.path, asset);
 
     if hot_reload {
         table_add(
             *manager.hot_reload_textures,
-            copy_string(absoulte_path),
+            asset.path,
             true
         );
         if manager.watcher {
-            add_directories(manager.watcher, absoulte_path);
+            add_directories(manager.watcher, path_strip_filename(asset.path));
         }
     }
 
-    log("Loaded texture: %", absoulte_path);
+    log("Loaded texture: %", asset.path);
     return texture;
 }
 
@@ -180,7 +178,8 @@ asset_manager_unload_texture :: (path: string) {
     table_remove(*manager.textures, absolute_path);
     table_remove(*manager.hot_reload_textures, absolute_path);
     
-    log("Unloaded texture: %", path);
+    log("Unloaded texture: %", asset.path);
+    free(asset.path);
 }
 
 asset_manager_load_shader :: (
@@ -216,15 +215,22 @@ asset_manager_load_shader :: (
     asset.shader = shader;
     asset.vertex_path = copy_string(vertex_absolute);
     asset.fragment_path = copy_string(fragment_absolute);
+    asset.key = copy_string(key);
 
     // add to manager
-    table_add(*manager.shaders, copy_string(key), asset);
+    table_add(*manager.shaders, asset.key, asset);
 
     if hot_reload {
-        table_add(*manager.hot_reload_shaders, copy_string(key), true);
+        table_add(*manager.hot_reload_shaders, asset.key, true);
         if manager.watcher {
-            add_directories(manager.watcher, vertex_absolute);
-            add_directories(manager.watcher, fragment_absolute);
+            add_directories(
+                manager.watcher,
+                path_strip_filename(vertex_absolute)
+            );
+            add_directories(
+                manager.watcher,
+                path_strip_filename(fragment_absolute)
+            );
         }
     }
 
@@ -254,9 +260,12 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     }
     
     shader_destroy(asset.shader);
+    free(asset.vertex_path);
+    free(asset.fragment_path);
     table_remove(*manager.shaders, key);
     table_remove(*manager.hot_reload_shaders, key);
-    
+    free(asset.key);
+
     log("Unloaded shader: %", key);
 }
 
@@ -287,14 +296,15 @@ asset_manager_load_font :: (
     asset.font = font;
     asset.path = copy_string(absolute_path);
     asset.pixel_size = pixel_size;
+    asset.key = copy_string(key);
 
     // add to manager
-    table_add(*manager.fonts, copy_string(key), asset);
+    table_add(*manager.fonts, asset.key, asset);
 
     if hot_reload {
-        table_add(*manager.hot_reload_fonts, copy_string(key), true);
+        table_add(*manager.hot_reload_fonts, asset.key, true);
         if manager.watcher {
-            add_directories(manager.watcher, absolute_path);
+            add_directories(manager.watcher, path_strip_filename(absolute_path));
         }
     }
 
@@ -314,8 +324,10 @@ asset_manager_unload_font :: (path: string, pixel_size: u32) {
     }
     
     font_destroy(asset.font);
+    free(asset.path);
     table_remove(*manager.fonts, key);
     table_remove(*manager.hot_reload_fonts, key);
+    free(asset.key);
     
     log("Unloaded font: %", path);
 }
@@ -344,12 +356,12 @@ asset_manager_load_model :: (
     asset.path = copy_string(absolute_path);
     asset.options = options;
 
-    table_add(*manager.models, copy_string(absolute_path), asset);
+    table_add(*manager.models, asset.path, asset);
 
     if hot_reload {
-        table_add(*manager.hot_reload_models, copy_string(absolute_path), true);
+        table_add(*manager.hot_reload_models, asset.path, true);
         if manager.watcher {
-            add_directories(manager.watcher, absolute_path);
+            add_directories(manager.watcher, path_strip_filename(absolute_path));
         }
     }
 
@@ -366,9 +378,10 @@ asset_manager_unload_model :: (path: string) {
         return;
     }
 
-    mesh_destroy(asset.model);
+    model_destroy(asset.model);
     table_remove(*manager.models, absolute_path);
     table_remove(*manager.hot_reload_models, absolute_path);
+    free(asset.path);
 
     log("Unloaded model: %", path);
 }

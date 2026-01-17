@@ -30,6 +30,8 @@ uniform vec4 u_mat_color;
 uniform float u_mat_metallic;
 uniform float u_mat_roughness;
 uniform float u_alpha_cutoff;
+uniform vec3 u_emissive_factor;
+uniform float u_emissive_strength;
 
 // lighting
 uniform vec3 u_ambient_color;
@@ -120,12 +122,13 @@ void main() {
         ao *= texture(u_occlusion_map, v_uv).r;
     }
     
-    // Emissive
-    vec3 emissive = vec3(0.0);
+    // emissive
+    vec3 emissive = u_emissive_factor;
     if (u_has_emissive_map) {
-        emissive = texture(u_emissive_map, v_uv).rgb;
-        emissive = pow(emissive, vec3(2.2));
+        vec3 tex_emissive = texture(u_emissive_map, v_uv).rgb;
+        emissive *= pow(tex_emissive, vec3(2.2));
     }
+    emissive *= u_emissive_strength;
 
     vec3 v = normalize(u_camera_position - v_world_position);
 

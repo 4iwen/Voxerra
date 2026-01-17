@@ -117,6 +117,9 @@ Draw_Command :: struct {
     metallic: float;
     roughness: float;
     alpha_cutoff: float;
+
+    emissive_color: Vector3;
+    emissive_strength: float;
     
     // sorting
     dist_sq: float;
@@ -152,6 +155,10 @@ process_render_item :: (
                 cmd.metallic = sm.material.metallic;
                 cmd.roughness = sm.material.roughness;
                 cmd.alpha_cutoff = sm.material.alpha_cutoff;
+                
+                cmd.emissive_color = sm.material.emissive_color;
+                cmd.emissive_strength = sm.material.emissive_strength;
+
                 is_transparent = sm.material.is_transparent;
             } else {
                 populate_default_material_props(*cmd);
@@ -185,6 +192,8 @@ populate_default_material_props :: (cmd: *Draw_Command) {
     cmd.metallic = 0.0;
     cmd.roughness = 0.5;
     cmd.alpha_cutoff = 0.01;
+    cmd.emissive_color = .{0,0,0};
+    cmd.emissive_strength = 1.0;
 }
 
 draw_command_execute :: (cmd: Draw_Command, view: Matrix4, projection: Matrix4, camera_pos: Vector3, lights: *Light_System) {
@@ -219,6 +228,9 @@ draw_command_execute :: (cmd: Draw_Command, view: Matrix4, projection: Matrix4, 
     shader_set_float(cmd.shader, "u_metallic", cmd.metallic);
     shader_set_float(cmd.shader, "u_roughness", cmd.roughness);
     shader_set_float(cmd.shader, "u_ambient_occlusion", 1.0); 
+
+    shader_set_vec3(cmd.shader, "u_emissive_factor", cmd.emissive_color);
+    shader_set_float(cmd.shader, "u_emissive_strength", cmd.emissive_strength);
     
     // Bind textures
     shader_set_texture(cmd.shader, "u_albedo_map", cmd.albedo_texture, 0);

@@ -11,7 +11,6 @@
 `jai first.jai`
 
 ## TODO
-- Optimize text rendering
 - Add shadows
 - Fix transparency
 - Clean up render queue

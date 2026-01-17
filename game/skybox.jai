@@ -23,6 +23,11 @@ skybox_init :: () -> *Skybox {
     return skybox;
 }
 
+skybox_shutdown :: (skybox: *Skybox) {
+    free(skybox.mesh);
+    free(skybox);
+}
+
 skybox_draw :: (
     skybox: *Skybox,
     view: Matrix4,

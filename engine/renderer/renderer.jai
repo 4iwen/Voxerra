@@ -34,7 +34,7 @@ renderer_begin_frame :: (color: Vector4 = .{1, 1, 1, 1}) {
 }
 
 renderer_end_frame :: () {
-
+    reset_temporary_storage();
 }
 
 renderer_set_viewport_size :: (width: s32, height: s32) {

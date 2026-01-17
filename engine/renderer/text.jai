@@ -12,9 +12,12 @@ Text_State :: struct {
     vao_id: u32;
     vbo_id: u32;
     shader: *Shader;
+    vertices: [..] float;
 }
 
 text_state: Text_State;
+
+MAX_BATCH_CHARS :: 2048;
 
 #scope_module
 
@@ -23,7 +26,7 @@ default_font: *Font;
 #scope_export
 
 Glyph :: struct {
-    texture_id: u32;
+    uv: Vector4;
     width: s32;
     height: s32;
     bearing_x: s32;
@@ -35,6 +38,9 @@ Font :: struct {
     face: FT_Face;
     size: u32;
     glyphs: [128] Glyph;
+    atlas_texture_id: u32;
+    atlas_width: s32;
+    atlas_height: s32;
     line_height: s32;
     path: string;
 }
@@ -52,7 +58,12 @@ text_init :: () {
     
     glBindVertexArray(text_state.vao_id);
     glBindBuffer(GL_ARRAY_BUFFER, text_state.vbo_id);
-    glBufferData(GL_ARRAY_BUFFER, size_of(float) * 6 * 4, null, GL_DYNAMIC_DRAW);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        size_of(float) * 6 * 4 * MAX_BATCH_CHARS,
+        null,
+        GL_DYNAMIC_DRAW
+    );
     
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * size_of(float), null);
     glEnableVertexAttribArray(0);
@@ -64,6 +75,8 @@ text_init :: () {
         "assets/shaders/text.vert",
         "assets/shaders/text.frag"
     );
+    
+    array_reserve(*text_state.vertices, MAX_BATCH_CHARS * 6 * 4);
 
     default_font = font_create_from_file(
         "assets/fonts/natural_mono_2/NaturalMono-Regular.ttf",
@@ -81,8 +94,20 @@ text_shutdown :: () {
 
     FT_Done_FreeType(text_state.library);
     
-    glDeleteVertexArrays(1, *text_state.vao_id);
-    glDeleteBuffers(1, *text_state.vbo_id);
+    if text_state.vao_id != 0 {
+        glDeleteVertexArrays(1, *text_state.vao_id);
+    }
+    if text_state.vbo_id != 0 {
+        glDeleteBuffers(1, *text_state.vbo_id);
+    }
+    
+    text_state.vao_id = 0;
+    text_state.vbo_id = 0;
+    
+    array_free(text_state.vertices);
+    text_state.vertices.data = null;
+    text_state.vertices.count = 0;
+    text_state.vertices.allocated = 0;
     
     if text_state.shader {
         shader_destroy(text_state.shader);
@@ -101,7 +126,9 @@ font_create_from_file :: (path: string, pixel_size: u32) -> *Font {
     font.size = pixel_size;
     font.path = copy_string(path);
 
-    error := FT_New_Face(text_state.library, temp_c_string(path), 0, *font.face);
+    path_c_string := to_c_string(path);
+    defer free(path_c_string);
+    error := FT_New_Face(text_state.library, path_c_string, 0, *font.face);
     if error != 0 {
         log_error("Failed to load font: %", path);
         free(font.path.data);
@@ -114,16 +141,18 @@ font_create_from_file :: (path: string, pixel_size: u32) -> *Font {
 }
 
 font_destroy :: (font: *Font) {
-    if !font return;
+    if !font {
+        return;
+    }
 
-    for c: 0..127 {
-        if font.glyphs[c].texture_id != 0 {
-            glDeleteTextures(1, *font.glyphs[c].texture_id);
-        }
+    if font.atlas_texture_id != 0 {
+        glDeleteTextures(1, *font.atlas_texture_id);
     }
 
     FT_Done_Face(font.face);
-    if font.path.data free(font.path.data);
+    if font.path.data {
+        free(font.path.data);
+    }
     free(font);
 }
 
@@ -131,17 +160,17 @@ font_reload_from_file :: (font: *Font, path: string, pixel_size: u32) -> bool {
     if !font return false;
     
     new_face: FT_Face;
-    error := FT_New_Face(text_state.library, temp_c_string(path), 0, *new_face);
+    path_c_string := to_c_string(path);
+    defer free(path_c_string);
+    error := FT_New_Face(text_state.library, path_c_string, 0, *new_face);
     if error != 0 {
         log_error("Failed to reload font: %", path);
         return false;
     }
     
-    for c: 0..127 {
-        if font.glyphs[c].texture_id != 0 {
-            glDeleteTextures(1, *font.glyphs[c].texture_id);
-            font.glyphs[c].texture_id = 0;
-        }
+    if font.atlas_texture_id != 0 {
+        glDeleteTextures(1, *font.atlas_texture_id);
+        font.atlas_texture_id = 0;
     }
     
     FT_Done_Face(font.face);
@@ -193,9 +222,14 @@ text_draw :: (
     glUniform1i(sampler_location, 0);
     
     glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, font.atlas_texture_id);
     glBindVertexArray(text_state.vao_id);
 
+    // clear previous batch
+    text_state.vertices.count = 0;
+
     cursor_x := x;
+    chars_to_draw := 0;
 
     for i: 0..text.count - 1 {
         c := text[i];
@@ -205,7 +239,9 @@ text_draw :: (
         
         defer cursor_x += cast(float) glyph.advance * scale;
         
-        if glyph.texture_id == 0 continue;
+        if glyph.width == 0 || glyph.height == 0 {
+            continue;
+        }
 
         xpos := cursor_x + cast(float) glyph.bearing_x * scale;
         ypos := y - cast(float) (glyph.height - glyph.bearing_y) * scale;
@@ -213,22 +249,56 @@ text_draw :: (
         w := cast(float) glyph.width * scale;
         h := cast(float) glyph.height * scale;
 
-        vertices: [24] float = .[
-            xpos, ypos + h, 0.0, 0.0,
-            xpos, ypos, 0.0, 1.0,
-            xpos + w, ypos, 1.0, 1.0,
-            xpos, ypos + h, 0.0, 0.0,
-            xpos + w, ypos, 1.0, 1.0,
-            xpos + w, ypos + h, 1.0, 0.0,
-        ];
+        // append 6 vertices to batch
+    
+        // triangle 1
+        array_add(*text_state.vertices, xpos); // x
+        array_add(*text_state.vertices, ypos + h); // y
+        array_add(*text_state.vertices, glyph.uv.x); // u
+        array_add(*text_state.vertices, glyph.uv.y); // v
 
-        glBindTexture(GL_TEXTURE_2D, glyph.texture_id);
+        array_add(*text_state.vertices, xpos); // x
+        array_add(*text_state.vertices, ypos); // y
+        array_add(*text_state.vertices, glyph.uv.x); // u
+        array_add(*text_state.vertices, glyph.uv.w); // v
+
+        array_add(*text_state.vertices, xpos + w); // x
+        array_add(*text_state.vertices, ypos); // y
+        array_add(*text_state.vertices, glyph.uv.z); // u
+        array_add(*text_state.vertices, glyph.uv.w); // v
+
+        // triangle 2
+        array_add(*text_state.vertices, xpos); // x
+        array_add(*text_state.vertices, ypos + h); // y
+        array_add(*text_state.vertices, glyph.uv.x); // u
+        array_add(*text_state.vertices, glyph.uv.y); // v
+
+        array_add(*text_state.vertices, xpos + w); // x
+        array_add(*text_state.vertices, ypos); // y
+        array_add(*text_state.vertices, glyph.uv.z); // u
+        array_add(*text_state.vertices, glyph.uv.w); // v
+
+        array_add(*text_state.vertices, xpos + w); // x
+        array_add(*text_state.vertices, ypos + h); // y
+        array_add(*text_state.vertices, glyph.uv.z); // u
+        array_add(*text_state.vertices, glyph.uv.y); // v
+
+        chars_to_draw += 1;
         
+        if chars_to_draw >= MAX_BATCH_CHARS {
+            glBindBuffer(GL_ARRAY_BUFFER, text_state.vbo_id);
+            glBufferData(GL_ARRAY_BUFFER, size_of(float) * text_state.vertices.count, text_state.vertices.data, GL_DYNAMIC_DRAW);
+            glDrawArrays(GL_TRIANGLES, 0, cast(u32) (chars_to_draw * 6));
+            
+            text_state.vertices.count = 0;
+            chars_to_draw = 0;
+        }
+    }
+
+    if chars_to_draw > 0 {
         glBindBuffer(GL_ARRAY_BUFFER, text_state.vbo_id);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, size_of(float) * 24, vertices.data);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBufferData(GL_ARRAY_BUFFER, size_of(float) * text_state.vertices.count, text_state.vertices.data, GL_DYNAMIC_DRAW);
+        glDrawArrays(GL_TRIANGLES, 0, cast(u32) (chars_to_draw * 6));
     }
 
     glBindVertexArray(0);
@@ -282,45 +352,91 @@ load_glyphs :: (font: *Font) {
     FT_Set_Pixel_Sizes(font.face, 0, font.size);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+    ATLAS_WIDTH :: 1024;
+    ATLAS_HEIGHT :: 1024;
+
+    font.atlas_width = ATLAS_WIDTH;
+    font.atlas_height = ATLAS_HEIGHT;
+    
+    atlas_data := cast(*u8) alloc(ATLAS_WIDTH * ATLAS_HEIGHT);
+    defer free(atlas_data);
+    memset(atlas_data, 0, ATLAS_WIDTH * ATLAS_HEIGHT);
+
+    current_x := 0;
+    current_y := 0;
+    row_height := 0;
+    padding :: 1;
+
     for c: 0..127 {
         error := FT_Load_Char(font.face, cast(u64) c, FT_LOAD_RENDER);
         if error != 0 continue;
 
         glyph := font.face.glyph;
+        bmp := glyph.bitmap;
         
-        font.glyphs[c].width = cast(s32) glyph.bitmap.width;
-        font.glyphs[c].height = cast(s32) glyph.bitmap.rows;
+        font.glyphs[c].width = cast(s32) bmp.width;
+        font.glyphs[c].height = cast(s32) bmp.rows;
         font.glyphs[c].bearing_x = glyph.bitmap_left;
         font.glyphs[c].bearing_y = glyph.bitmap_top;
         font.glyphs[c].advance = cast(s32) (glyph.advance.x >> 6);
-        
-        if glyph.bitmap.width == 0 || glyph.bitmap.rows == 0 {
-            font.glyphs[c].texture_id = 0;
+
+        if bmp.width == 0 || bmp.rows == 0 {
             continue;
         }
+
+        // check if we need to move to next row
+        if current_x + cast(s32) bmp.width + padding >= ATLAS_WIDTH {
+            current_x = 0;
+            current_y += row_height + padding;
+            row_height = 0;
+        }
         
-        texture_id: u32;
-        glGenTextures(1, *texture_id);
-        glBindTexture(GL_TEXTURE_2D, texture_id);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_R8,
-            cast(u32) glyph.bitmap.width,
-            cast(u32) glyph.bitmap.rows,
-            0, 
-            GL_RED,
-            GL_UNSIGNED_BYTE,
-            glyph.bitmap.buffer
-        );
+        if cast(s32) bmp.rows > row_height {
+            row_height = cast(s32) bmp.rows;
+        }
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        // copy bitmap to atlas
+        for src_y: 0..bmp.rows - 1 {
+            for src_x: 0..bmp.width - 1 {
+                src_index := src_y * bmp.width + src_x;
+                dst_index := (current_y + src_y) * ATLAS_WIDTH + (current_x + src_x);
+                atlas_data[dst_index] = bmp.buffer[src_index];
+            }
+        }
 
-        font.glyphs[c].texture_id = texture_id;
+        // calculate uvs
+        u0 := cast(float) current_x / cast(float) ATLAS_WIDTH;
+        v0 := cast(float) current_y / cast(float) ATLAS_HEIGHT;
+        u1 := cast(float) (current_x + bmp.width) / cast(float) ATLAS_WIDTH;
+        v1 := cast(float) (current_y + bmp.rows) / cast(float) ATLAS_HEIGHT;
+        
+        font.glyphs[c].uv.x = u0;
+        font.glyphs[c].uv.y = v0;
+        font.glyphs[c].uv.z = u1;
+        font.glyphs[c].uv.w = v1;
+
+        current_x += cast(s32) bmp.width + padding;
     }
+
+    // create single atlas texture
+    glGenTextures(1, *font.atlas_texture_id);
+    glBindTexture(GL_TEXTURE_2D, font.atlas_texture_id);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_R8,
+        ATLAS_WIDTH,
+        ATLAS_HEIGHT,
+        0, 
+        GL_RED,
+        GL_UNSIGNED_BYTE,
+        atlas_data
+    );
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     font.line_height = cast(s32) (font.face.size.metrics.height >> 6);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
