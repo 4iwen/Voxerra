@@ -9,4 +9,4 @@
 	url = https://github.com/KhronosGroup/glTF-Sample-Assets
 [submodule "modules/jai-imgui"]
 	path = modules/jai-imgui
-	url = git@gitlab.com:Stowy/jai-imgui.git
+	url = https://gitlab.com/Stowy/jai-imgui.git
