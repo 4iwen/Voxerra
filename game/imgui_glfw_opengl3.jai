@@ -1,5 +1,5 @@
 // translated glfw/opengl3 backend from imgui repo
-// contains semi-evaluated conditional compilation for opengl 3.3 
+// contains semi-evaluated conditional compilation for opengl 3.3 and glfw 3.4
 
 // @ToDo: convert to my naming convention, hook up to my engine backend 
 
