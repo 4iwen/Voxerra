@@ -21,7 +21,7 @@ engine_state: Engine_State;
 #scope_export
 
 engine_init :: () -> bool {
-    install_logger();
+    log_install();
 
     if engine_state.platform_initialized {
         return true;

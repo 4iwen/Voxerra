@@ -95,6 +95,8 @@ window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {
 
 window_size_callback :: (window: *GLFWwindow, width: s32, height: s32) #c_call {
     push_context {
+        log_install();
+
         window_pointer := cast(*Window) glfwGetWindowUserPointer(window);
         if !window_pointer {
             log_warning("Failed to get window user pointer on size callback");

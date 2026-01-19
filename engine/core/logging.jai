@@ -39,14 +39,10 @@ colored_logger :: (message: string, data: *void, info: Log_Info) {
 
 #scope_export
 
-install_logger :: () {
+log_install :: () {
     context.logger = colored_logger;
     context.logger_data = null;
 }
-
-// log_warning :: (format_string: string, args: .. Any) {
-    // log(format_string, ..args, level = .WARNING);
-// }
 
 log_warning :: (
     format_string: string,

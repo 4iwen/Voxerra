@@ -1,12 +1,13 @@
-#import "Basic"()(MEMORY_DEBUGGER = true); // @TODO: should be only imported in debug builds
+#import "Basic"()(MEMORY_DEBUGGER = true); // @ToDo: should be only imported in debug builds
 #import "Math";
 #import "engine";
+
+#load "imgui_glfw_opengl3.jai";
 
 #load "camera_controller.jai";
 #load "skybox.jai";
 
 main :: () {
-    {
     if !engine_init() {
         log_error("Failed to init engine");
         return;
@@ -52,8 +53,29 @@ main :: () {
 
     font := font_get_default();
 
+    ImGui.CreateContext();
+    defer ImGui.DestroyContext();
+    
+    io := ImGui.GetIO();
+    io.ConfigFlags_ |= .NavEnableKeyboard;
+    io.ConfigFlags_ |= .DockingEnable;
+    io.ConfigFlags_ |= .ViewportsEnable;
+    ImGui.StyleColorsDark();
+
+    style := ImGui.GetStyle();
+    if (io.ConfigFlags_ & .ViewportsEnable)
+    {
+        style.WindowRounding = 0.0;
+        style.Colors[ImGui.Col.WindowBg].w = 1.0;
+    }
+
+    ImGui_ImplGlfw_InitForOpenGL(window.handle, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+    defer ImGui_ImplOpenGL3_Shutdown();
+    defer ImGui_ImplGlfw_Shutdown();
+
     while !window_should_close(window) {
-        memory_visualizer_per_frame_update(); // @TODO: should only be called in debug builds
+        memory_visualizer_per_frame_update(); // @ToDo: should only be called in debug builds
 
         delta_time := engine_update();
         camera_controller_update(*controller, window, delta_time);
@@ -115,11 +137,16 @@ main :: () {
         );
         fps_counter_draw();
 
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui.NewFrame();
+        ImGui.ShowDemoWindow();
+        ImGui.Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui.GetDrawData());
+
         renderer_end_frame();
         window_swap_buffers(window);
     }
-    }
-    memory_visualizer_per_frame_update();
 }
 
 generate_worley_texture :: (
@@ -153,5 +180,3 @@ generate_worley_texture :: (
     texture := texture_create_from_data(width, height, data);
     return texture;
 }
-
-

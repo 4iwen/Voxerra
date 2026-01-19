@@ -1,9 +1,12 @@
 [submodule "modules/glfw"]
 	path = modules/glfw
-	url = https://github.com/bugulo/jai-glfw
+	url = https://github.com/4iwen/jai-glfw
 [submodule "modules/jassimp"]
 	path = modules/jassimp
 	url = https://github.com/bloeys/jassimp/
 [submodule "assets/models/glTF-Sample-Assets"]
 	path = assets/models/glTF-Sample-Assets
 	url = https://github.com/KhronosGroup/glTF-Sample-Assets
+[submodule "modules/jai-imgui"]
+	path = modules/jai-imgui
+	url = git@gitlab.com:Stowy/jai-imgui.git

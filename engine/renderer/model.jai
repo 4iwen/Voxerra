@@ -157,7 +157,11 @@ assimp_load_meshes :: (
     if !scene {
         error := aiGetErrorString();
         if error {
-            log_error("Assimp failed to load file: %, Error: %", path, error);
+            log_error(
+                "Assimp failed to load file: %, Error: %",
+                path,
+                to_string(error)
+            );
         } else {
             log_error("Assimp failed to load file: %", path);
         }
@@ -168,7 +172,11 @@ assimp_load_meshes :: (
     if scene.mFlags & AI_SCENE_FLAGS_INCOMPLETE {
         error := aiGetErrorString();
         if error {
-            log_error("Assimp scene incomplete: %, Error: %", path, error);
+            log_error(
+                "Assimp scene incomplete: %, Error: %",
+                path,
+                to_string(error)
+            );
         } else {
             log_error("Assimp scene incomplete: %", path);
         }
