@@ -14,6 +14,16 @@ operator [] :: ImGui.operator [];
 
 #if OS == .WINDOWS {
     #import "Windows";
+
+    // put these here to avoid modifying the Windows.jai module
+    SetPropA :: (hwnd: HWND, name: *u8, data: *void) -> BOOL #foreign user32;
+    GetPropA :: (hwnd: HWND, name: *u8) -> *void #foreign user32;
+    GetWindowLongPtrW :: (hwnd: HWND, nIndex: s32) -> LONG_PTR #foreign user32;
+    CallWindowProcW :: (prev_wnd_proc: WNDPROC, hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT #foreign user32;
+
+    WNDPROC :: #type *(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT;
+    LONG_PTR :: s64; // @Cleanup: 64 bit only for now
+    GWLP_WNDPROC :: -4;
 }
 
 IMGUI_IMPL_GLFW_DISABLE_X11 :: false;
@@ -148,7 +158,7 @@ ImGui_ImplGlfw_InitForOpenGL :: (
         SetWindowLongPtrW(
             cast(HWND) main_viewport.PlatformHandleRaw,
             GWLP_WNDPROC,
-            cast(LONG_PTR) ImGui_ImplGlfw_WndProc
+            cast(LONG_PTR) cast(*void) ImGui_ImplGlfw_WndProc
         );
     }
 
@@ -254,9 +264,19 @@ ImGui_ImplGlfw_GetBackendData :: () -> *ImGui_ImplGlfw_Data {
 
 // @Cleanup: hack to get this function - its not in the bindings
 // i should fix up the bindings myself
-#if OS == .MACOS    imgui :: #library "../modules/jai-imgui/macos/ImGui";
-#if OS == .LINUX    imgui :: #library "../modules/jai-imgui/linux/ImGui";
-ImGui_GetIO :: (ctx: *ImGui.ImGuiContext) -> *ImGui.IO #foreign imgui "_ZN5ImGui5GetIOEP12ImGuiContext";
+// ImGui_GetIO :: (ctx: *ImGui.ImGuiContext) -> *ImGui.IO #foreign imgui "_ZN5ImGui5GetIOEP12ImGuiContext";
+#if OS == .MACOS {
+    imgui :: #library "../modules/jai-imgui/macos/ImGui";
+    ImGui_GetIO :: (ctx: *ImGui.ImGuiContext) -> *ImGui.IO #foreign imgui "_ZN5ImGui5GetIOEP12ImGuiContext";
+}
+#if OS == .LINUX {
+    imgui :: #library "../modules/jai-imgui/linux/ImGui";
+    ImGui_GetIO :: (ctx: *ImGui.ImGuiContext) -> *ImGui.IO #foreign imgui "_ZN5ImGui5GetIOEP12ImGuiContext";
+}
+#if OS == .WINDOWS {
+    imgui :: #library,no_dll "../modules/jai-imgui/windows/ImGui";
+    ImGui_GetIO :: (ctx: *ImGui.ImGuiContext) -> *ImGui.IO #foreign imgui "?GetIO@ImGui@@YAAEAUImGuiIO@@PEAUImGuiContext@@@Z";
+}
 
 ImGui_ImplGlfw_GetBackendData :: (window: *GLFWwindow) -> *ImGui_ImplGlfw_Data {
     ctx := ImGui_ImplGlfw_ContextMap_Get(window);
@@ -458,7 +478,7 @@ ImGui_ImplGlfw_TranslateUntranslatedKey :: (key: s32, scancode: s32) -> s32 {
     
     if key_name && key_name[0] != 0 && key_name[1] == 0 {
         char_names := "`-=[]\\,;'./";
-        char_keys: [12] s32 = .[
+        char_keys: [11] s32 = .[
             GLFW_KEY_GRAVE_ACCENT,
             GLFW_KEY_MINUS,
             GLFW_KEY_EQUAL,
@@ -469,8 +489,7 @@ ImGui_ImplGlfw_TranslateUntranslatedKey :: (key: s32, scancode: s32) -> s32 {
             GLFW_KEY_SEMICOLON,
             GLFW_KEY_APOSTROPHE,
             GLFW_KEY_PERIOD,
-            GLFW_KEY_SLASH,
-            0 
+            GLFW_KEY_SLASH
         ];
         assert(char_names.count == char_keys.count);
         if key_name[0] >= "0" && key_name[0] <= "9" {
@@ -1394,7 +1413,7 @@ ImGui_ImplGlfw_Shutdown :: () {
         SetWindowLongPtrW(
             cast(HWND) main_viewport.PlatformHandleRaw,
             GWLP_WNDPROC,
-            cast(LONG_PTR) bd.PrevWndProc
+            cast(LONG_PTR) bd.prev_wnd_proc
         );
         bd.prev_wnd_proc = null;
     }
@@ -1417,6 +1436,7 @@ ImGui_ImplGlfw_Shutdown :: () {
     ImGui.PlatformIO.ClearPlatformHandlers(platform_io);
     ImGui_ImplGlfw_ContextMap_Remove(bd.window);
     free(bd);
+    array_free(context_map);
 }
 
 ImGui_ImplGlfw_ShutdownMultiViewportSupport :: () {
@@ -2096,18 +2116,18 @@ ImGui_ImplGlfw_ShowWindow :: (viewport: *ImGui.Viewport) #c_call {
 
     #if OS == .WINDOWS {
         hwnd := cast(HWND) viewport.PlatformHandleRaw;
-        if viewport.Flags & ImGuiViewportFlags_NoTaskBarIcon {
-            ex_style: LONG = GetWindowLong(hwnd, GWL_EXSTYLE);
-            ex_style &= ~WS_EX_APPWINDOW;
+        if viewport.Flags & ImGui.ViewportFlags.ImGuiViewportFlags_NoTaskBarIcon {
+            ex_style: s32 = GetWindowLongA(hwnd, GWL_EXSTYLE);
+            ex_style &= ~cast(s32) WS_EX_APPWINDOW;
             ex_style |= WS_EX_TOOLWINDOW;
-            SetWindowLong(hwnd, GWL_EXSTYLE, ex_style);
+            SetWindowLongA(hwnd, GWL_EXSTYLE, ex_style);
         }
 
         SetPropA(hwnd, "IMGUI_VIEWPORT", viewport);
         vd.prev_wnd_proc = cast(WNDPROC) GetWindowLongPtrW(hwnd, GWLP_WNDPROC);
-        SetWindowLongPtrW(hwnd, GWLP_WNDPROC, cast(LONG_PTR) ImGui_ImplGlfw_WndProc);
+        SetWindowLongPtrW(hwnd, GWLP_WNDPROC, cast(LONG_PTR) cast(*void) ImGui_ImplGlfw_WndProc);
 
-        if viewport.Flags & ImGuiViewportFlags_NoFocusOnAppearing {
+        if viewport.Flags & ImGui.ViewportFlags.ImGuiViewportFlags_NoFocusOnAppearing {
             ShowWindow(hwnd, SW_SHOWNA);
             return;
         }
@@ -2116,7 +2136,7 @@ ImGui_ImplGlfw_ShowWindow :: (viewport: *ImGui.Viewport) #c_call {
     glfwShowWindow(vd.window);
 }
 
-ImGui_ImplGlfw_GetWindowPos :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #c_call {
+ImGui_ImplGlfw_GetWindowPos :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #cpp_return_type_is_non_pod #c_call {
     vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
     x: s32 = 0;
     y: s32 = 0;
@@ -2130,7 +2150,7 @@ ImGui_ImplGlfw_SetWindowPos :: (viewport: *ImGui.Viewport, pos: ImGui.ImVec2) #c
     glfwSetWindowPos(vd.window, cast(s32) pos.x, cast(s32) pos.y);
 }
 
-ImGui_ImplGlfw_GetWindowSize :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #c_call {
+ImGui_ImplGlfw_GetWindowSize :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #cpp_return_type_is_non_pod #c_call {
     vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
     w: s32 = 0;
     h: s32 = 0;
@@ -2144,7 +2164,7 @@ ImGui_ImplGlfw_SetWindowSize :: (viewport: *ImGui.Viewport, size: ImGui.ImVec2) 
     glfwSetWindowSize(vd.window, cast(s32) size.x, cast(s32) size.y);
 }
 
-ImGui_ImplGlfw_GetWindowFramebufferScale :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #c_call {
+ImGui_ImplGlfw_GetWindowFramebufferScale :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #cpp_return_type_is_non_pod #c_call {
     push_context {
         vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
         framebuffer_scale: ImGui.ImVec2;
@@ -2194,3 +2214,48 @@ ImGui_ImplGlfw_SetWindowAlpha :: (viewport: *ImGui.Viewport, alpha: float) #c_ca
     vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
     glfwSetWindowOpacity(vd.window, alpha);
 }
+
+#if OS == .WINDOWS {
+    GetMouseSourceFromMessageExtraInfo :: () -> ImGui.MouseSource #c_call {
+        push_context {
+            extra_info: LPARAM = GetMessageExtraInfo();
+            if (extra_info & 0xFFFFFF80) == 0xFF515700 {
+                return ImGui.MouseSource.ImGuiMouseSource_Pen;
+            }
+            if (extra_info & 0xFFFFFF80) == 0xFF515780 {
+                return ImGui.MouseSource.ImGuiMouseSource_TouchScreen;
+            }
+            return ImGui.MouseSource.ImGuiMouseSource_Mouse;
+        }
+    }
+
+    ImGui_ImplGlfw_WndProc :: (hWnd: HWND, msg: u32, wParam: WPARAM, lParam: LPARAM) -> LRESULT #c_call {
+        push_context {
+            bd := cast(*ImGui_ImplGlfw_Data) GetPropA(hWnd, "IMGUI_BACKEND_DATA");
+            io := ImGui_GetIO(bd.ctx);
+
+            if msg == {
+                case WM_MOUSEMOVE; #through;
+                case WM_NCMOUSEMOVE; #through;
+                case WM_LBUTTONDOWN; #through; 
+                case WM_LBUTTONDBLCLK; #through; 
+                case WM_LBUTTONUP; #through;
+                case WM_RBUTTONDOWN; #through; 
+                case WM_RBUTTONDBLCLK; #through; 
+                case WM_RBUTTONUP; #through;
+                case WM_MBUTTONDOWN; #through; 
+                case WM_MBUTTONDBLCLK; #through; 
+                case WM_MBUTTONUP; #through;
+                case WM_XBUTTONDOWN; #through; 
+                case WM_XBUTTONDBLCLK; #through; 
+                case WM_XBUTTONUP;
+                    ImGui.IO.AddMouseSourceEvent(io, GetMouseSourceFromMessageExtraInfo());
+            }
+            return CallWindowProcW(bd.prev_wnd_proc, hWnd, msg, wParam, lParam);
+        }
+    }
+}
+
+#scope_file
+
+user32   :: #library,system "user32";

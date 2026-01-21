@@ -266,7 +266,9 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     table_remove(*manager.hot_reload_shaders, key);
     free(asset.key);
 
-    log("Unloaded shader: %", key);
+    log("Unloaded shader: %, %", vertex_absolute, fragment_absolute);
+    free(vertex_path);
+    free(fragment_path);
 }
 
 asset_manager_load_font :: (
@@ -329,7 +331,8 @@ asset_manager_unload_font :: (path: string, pixel_size: u32) {
     table_remove(*manager.hot_reload_fonts, key);
     free(asset.key);
     
-    log("Unloaded font: %", path);
+    log("Unloaded font: %", asset.path);
+    free(asset.path);
 }
 
 asset_manager_load_model :: (
@@ -381,9 +384,9 @@ asset_manager_unload_model :: (path: string) {
     model_destroy(asset.model);
     table_remove(*manager.models, absolute_path);
     table_remove(*manager.hot_reload_models, absolute_path);
-    free(asset.path);
 
-    log("Unloaded model: %", path);
+    log("Unloaded model: %", asset.path);
+    free(asset.path);
 }
 
 #scope_file

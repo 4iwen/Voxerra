@@ -368,7 +368,7 @@ load_glyphs :: (font: *Font) {
     padding :: 1;
 
     for c: 0..127 {
-        error := FT_Load_Char(font.face, cast(u64) c, FT_LOAD_RENDER);
+        error := FT_Load_Char(font.face, cast(FT_ULong) c, FT_LOAD_RENDER);
         if error != 0 continue;
 
         glyph := font.face.glyph;

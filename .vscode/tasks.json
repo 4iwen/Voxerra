@@ -41,6 +41,9 @@
             "presentation": {
                 "clear": true,
                 "showReuseMessage": false
+            },
+            "windows": {
+                "command": "jai first.jai -quiet; .\\bin\\Voxerra.exe"
             }
         }
     ]
