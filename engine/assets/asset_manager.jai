@@ -86,16 +86,27 @@ asset_manager_init :: () {
 asset_manager_shutdown :: () {
     // unload assets
     for asset: manager.textures {
-        asset_manager_unload_texture(asset.path);
+        texture_destroy(asset.texture);
+        log("Unloaded texture: %", asset.path);
+        free(asset.path);
     }
     for asset: manager.shaders {
-        asset_manager_unload_shader(asset.vertex_path, asset.fragment_path);
+        shader_destroy(asset.shader);
+        log("Unloaded shader: %, %", asset.vertex_path, asset.fragment_path);
+        free(asset.vertex_path);
+        free(asset.fragment_path);
+        free(asset.key);
     }
     for asset: manager.fonts {
-        asset_manager_unload_font(asset.path, asset.pixel_size);
+        font_destroy(asset.font);
+        log("Unloaded font: %", asset.path);
+        free(asset.path);
+        free(asset.key);
     }
     for asset: manager.models {
-        asset_manager_unload_model(asset.path);
+        model_destroy(asset.model);
+        log("Unloaded model: %", asset.path);
+        free(asset.path);
     }
     
     // deinit tables
@@ -267,8 +278,6 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     free(asset.key);
 
     log("Unloaded shader: %, %", vertex_absolute, fragment_absolute);
-    free(vertex_path);
-    free(fragment_path);
 }
 
 asset_manager_load_font :: (

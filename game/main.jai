@@ -135,14 +135,14 @@ main :: () {
             .{1.0, 1.0, 1.0, 1.0}
         );
         fps_counter_draw();
-/*
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui.NewFrame();
         ImGui.ShowDemoWindow();
         ImGui.Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui.GetDrawData());
-*/
+
         renderer_end_frame();
         window_swap_buffers(window);
     }

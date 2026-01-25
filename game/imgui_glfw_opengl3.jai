@@ -2136,7 +2136,7 @@ ImGui_ImplGlfw_ShowWindow :: (viewport: *ImGui.Viewport) #c_call {
     glfwShowWindow(vd.window);
 }
 
-ImGui_ImplGlfw_GetWindowPos :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #cpp_return_type_is_non_pod #c_call {
+ImGui_ImplGlfw_GetWindowPos :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #c_call {
     vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
     x: s32 = 0;
     y: s32 = 0;
@@ -2150,7 +2150,7 @@ ImGui_ImplGlfw_SetWindowPos :: (viewport: *ImGui.Viewport, pos: ImGui.ImVec2) #c
     glfwSetWindowPos(vd.window, cast(s32) pos.x, cast(s32) pos.y);
 }
 
-ImGui_ImplGlfw_GetWindowSize :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #cpp_return_type_is_non_pod #c_call {
+ImGui_ImplGlfw_GetWindowSize :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #c_call {
     vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
     w: s32 = 0;
     h: s32 = 0;
@@ -2164,7 +2164,7 @@ ImGui_ImplGlfw_SetWindowSize :: (viewport: *ImGui.Viewport, size: ImGui.ImVec2) 
     glfwSetWindowSize(vd.window, cast(s32) size.x, cast(s32) size.y);
 }
 
-ImGui_ImplGlfw_GetWindowFramebufferScale :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #cpp_return_type_is_non_pod #c_call {
+ImGui_ImplGlfw_GetWindowFramebufferScale :: (viewport: *ImGui.Viewport) -> ImGui.ImVec2 #c_call {
     push_context {
         vd := cast(*ImGui_ImplGlfw_ViewportData) viewport.PlatformUserData;
         framebuffer_scale: ImGui.ImVec2;
