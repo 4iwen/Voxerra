@@ -1,12 +1,16 @@
 [submodule "modules/glfw"]
 	path = modules/glfw
 	url = https://github.com/4iwen/jai-glfw
+	branch = main
 [submodule "modules/jassimp"]
 	path = modules/jassimp
-	url = https://github.com/bloeys/jassimp/
+	url = https://github.com/4iwen/jassimp
+	branch = dev
 [submodule "assets/models/glTF-Sample-Assets"]
 	path = assets/models/glTF-Sample-Assets
 	url = https://github.com/KhronosGroup/glTF-Sample-Assets
+	branch = main
 [submodule "modules/jai-imgui"]
 	path = modules/jai-imgui
-	url = https://gitlab.com/Stowy/jai-imgui.git
+	url = https://github.com/4iwen/jai-imgui
+	branch = prod
