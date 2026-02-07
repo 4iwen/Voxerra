@@ -71,6 +71,10 @@ main :: () {
     ImplGlfw_InitForOpenGL(window.handle, true);
     ImplOpenGL3_Init("#version 330");
 
+    frame: u64 = 0;
+    FRAME_TIME_PLOT_COUNT :: 120;
+    frame_time_values: [FRAME_TIME_PLOT_COUNT] float;
+
     while !window_should_close(window) {
         // memory_visualizer_per_frame_update(); // @ToDo: should only be called in debug builds
 
@@ -138,6 +142,51 @@ main :: () {
         ImplGlfw_NewFrame();
         NewFrame();
         ShowDemoWindow();
+        {
+            Begin("Metrics");
+            
+            fps_text := tprint("FPS: %", formatFloat(
+                io.Framerate,
+                trailing_width = 1,
+                zero_removal = .NO
+            ));
+            Text(fps_text);
+
+            last_frame_time := 1000 / io.Framerate;
+            frame_time_text := tprint("Frame time: %ms", formatFloat(
+                last_frame_time,
+                trailing_width = 3,
+                zero_removal = .NO
+            ));
+            Text(frame_time_text);
+
+            frame_time_values[frame % FRAME_TIME_PLOT_COUNT] = last_frame_time;
+            frame_time_avg := 0.0;
+            for frame_time_values {
+                frame_time_avg += it;
+            }
+            frame_time_avg /= frame_time_values.count;
+            plot_overlay := tprint("Frame time avg: %", formatFloat(
+                frame_time_avg,
+                trailing_width = 3,
+                zero_removal = .NO
+            ));
+            plot_width := GetContentRegionAvail().x;
+            plot_scale_min := 0.0;
+            plot_scale_max := 250.0;
+            PlotHistogram(
+                "##Frame time plot",
+                frame_time_values.data,
+                cast(s32) frame_time_values.count,
+                cast(s32) frame, // set this offset later
+                temp_c_string(plot_overlay),
+                scale_min = plot_scale_min,
+                scale_max = plot_scale_max,
+                graph_size = ImVec2.{plot_width, 120}
+            );
+
+            End();
+        }
         Render();
         if io.ConfigFlags_ & .ViewportsEnable {
             backup_current_context := glfwGetCurrentContext();
@@ -149,6 +198,8 @@ main :: () {
 
         renderer_end_frame();
         window_swap_buffers(window);
+
+        frame += 1;
     }
 
     ImplOpenGL3_Shutdown();
