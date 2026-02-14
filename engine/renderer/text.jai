@@ -2,8 +2,6 @@
 
 #import "Basic";
 #import "Math";
-#import "Hash_Table";
-#import "File";
 #import "GL";
 #import "freetype";
 
@@ -13,6 +11,7 @@ Text_State :: struct {
     vbo_id: u32;
     shader: *Shader;
     vertices: [..] float;
+    dpi_scale: float = 1.0;
 }
 
 text_state: Text_State;
@@ -78,8 +77,10 @@ text_init :: () {
     
     array_reserve(*text_state.vertices, MAX_BATCH_CHARS * 6 * 4);
 
+    text_state.dpi_scale = engine_state.window.content_scale_x;
+
     default_font = font_create_from_file(
-        "assets/fonts/natural_mono_2/NaturalMono-Regular.ttf",
+        "assets/fonts/proggyforever/ProggyForever-Regular.ttf",
         48
     );
 
@@ -141,9 +142,7 @@ font_create_from_file :: (path: string, pixel_size: u32) -> *Font {
 }
 
 font_destroy :: (font: *Font) {
-    if !font {
-        return;
-    }
+    assert(font != null, "font_destroy: font is null");
 
     if font.atlas_texture_id != 0 {
         glDeleteTextures(1, *font.atlas_texture_id);
@@ -157,7 +156,7 @@ font_destroy :: (font: *Font) {
 }
 
 font_reload_from_file :: (font: *Font, path: string, pixel_size: u32) -> bool {
-    if !font return false;
+    assert(font != null, "font_reload_from_file: font is null");
     
     new_face: FT_Face;
     path_c_string := to_c_string(path);
@@ -189,13 +188,16 @@ text_draw :: (
     font_size: float,
     color := Vector4.{1.0, 1.0, 1.0, 1.0}
 ) -> width: float {
+    assert(font != null, "text_draw: font is null");
+
     // ascii only for now, utf-8 glyphs are ignored
     scale := font_size / cast(float) font.size;
 
     viewport: [4] s32;
     glGetIntegerv(GL_VIEWPORT, viewport.data);
-    screen_width := viewport[2];
-    screen_height := viewport[3];
+    dpi := text_state.dpi_scale;
+    screen_width  := cast(float) viewport[2] / dpi;
+    screen_height := cast(float) viewport[3] / dpi;
 
     // save blend state
     blend_enabled := glIsEnabled(GL_BLEND);
@@ -209,8 +211,8 @@ text_draw :: (
     shader_use(text_state.shader);
     
     projection := orthographic_projection_matrix(
-        0, cast(float) screen_width,
-        0, cast(float) screen_height,
+        0, screen_width,
+        0, screen_height,
         -1, 1
     );
     shader_set_mat4(text_state.shader, "u_projection", projection);
@@ -287,7 +289,12 @@ text_draw :: (
         
         if chars_to_draw >= MAX_BATCH_CHARS {
             glBindBuffer(GL_ARRAY_BUFFER, text_state.vbo_id);
-            glBufferData(GL_ARRAY_BUFFER, size_of(float) * text_state.vertices.count, text_state.vertices.data, GL_DYNAMIC_DRAW);
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                size_of(float) * text_state.vertices.count,
+                text_state.vertices.data,
+                GL_DYNAMIC_DRAW
+            );
             glDrawArrays(GL_TRIANGLES, 0, cast(u32) (chars_to_draw * 6));
             
             text_state.vertices.count = 0;
@@ -297,7 +304,12 @@ text_draw :: (
 
     if chars_to_draw > 0 {
         glBindBuffer(GL_ARRAY_BUFFER, text_state.vbo_id);
-        glBufferData(GL_ARRAY_BUFFER, size_of(float) * text_state.vertices.count, text_state.vertices.data, GL_DYNAMIC_DRAW);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            size_of(float) * text_state.vertices.count,
+            text_state.vertices.data,
+            GL_DYNAMIC_DRAW
+        );
         glDrawArrays(GL_TRIANGLES, 0, cast(u32) (chars_to_draw * 6));
     }
 
@@ -316,7 +328,7 @@ text_draw :: (
 }
 
 text_get_width :: (font: *Font, text: string, font_size: float) -> float {
-    if !font return 0;
+    assert(font != null, "text_get_width: font is null");
 
     scale := font_size / cast(float) font.size;
     width: float = 0;
@@ -329,19 +341,19 @@ text_get_width :: (font: *Font, text: string, font_size: float) -> float {
 }
 
 text_get_height :: (font: *Font, font_size: float) -> float {
-    if !font return 0;
-    scale := font_size / cast(float) font.size;
-    return cast(float) font.line_height * scale;
+    return font_get_line_height(font, font_size);
 }
 
 font_get_line_height :: (font: *Font, font_size: float) -> float {
-    if !font return 0;
+    assert(font != null, "font_get_line_height: font is null");
+
     scale := font_size / cast(float) font.size;
     return cast(float) font.line_height * scale;
 }
 
 font_get_baseline :: (font: *Font, font_size: float) -> float {
-    if !font return 0;
+    assert(font != null, "font_get_baseline: font is null");
+    
     scale := font_size / cast(float) font.size;
     return cast(float) (font.size / 4) * scale;
 }
@@ -399,7 +411,8 @@ load_glyphs :: (font: *Font) {
         for src_y: 0..bmp.rows - 1 {
             for src_x: 0..bmp.width - 1 {
                 src_index := src_y * bmp.width + src_x;
-                dst_index := (current_y + src_y) * ATLAS_WIDTH + (current_x + src_x);
+                dst_index :=
+                    (current_y + src_y) * ATLAS_WIDTH + (current_x + src_x);
                 atlas_data[dst_index] = bmp.buffer[src_index];
             }
         }

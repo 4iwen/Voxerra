@@ -1,7 +1,6 @@
 #scope_file
 
 #import "Basic";
-#import "Math";
 #import "File";
 #import "GL";
 
@@ -36,24 +35,36 @@ shader_create :: (vertex_source: string, fragment_source: string) -> *Shader {
     glShaderSource(vertex_id, 1, *temp_c_string(vertex_source), null);
     glCompileShader(vertex_id);
 
-    // check for errors
-    check_for_shader_compilation_errors(vertex_id);
+    if !check_for_shader_compilation_errors(vertex_id) {
+        glDeleteShader(vertex_id);
+        free(shader);
+        return null;
+    }
     
     // fragment shader
     fragment_id := glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragment_id, 1, *temp_c_string(fragment_source), null);
     glCompileShader(fragment_id);
 
-    // check for errors
-    check_for_shader_compilation_errors(fragment_id);
+    if !check_for_shader_compilation_errors(fragment_id) {
+        glDeleteShader(vertex_id);
+        glDeleteShader(fragment_id);
+        free(shader);
+        return null;
+    }
 
     program_id := glCreateProgram();
     glAttachShader(program_id, vertex_id);
     glAttachShader(program_id, fragment_id);
     glLinkProgram(program_id);
 
-    // check for errors
-    check_for_program_linking_errors(program_id);
+    if !check_for_program_linking_errors(program_id) {
+        glDeleteShader(vertex_id);
+        glDeleteShader(fragment_id);
+        glDeleteProgram(program_id);
+        free(shader);
+        return null;
+    }
 
     shader.id = program_id;
     shader.vertex_id = vertex_id;
@@ -62,6 +73,8 @@ shader_create :: (vertex_source: string, fragment_source: string) -> *Shader {
 }
 
 shader_destroy :: (shader: *Shader) {
+    assert(shader != null, "shader_destroy: shader is null");
+    
     glDeleteShader(shader.vertex_id);
     glDeleteShader(shader.fragment_id);
     glDeleteProgram(shader.id);
@@ -69,6 +82,8 @@ shader_destroy :: (shader: *Shader) {
 }
 
 shader_use :: (shader: *Shader) {
+    assert(shader != null, "shader_use: shader is null");
+
     glUseProgram(shader.id);
 
     shader_set_default_matrices(shader);
@@ -142,7 +157,7 @@ shader_set_texture :: (
 
 #scope_file
 
-check_for_shader_compilation_errors :: (shader_id: u32) -> bool{
+check_for_shader_compilation_errors :: (shader_id: u32) -> bool {
     LOG_BUFFER_SIZE :: 512;
     success: GLint;
 
@@ -179,14 +194,16 @@ shader_reload_from_file :: (
     vertex_path: string,
     fragment_path: string
 ) -> bool {
-    vertex_source := read_entire_file(vertex_path);
-    if !vertex_source {
+    vertex_source, vertex_success := read_entire_file(vertex_path);
+    defer free(vertex_source);
+    if !vertex_success {
         log_error("Failed to read vertex shader: %", vertex_path);
         return false;
     }
     
-    fragment_source := read_entire_file(fragment_path);
-    if !fragment_source {
+    fragment_source, fragment_success := read_entire_file(fragment_path);
+    defer free(fragment_source);
+    if !fragment_success {
         log_error("Failed to read fragment shader: %", fragment_path);
         return false;
     }

@@ -14,3 +14,7 @@
 	path = modules/jai-imgui
 	url = https://github.com/4iwen/jai-imgui
 	branch = prod
+[submodule "assets/fonts/proggyforever"]
+	path = assets/fonts/proggyforever
+	url = https://github.com/ocornut/proggyforever.git
+	branch = master

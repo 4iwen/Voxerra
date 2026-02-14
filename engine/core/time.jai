@@ -1,6 +1,5 @@
 #scope_file
 
-#import "Basic";
 #import "glfw";
 
 #scope_export

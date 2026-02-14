@@ -3,8 +3,6 @@
 #import "Basic";
 #import "Print_Color";
 
-#scope_file
-
 colored_logger :: (message: string, data: *void, info: Log_Info) {
     to_standard_error := (info.common_flags & .ERROR) != 0;
 

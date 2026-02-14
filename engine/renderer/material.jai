@@ -29,5 +29,7 @@ material_create :: () -> *Material {
 }
 
 material_destroy :: (material: *Material) {
+    assert(material != null, "material_destroy: material is null");
+
     free(material);
 }

@@ -63,6 +63,8 @@ model_create_from_file :: (
 }
 
 model_destroy :: (model: *Model) {
+    assert(model != null, "model_destroy: model is null");
+    
     if model.name {
         free(model.name);
     }
@@ -71,12 +73,12 @@ model_destroy :: (model: *Model) {
         mesh_destroy(it.mesh);
         free(it);
     }
-    array_reset(*model.submeshes);
+    array_free(model.submeshes);
 
     for model.materials {
         material_destroy(it);
     }
-    array_reset(*model.materials);
+    array_free(model.materials);
 
     free(model);
 }
@@ -295,6 +297,51 @@ assimp_load_meshes :: (
             }
         }
 
+        // transparency
+        {
+            try_load_string :: (mat: *aiMaterial, key: string) -> bool, string {
+                ai_str: aiString;
+                key_c := to_c_string(key);
+                defer free(key_c);
+                if aiGetMaterialString(mat, key_c, 0, 0, *ai_str) == .SUCCESS {
+                    len := cast(s64) ai_str.length;
+                    if len > 0 {
+                        src: string;
+                        src.data = ai_str.data.data;
+                        src.count = len;
+                        result := copy_string(src);
+                        return true, result;
+                    }
+                }
+                return false, "";
+            }
+
+            ok_mode, mode_str := try_load_string(ai_mat, "$mat.gltf.alphaMode");
+            if ok_mode {
+                if mode_str == "BLEND" {
+                    material.is_transparent = true;
+                    material.alpha_cutoff = 0.0; // no cutoff for blend mode
+                } else if mode_str == "MASK" {
+                    // use alpha cutoff for masked geometry
+                    ok_cutoff, cutoff := try_load_float(ai_mat, "$mat.gltf.alphaCutoff");
+                    if ok_cutoff {
+                        material.alpha_cutoff = cutoff;
+                    } else {
+                        material.alpha_cutoff = 0.5; // glTF default
+                    }
+                }
+                if mode_str.count > 0 free(mode_str);
+            }
+
+            // also check base color alpha
+            c4: aiColor4D;
+            key_c := to_c_string("$clr.diffuse");
+            defer free(key_c);
+            if aiGetMaterialColor(ai_mat, key_c, 0, 0, *c4) == .SUCCESS {
+                material.color = .{c4.r, c4.g, c4.b, c4.a};
+            }
+        }
+
         // textures
         // albedo
         {
@@ -305,7 +352,7 @@ assimp_load_meshes :: (
             }
         }
 
-        // normal 
+        // metallic roughness
         {
             types := aiTextureType.[.GLTF_METALLIC_ROUGHNESS, .UNKNOWN];
             tex := load_texture_from_material(scene, ai_mat, types, path, false);
@@ -314,14 +361,20 @@ assimp_load_meshes :: (
                 material.metallic_roughness_texture = tex;
             } else {
                 types := aiTextureType.[.METALNESS];
-                tex := load_texture_from_material(scene, ai_mat, types, path, false);
+                tex := load_texture_from_material(
+                    scene,
+                    ai_mat,
+                    types,
+                    path,
+                    false
+                );
                 if tex {
                     material.metallic_roughness_texture = tex;
                 }
             }
         }
 
-        // oclussion
+        // occlusion
         {
             types := aiTextureType.[.AMBIENT_OCCLUSION, .LIGHTMAP];
             tex := load_texture_from_material(scene, ai_mat, types, path, false);
@@ -379,8 +432,13 @@ load_texture_from_material :: (
 
         if ai_path.data[0] == #char "*" {
             // embedded texture
-            tex_idx := ai_path.data[1] - #char "0";
-            if tex_idx < 0 || tex_idx >= cast(u8) scene.mNumTextures {
+            tex_idx: s32 = 0;
+            for i: 1..tex_len - 1 {
+                c := ai_path.data[i];
+                if c < #char "0" || c > #char "9" break;
+                tex_idx = tex_idx * 10 + cast(s32) (c - #char "0");
+            }
+            if tex_idx < 0 || tex_idx >= cast(s32) scene.mNumTextures {
                 continue;
             }
 
@@ -424,7 +482,11 @@ load_texture_from_material :: (
         } else {
             // external texture
             model_abs, success := get_absolute_path(model_path);
-            assert(success, "Failed to get absolute path for texture: %", model_path);
+            assert(
+                success,
+                "Failed to get absolute path for texture: %",
+                model_path
+            );
 
             folder := model_abs;
             last_slash := -1;

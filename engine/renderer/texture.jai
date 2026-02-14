@@ -92,10 +92,17 @@ texture_create_from_file :: (
     channels: s32;
     path_c_string := to_c_string(path);
     defer free(path_c_string);
-    data := stbi_load(path_c_string, *width, *height, *channels, desired_channels);
+    data := stbi_load(
+        path_c_string,
+        *width,
+        *height,
+        *channels,
+        desired_channels
+    );
 
     if !data {
         log_error("Failed to load texture: %, using default", path);
+        free(texture);
         return texture_get_default();
     }
 
@@ -227,11 +234,15 @@ texture_create_from_data :: (
 }
 
 texture_bind :: (texture: *Texture, slot: u32 = 0) {
+    assert(texture != null, "texture_bind: texture is null");
+    
     glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(GL_TEXTURE_2D, texture.id);
 }
 
 texture_destroy :: (texture: *Texture) {
+    assert(texture != null, "texture_destroy: texture is null");
+
     glDeleteTextures(1, *texture.id);
     free(texture);
 }

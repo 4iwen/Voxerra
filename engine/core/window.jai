@@ -30,7 +30,6 @@ window_create :: (width: s32, height: s32, title: *u8) -> *Window {
     handle := glfwCreateWindow(width, height, title, null, null);
     if (!handle) {
         log_error("Failed to create glfw window");
-        glfwTerminate();
         return null;
     }
 
@@ -65,12 +64,16 @@ window_create :: (width: s32, height: s32, title: *u8) -> *Window {
 }
 
 window_destroy :: (window: *Window) {
+    assert(window != null, "window_destroy: window is null");
+
     glfwDestroyWindow(window.handle);
     free(window);
     log("Destroyed glfw window");
 }
 
 window_should_close :: (window: *Window) -> bool {
+    assert(window != null, "window_should_close: window is null");
+
     return cast(bool) glfwWindowShouldClose(window.handle);
 }
 
@@ -79,6 +82,8 @@ window_poll_events :: () {
 }
 
 window_swap_buffers :: (window: *Window) {
+    assert(window != null, "window_swap_buffers: window is null");
+
     glfwSwapBuffers(window.handle);
 }
 
@@ -87,6 +92,8 @@ window_set_vsync :: (vsync: bool) {
 }
 
 window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {
+    assert(window != null, "window_set_cursor_mode: window is null");
+    
     glfwSetInputMode(window.handle, GLFW_CURSOR, cast(s32) mode);
     input_reset_mouse_position(window.handle);
 }

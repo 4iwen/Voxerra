@@ -22,7 +22,11 @@
 #load "renderer/material.jai";
 #load "renderer/model.jai";
 #load "renderer/light.jai";
+#load "renderer/framebuffer.jai";
 
 #load "assets/asset_manager.jai";
 
 #load "debug/fps_counter.jai";
+
+#load "ui/ui.jai";
+#load "ui/metrics_window.jai";

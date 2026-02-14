@@ -1,11 +1,8 @@
 #scope_file
 
 #import "Basic";
-#import "File";
-#import "Hash_Table";
 #import "GL";
 #import "Math";
-#import "String";
 
 #scope_export
 
@@ -124,6 +121,8 @@ mesh_create :: (vertices: [] Vertex, indices: [] u32) -> *Mesh {
 }
 
 mesh_destroy :: (mesh: *Mesh) {
+    assert(mesh != null, "mesh_destroy: mesh is null");
+
     glDeleteVertexArrays(1, *mesh.vao_id);
     glDeleteBuffers(1, *mesh.vbo_id);
     glDeleteBuffers(1, *mesh.ebo_id);
@@ -131,6 +130,8 @@ mesh_destroy :: (mesh: *Mesh) {
 }
 
 mesh_draw :: (mesh: *Mesh) {
+    assert(mesh != null, "mesh_draw: mesh is null");
+    
     glBindVertexArray(mesh.vao_id);
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, null);
     glBindVertexArray(0);

@@ -1,8 +1,3 @@
-#scope_file
-
-#import "Basic";
-#import "engine";
-
 #scope_export
 
 Skybox :: struct {
@@ -24,7 +19,9 @@ skybox_init :: () -> *Skybox {
 }
 
 skybox_shutdown :: (skybox: *Skybox) {
-    free(skybox.mesh);
+    assert(skybox != null, "skybox_shutdown: skybox is null");
+
+    mesh_destroy(skybox.mesh);
     free(skybox);
 }
 
@@ -35,6 +32,8 @@ skybox_draw :: (
     sun_direction: Vector3,
     sun_color: Vector3
 ) {
+    assert(skybox != null, "skybox_draw: skybox is null");
+    
     renderer_begin_far_depth_pass();
     shader_use(skybox.shader);
     

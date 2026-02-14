@@ -28,9 +28,13 @@ renderer_shutdown :: () {
     log("Shutdown renderer");
 }
 
-renderer_begin_frame :: (color: Vector4 = .{1, 1, 1, 1}) {
+renderer_clear :: (color: Vector4 = .{0, 0, 0, 1}) {
     glClearColor(color.x, color.y, color.z, color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+renderer_begin_frame :: (color: Vector4 = .{1, 1, 1, 1}) {
+    renderer_clear(color);
 }
 
 renderer_end_frame :: () {

@@ -1,7 +1,3 @@
-#scope_file
-
-#import "engine";
-
 #scope_export
 
 Camera_Controller :: struct {
@@ -22,6 +18,9 @@ camera_controller_update :: (
     window: *Window,
     delta_time: float64
 ) {
+    assert(controller != null, "camera_controller_update: controller is null");
+    assert(window != null, "camera_controller_update: window is null");
+    
     // toggle camera control
     if input_mouse_pressed(.RIGHT) {
         window_set_cursor_mode(window, .DISABLED);

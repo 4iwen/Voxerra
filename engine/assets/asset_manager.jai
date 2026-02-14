@@ -335,13 +335,12 @@ asset_manager_unload_font :: (path: string, pixel_size: u32) {
     }
     
     font_destroy(asset.font);
-    free(asset.path);
     table_remove(*manager.fonts, key);
     table_remove(*manager.hot_reload_fonts, key);
-    free(asset.key);
     
     log("Unloaded font: %", asset.path);
     free(asset.path);
+    free(asset.key);
 }
 
 asset_manager_load_model :: (

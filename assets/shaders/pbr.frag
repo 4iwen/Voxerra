@@ -26,9 +26,6 @@ uniform bool u_has_occlusion_map;
 uniform bool u_has_emissive_map;
 
 uniform vec3 u_camera_position;
-uniform vec4 u_mat_color;
-uniform float u_mat_metallic;
-uniform float u_mat_roughness;
 uniform float u_alpha_cutoff;
 uniform vec3 u_emissive_factor;
 uniform float u_emissive_strength;
@@ -95,9 +92,16 @@ vec3 fresnel_schlick(float cos_theta, vec3 f0) {
 void main() {
     // albedo
     vec3 albedo = u_albedo;
+    float alpha = 1.0;
     if (u_has_albedo_map) {
         vec4 tex_albedo = texture(u_albedo_map, v_uv);
         albedo *= pow(tex_albedo.rgb, vec3(2.2));
+        alpha = tex_albedo.a;
+    }
+
+    // alpha cutoff
+    if (alpha < u_alpha_cutoff) {
+        discard;
     }
 
     // metallic, roughness
@@ -208,7 +212,7 @@ void main() {
     }   
 
     // ambient lighting
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 ambient = u_ambient_color * albedo * ao;
     vec3 final_color = ambient + lo + emissive;
 
     // hdr tonemapping
@@ -216,5 +220,5 @@ void main() {
     // gamma correct
     final_color = pow(final_color, vec3(1.0 / 2.2)); 
 
-    color = vec4(final_color, 1.0);
+    color = vec4(final_color, alpha);
 }

@@ -9,6 +9,7 @@ Engine_State :: struct {
     asset_manager_initialized: bool;
     renderer_initialized: bool;
     text_initialized: bool;
+    ui_initialized: bool;
     window: *Window;
     last_time: float64;
     delta_time: float64;
@@ -60,6 +61,9 @@ window_init :: (
     text_init();
     engine_state.text_initialized = true;
 
+    ui_init(window);
+    engine_state.ui_initialized = true;
+
     engine_state.last_time = time_get();
     engine_state.delta_time = 0;
 
@@ -72,22 +76,40 @@ engine_get_delta_time :: () -> float64 {
     return engine_state.delta_time;
 }
 
-engine_update :: () -> float64 {
+engine_begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) -> float64 {
     // delta time
     current_time := time_get();
     delta_time := current_time - engine_state.last_time;
     engine_state.last_time = current_time;
     engine_state.delta_time = delta_time;
 
-    // engine work
+    // engine systems
     asset_manager_update();
     input_poll();
     window_poll_events();
 
+    // ui
+    ui_begin_frame();
+    ui_draw();
+
+    // render
+    renderer_begin_frame(clear_color);
+
     return delta_time;
 }
 
+engine_end_frame :: () {
+    ui_end_frame();
+    renderer_end_frame();
+    window_swap_buffers(engine_state.window);
+}
+
 engine_shutdown :: () {
+    if engine_state.ui_initialized {
+        ui_shutdown();
+        engine_state.ui_initialized = false;
+    }
+
     if engine_state.asset_manager_initialized {
         asset_manager_shutdown();
         engine_state.asset_manager_initialized = false;
@@ -107,6 +129,8 @@ engine_shutdown :: () {
         window_destroy(engine_state.window);
         engine_state.window = null;
     }
+
+    input_shutdown();
 
     if engine_state.platform_initialized {
         platform_shutdown();

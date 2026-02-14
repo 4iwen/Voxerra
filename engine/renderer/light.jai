@@ -37,7 +37,9 @@ light_system_create :: (ambient: Vector3 = .{0, 0, 0}) -> Light_System {
 }
 
 light_system_destroy :: (system: *Light_System) {
-    array_reset(*system.lights);
+    assert(system != null, "light_system_destroy: system is null");
+
+    array_free(system.lights);
 }
 
 light_add_directional :: (
@@ -46,6 +48,8 @@ light_add_directional :: (
     color: Vector3 = .{1, 1, 1},
     intensity: float = 1.0
 ) {
+    assert(system != null, "light_add_directional: system is null");
+
     l: Light;
     l.type = .Directional;
     l.direction = normalize(direction);
@@ -61,6 +65,8 @@ light_add_point :: (
     intensity: float = 1.0,
     range: float = 10.0
 ) {
+    assert(system != null, "light_add_point: system is null");
+
     l: Light;
     l.type = .Point;
     l.position = position;
@@ -80,6 +86,8 @@ light_add_spot :: (
     inner_deg: float = 20.0,
     outer_deg: float = 30.0
 ) {
+    assert(system != null, "light_add_spot: system is null");
+
     l: Light;
     l.type = .Spot;
     l.position = position;
@@ -94,6 +102,9 @@ light_add_spot :: (
 
 // upload lights to shader
 light_upload_to_shader :: (shader: *Shader, system: *Light_System) {
+    assert(shader != null, "light_upload_to_shader: shader is null");
+    assert(system != null, "light_upload_to_shader: system is null");
+    
     shader_set_vec3(shader, "u_ambient_color", system.ambient_color);
 
     count := system.lights.count;

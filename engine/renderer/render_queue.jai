@@ -25,10 +25,14 @@ render_queue_create :: () -> Render_Queue {
 }
 
 render_queue_destroy :: (queue: *Render_Queue) {
-    array_reset(*queue.items);
+    assert(queue != null, "render_queue_destroy: queue is null");
+
+    array_free(queue.items);
 }
 
 render_queue_clear :: (queue: *Render_Queue) {
+    assert(queue != null, "render_queue_clear: queue is null");
+
     array_reset(*queue.items);
 }
 
@@ -38,6 +42,10 @@ render_queue_submit :: (
     shader: *Shader,
     transform := Transform.{}
 ) {
+    assert(queue != null, "render_queue_submit: queue is null");
+    assert(model != null, "render_queue_submit: model is null");
+    assert(shader != null, "render_queue_submit: shader is null");
+
     item: Render_Item;
     item.model = model;
     item.shader = shader;
@@ -52,6 +60,10 @@ render_queue_submit :: (
     texture: *Texture = null,
     transform := Transform.{}
 ) {
+    assert(queue != null, "render_queue_submit: queue is null");
+    assert(mesh != null, "render_queue_submit: mesh is null");
+    assert(shader != null, "render_queue_submit: shader is null");
+    
     item: Render_Item;
     item.mesh = mesh;
     item.shader = shader;
@@ -67,7 +79,8 @@ render_queue_flush :: (
     camera_pos: Vector3,
     lights: *Light_System = null
 ) {
-    // temporary storage for sorting
+    assert(queue != null, "render_queue_flush: queue is null");
+
     opaque_cmds: [..] Draw_Command;
     transparent_cmds: [..] Draw_Command;
     opaque_cmds.allocator = temp;
@@ -95,7 +108,7 @@ render_queue_flush :: (
     for cmd: transparent_cmds {
         draw_command_execute(cmd, view, projection, camera_pos, lights);
     }
-    
+    ;
     glDepthMask(GL_TRUE);
 }
 
@@ -147,7 +160,8 @@ process_render_item :: (
             if sm.material {
                 cmd.albedo_texture = sm.material.albedo_texture;
                 cmd.normal_texture = sm.material.normal_texture;
-                cmd.metallic_roughness_texture = sm.material.metallic_roughness_texture;
+                cmd.metallic_roughness_texture =
+                    sm.material.metallic_roughness_texture;
                 cmd.occlusion_texture = sm.material.occlusion_texture;
                 cmd.emissive_texture = sm.material.emissive_texture;
                 
@@ -182,7 +196,8 @@ process_render_item :: (
         
         populate_default_material_props(*cmd);
         
-        // single mesh items are currently always treated as opaque unless we add logic here
+        // single mesh items are currently always treated as opaque
+        // unless we add logic here
         array_add(opaque_cmds, cmd);
     }
 }
@@ -196,7 +211,13 @@ populate_default_material_props :: (cmd: *Draw_Command) {
     cmd.emissive_strength = 1.0;
 }
 
-draw_command_execute :: (cmd: Draw_Command, view: Matrix4, projection: Matrix4, camera_pos: Vector3, lights: *Light_System) {
+draw_command_execute :: (
+    cmd: Draw_Command,
+    view: Matrix4,
+    projection: Matrix4,
+    camera_pos: Vector3,
+    lights: *Light_System
+) {
     shader_use(cmd.shader);
     shader_set_mat4(cmd.shader, "u_projection", projection);
     shader_set_mat4(cmd.shader, "u_view", view);
@@ -228,6 +249,7 @@ draw_command_execute :: (cmd: Draw_Command, view: Matrix4, projection: Matrix4, 
     shader_set_float(cmd.shader, "u_metallic", cmd.metallic);
     shader_set_float(cmd.shader, "u_roughness", cmd.roughness);
     shader_set_float(cmd.shader, "u_ambient_occlusion", 1.0); 
+    shader_set_float(cmd.shader, "u_alpha_cutoff", cmd.alpha_cutoff);
 
     shader_set_vec3(cmd.shader, "u_emissive_factor", cmd.emissive_color);
     shader_set_float(cmd.shader, "u_emissive_strength", cmd.emissive_strength);
@@ -235,15 +257,39 @@ draw_command_execute :: (cmd: Draw_Command, view: Matrix4, projection: Matrix4, 
     // Bind textures
     shader_set_texture(cmd.shader, "u_albedo_map", cmd.albedo_texture, 0);
     shader_set_texture(cmd.shader, "u_normal_map", cmd.normal_texture, 1);
-    shader_set_texture(cmd.shader, "u_metallic_roughness_map", cmd.metallic_roughness_texture, 2);
+    shader_set_texture(
+        cmd.shader,
+        "u_metallic_roughness_map",
+        cmd.metallic_roughness_texture,
+        2
+    );
     shader_set_texture(cmd.shader, "u_occlusion_map", cmd.occlusion_texture, 3);
     shader_set_texture(cmd.shader, "u_emissive_map", cmd.emissive_texture, 4);
 
-    shader_set_int(cmd.shader, "u_has_albedo_map", cast(s32) ifx cmd.albedo_texture then 1 else 0);
-    shader_set_int(cmd.shader, "u_has_normal_map", cast(s32) ifx cmd.normal_texture then 1 else 0);
-    shader_set_int(cmd.shader, "u_has_metallic_roughness_map", cast(s32) ifx cmd.metallic_roughness_texture then 1 else 0);
-    shader_set_int(cmd.shader, "u_has_occlusion_map", cast(s32) ifx cmd.occlusion_texture then 1 else 0);
-    shader_set_int(cmd.shader, "u_has_emissive_map", cast(s32) ifx cmd.emissive_texture then 1 else 0);
+    shader_set_int(
+        cmd.shader,
+        "u_has_albedo_map",
+        cast(s32) ifx cmd.albedo_texture then 1 else 0
+    );
+    shader_set_int(
+        cmd.shader,
+        "u_has_normal_map",
+        cast(s32) ifx cmd.normal_texture then 1 else 0
+    );
+    shader_set_int(
+        cmd.shader,
+        "u_has_metallic_roughness_map",
+        cast(s32) ifx cmd.metallic_roughness_texture then 1 else 0
+    );
+    shader_set_int(
+        cmd.shader,
+        "u_has_occlusion_map",
+        cast(s32) ifx cmd.occlusion_texture then 1 else 0
+    );
+    shader_set_int(
+        cmd.shader,
+        "u_has_emissive_map", cast(s32) ifx cmd.emissive_texture then 1 else 0
+    );
     
     mesh_draw(cmd.mesh);
 }

@@ -242,6 +242,10 @@ input_text :: () -> [..] u32 {
     return input_state.text_input;
 }
 
+input_shutdown :: () {
+    array_free(input_state.text_input);
+}
+
 #scope_file
 
 key_callback :: (
@@ -255,6 +259,9 @@ key_callback :: (
     // no need for mapping since our keys are based on glfw
     engine_key := key;
     if engine_key == cast(s32) Key_Code.UNKNOWN {
+        return;
+    }
+    if engine_key < 0 || engine_key >= cast(s32) KEY_CODE_COUNT {
         return;
     }
 
@@ -297,8 +304,8 @@ scroll_callback :: (
     xoffset: float64,
     yoffset: float64
 ) #c_call {
-    input_state.scroll_x = xoffset;
-    input_state.scroll_y = yoffset;
+    input_state.scroll_x += xoffset;
+    input_state.scroll_y += yoffset;
 }
 
 char_callback :: (window: *GLFWwindow, codepoint: u32) #c_call {
