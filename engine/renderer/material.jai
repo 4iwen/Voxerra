@@ -5,31 +5,64 @@
 
 #scope_export
 
-Material :: struct {
-    name: string;
-    color: Vector4 = .{1.0, 1.0, 1.0, 1.0};
-    metallic: float = 0.0;
-    roughness: float = 0.5;
-    alpha_cutoff: float = 0.01;
-    is_transparent: bool = false;
-
-    albedo_texture: *Texture = null;
-    normal_texture: *Texture = null;
-    metallic_roughness_texture: *Texture = null;
-    occlusion_texture: *Texture = null;
-    emissive_texture: *Texture = null;
-
-    emissive_color: Vector3 = .{0, 0, 0};
-    emissive_strength: float = 1.0;
+Blend_Mode :: enum {
+    OPAQUE;
+    ALPHA_CLIP;
+    ALPHA_BLEND;
 }
 
-material_create :: () -> *Material {
+Material :: struct {
+    name: string;
+
+    // properties
+    diffuse_color: Vector3 = .{1, 1, 1};
+    specular_color: Vector3 = .{1, 1, 1};
+    shininess: float = 32.0;
+
+    // texture maps
+    diffuse_map: *Texture; // if null, uses diffuse color
+    specular_map: *Texture; // if null, uses specular color
+
+    // alpha
+    alpha: float = 1.0;
+    alpha_cutoff: float = 0.5;
+
+    // rendering
+    shader: *Shader;
+    blend_mode: Blend_Mode = .OPAQUE;
+}
+
+material_create :: (name: string = "") -> *Material {
     material := New(Material);
+    material.name = copy_string(name);
+
     return material;
 }
 
 material_destroy :: (material: *Material) {
     assert(material != null, "material_destroy: material is null");
 
+    free(material.name);
     free(material);
+}
+
+material_use :: (material: *Material) {
+    // diffuse
+    if material.diffuse_map {
+        texture_bind(material.diffuse_map, 0);
+    } else {
+        texture_bind(asset_manager_get_default_texture(), 0);
+    }
+    shader_set_int(material.shader, "u_material.diffuse", 0);
+
+    // specular
+    if material.specular_map {
+        texture_bind(material.specular_map, 1);
+    } else {
+        texture_bind(asset_manager_get_default_texture(), 1);
+    }
+    shader_set_int(material.shader, "u_material.specular", 1);
+
+    // shininess
+    shader_set_float(material.shader, "u_material.shininess", material.shininess);
 }

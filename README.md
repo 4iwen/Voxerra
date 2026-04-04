@@ -13,4 +13,8 @@
 ## TODO
 - Add shadows
 - Fix transparency
-- Clean up render queue
+- Add a way to set up environment (skybox, ambient lighting, etc.)
+- Add gizmos
+- Add components
+- Add scene descriptor file, saving and loading scenes
+

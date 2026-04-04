@@ -18,15 +18,19 @@
 #load "renderer/camera.jai";
 #load "renderer/texture.jai";
 #load "renderer/render_queue.jai";
-#load "renderer/text.jai";
 #load "renderer/material.jai";
 #load "renderer/model.jai";
 #load "renderer/light.jai";
 #load "renderer/framebuffer.jai";
+#load "renderer/scene.jai";
+#load "renderer/scene_serializer.jai";
 
 #load "assets/asset_manager.jai";
 
-#load "debug/fps_counter.jai";
-
 #load "ui/ui.jai";
-#load "ui/metrics_window.jai";
+#load "ui/widgets.jai";
+#load "ui/metrics.jai";
+#load "ui/scene_graph.jai";
+#load "ui/properties.jai";
+#load "ui/main_menu.jai";
+#load "ui/viewport.jai";

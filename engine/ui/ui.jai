@@ -6,18 +6,20 @@
 #import "jai-imgui";
 #load "../../modules/jai-imgui/backends/glfw_opengl3.jai";
 
-#scope_export
+#scope_module
 
 UI_State :: struct {
 	imgui_context: *ImGuiContext;
-	demo: bool;
+	draw_demo: bool;
+	rotation_state: Rotation_Edit_State;
+	viewport_hovered: bool;
+	viewport_focused: bool;
 }
 
 ui_state: UI_State;
 
 ui_init :: (window: *Window) {
 	ui_state.imgui_context = CreateContext();
-	ui_state.demo = false;
     
     io := GetIO();
     io.ConfigFlags_ |= .NavEnableKeyboard;
@@ -46,6 +48,13 @@ ui_shutdown :: () {
 }
 
 ui_begin_frame :: () {
+    io := GetIO();
+    if input_state.cursor_disabled {
+        io.ConfigFlags_ |= .NoMouse;
+    } else {
+        io.ConfigFlags_ &= ~.NoMouse;
+    }
+
     ImplOpenGL3_NewFrame();
     ImplGlfw_NewFrame();
     NewFrame();
@@ -57,8 +66,8 @@ ui_begin_frame :: () {
 		DockNodeFlags.PassthruCentralNode
 	);
 
-	if ui_state.demo {
-		ShowDemoWindow();
+	if ui_state.draw_demo {
+		ShowDemoWindow(*ui_state.draw_demo);
 	}
 }
 
@@ -139,8 +148,8 @@ ui_set_theme :: () {
 	style.Colors[Col.ImGuiCol_ButtonHovered] = .{0.24705882, 0.24705882, 0.24705882, 1.0};
 	style.Colors[Col.ImGuiCol_ButtonActive] = .{0.32941177, 0.32941177, 0.32941177, 1.0};
 	style.Colors[Col.ImGuiCol_Header] = .{0.9764706, 0.9764706, 0.9764706, 0.30980393};
-	style.Colors[Col.ImGuiCol_HeaderHovered] = .{0.9764706, 0.9764706, 0.9764706, 0.8};
-	style.Colors[Col.ImGuiCol_HeaderActive] = .{0.9764706, 0.9764706, 0.9764706, 1.0};
+	style.Colors[Col.ImGuiCol_HeaderHovered] = .{0.9764706, 0.9764706, 0.9764706, 0.56862745};
+	style.Colors[Col.ImGuiCol_HeaderActive] = .{0.9764706, 0.9764706, 0.9764706, 0.82745098};
 	style.Colors[Col.ImGuiCol_Separator] = .{0.42745098, 0.42745098, 0.49803922, 0.5};
 	style.Colors[Col.ImGuiCol_SeparatorHovered] = .{0.7490196, 0.7490196, 0.7490196, 0.78039217};
 	style.Colors[Col.ImGuiCol_SeparatorActive] = .{0.7490196, 0.7490196, 0.7490196, 1.0};

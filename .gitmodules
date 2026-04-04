@@ -18,3 +18,7 @@
 	path = assets/fonts/proggyforever
 	url = https://github.com/ocornut/proggyforever.git
 	branch = master
+[submodule "modules/toml-jai"]
+	path = modules/toml-jai
+	url = https://github.com/4iwen/toml-jai
+	branch = main

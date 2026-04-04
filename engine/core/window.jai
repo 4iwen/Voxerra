@@ -77,6 +77,12 @@ window_should_close :: (window: *Window) -> bool {
     return cast(bool) glfwWindowShouldClose(window.handle);
 }
 
+window_set_should_close :: (window: *Window, value: bool) {
+    assert(window != null, "window_set_should_close: window is null");
+    
+    glfwSetWindowShouldClose(window.handle, cast(s32) value);
+}
+
 window_poll_events :: () {
     glfwPollEvents();
 }
@@ -95,6 +101,7 @@ window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {
     assert(window != null, "window_set_cursor_mode: window is null");
     
     glfwSetInputMode(window.handle, GLFW_CURSOR, cast(s32) mode);
+    input_state.cursor_disabled = (mode == .DISABLED);
     input_reset_mouse_position(window.handle);
 }
 

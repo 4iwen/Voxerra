@@ -146,7 +146,7 @@ shader_set_texture :: (
     texture_to_bind: *Texture;
 
     if texture == null || texture.id == 0 {
-        texture_to_bind = texture_get_default();
+        texture_to_bind = asset_manager_get_default_texture();
     } else {
         texture_to_bind = texture;
     }

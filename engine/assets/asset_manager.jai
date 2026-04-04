@@ -23,13 +23,6 @@ Shader_Asset :: struct {
     key: string;
 }
 
-Font_Asset :: struct {
-    font: *Font;
-    path: string;
-    pixel_size: u32;
-    key: string;
-}
-
 Model_Asset :: struct {
     model: *Model;
     path: string;
@@ -39,26 +32,33 @@ Model_Asset :: struct {
 Asset_Manager :: struct {
     textures: Table(string, Texture_Asset);
     shaders: Table(string, Shader_Asset);
-    fonts: Table(string, Font_Asset);
     models: Table(string, Model_Asset);
     
     hot_reload_textures: Table(string, bool);
     hot_reload_shaders: Table(string, bool);
-    hot_reload_fonts: Table(string, bool);
     hot_reload_models: Table(string, bool);
     
     watcher: *File_Watcher(void);
+
+    default_shader: *Shader;
+    default_texture: *Texture;
+}
+
+asset_manager_set_default_shader :: (shader: *Shader) {
+    manager.default_shader = shader;
+}
+
+asset_manager_get_default_texture :: () -> *Texture {
+    return manager.default_texture;
 }
 
 asset_manager_init :: () {
     // initialize tables
     init(*manager.textures);
     init(*manager.shaders);
-    init(*manager.fonts);
     init(*manager.models);
     init(*manager.hot_reload_textures);
     init(*manager.hot_reload_shaders);
-    init(*manager.hot_reload_fonts);
     init(*manager.hot_reload_models);
 
     // initialize file watcher
@@ -77,13 +77,17 @@ asset_manager_init :: () {
         deinit(manager.watcher);
         free(manager.watcher);
         manager.watcher = null;
-        return;
     }
+
+    // initialize default texture
+    manager.default_texture = create_white_1x1_texture();
 
     log("Initialized asset manager");
 }
 
 asset_manager_shutdown :: () {
+    texture_destroy(manager.default_texture);
+
     // unload assets
     for asset: manager.textures {
         texture_destroy(asset.texture);
@@ -97,12 +101,6 @@ asset_manager_shutdown :: () {
         free(asset.fragment_path);
         free(asset.key);
     }
-    for asset: manager.fonts {
-        font_destroy(asset.font);
-        log("Unloaded font: %", asset.path);
-        free(asset.path);
-        free(asset.key);
-    }
     for asset: manager.models {
         model_destroy(asset.model);
         log("Unloaded model: %", asset.path);
@@ -112,11 +110,9 @@ asset_manager_shutdown :: () {
     // deinit tables
     deinit(*manager.textures);
     deinit(*manager.shaders);
-    deinit(*manager.fonts);
     deinit(*manager.models);
     deinit(*manager.hot_reload_textures);
     deinit(*manager.hot_reload_shaders);
-    deinit(*manager.hot_reload_fonts);
     deinit(*manager.hot_reload_models);
     
     // deinit file watcher
@@ -152,6 +148,9 @@ asset_manager_load_texture :: (
 
     // load new
     texture := texture_create_from_file(path, spec);
+    if !texture {
+        texture = manager.default_texture;
+    }
     
     asset: Texture_Asset;
     asset.texture = texture;
@@ -280,69 +279,6 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
     log("Unloaded shader: %, %", vertex_absolute, fragment_absolute);
 }
 
-asset_manager_load_font :: (
-    path: string,
-    pixel_size: u32,
-    hot_reload := false
-) -> *Font {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for font: %", path);
-    
-    key := tprint("%%", absolute_path, pixel_size);
-
-    // check if already present
-    found, existing_asset := table_find(*manager.fonts, key);
-    if found {
-        return existing_asset.font;
-    }
-
-    // load new
-    font := font_create_from_file(path, pixel_size);
-    if !font {
-        log_error("Failed to load font: %", path);
-        return null;
-    }
-
-    asset: Font_Asset;
-    asset.font = font;
-    asset.path = copy_string(absolute_path);
-    asset.pixel_size = pixel_size;
-    asset.key = copy_string(key);
-
-    // add to manager
-    table_add(*manager.fonts, asset.key, asset);
-
-    if hot_reload {
-        table_add(*manager.hot_reload_fonts, asset.key, true);
-        if manager.watcher {
-            add_directories(manager.watcher, path_strip_filename(absolute_path));
-        }
-    }
-
-    log("Loaded font: %", absolute_path);
-    return font;
-}
-
-asset_manager_unload_font :: (path: string, pixel_size: u32) {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for font: %", path);
-
-    key := tprint("%%", absolute_path, pixel_size);
-    
-    found, asset := table_find(*manager.fonts, key);
-    if !found {
-        return;
-    }
-    
-    font_destroy(asset.font);
-    table_remove(*manager.fonts, key);
-    table_remove(*manager.hot_reload_fonts, key);
-    
-    log("Unloaded font: %", asset.path);
-    free(asset.path);
-    free(asset.key);
-}
-
 asset_manager_load_model :: (
     path: string,
     options: Model_Load_Options = DEFAULT_MODEL_LOAD_OPTIONS,
@@ -362,6 +298,14 @@ asset_manager_load_model :: (
         return null;
     }
     
+    if manager.default_shader {
+        for material: model.materials {
+            if !material.shader {
+                material.shader = manager.default_shader;
+            }
+        }
+    }
+
     asset: Model_Asset;
     asset.model = model;
     asset.path = copy_string(absolute_path);
@@ -454,24 +398,6 @@ file_change_callback :: (
         return;
     }
     
-    for * asset, key: manager.fonts {
-        if asset.path != path {
-            continue;
-        }
-        
-        found, enabled := table_find(*manager.hot_reload_fonts, key);
-        if !found || !enabled {
-            continue;
-        }
-        
-        if font_reload_from_file(asset.font, path, asset.pixel_size) {
-            log("Hot reloaded font: %", path);
-        } else {
-            log_error("Hot reload failed: %", path);
-        }
-        return;
-    }
-
     for * asset, key: manager.models {
         if asset.path != path {
             continue;
@@ -489,4 +415,64 @@ file_change_callback :: (
         }
         return;
     }
+}
+
+create_white_1x1_texture :: () -> *Texture {
+    pixel: [4] u8 = .[255, 255, 255, 255];
+    texture := texture_create_from_data(
+        1,
+        1,
+        pixel.data,
+        .{
+            min_filter = .LINEAR,
+            mag_filter = .NEAREST,
+            wrap_s = .REPEAT,
+            wrap_t = .REPEAT,
+            generate_mipmaps = false,
+        }
+    );
+
+    return texture;
+}
+
+create_checker_texture :: () -> *Texture {
+    width :: 8;
+    height :: 8;
+
+    data := cast(*u8) alloc(width * height * 4);
+
+    for y: 0..height-1 {
+        for x: 0..width-1 {
+            index := (y * width + x) * 4;
+            
+            is_purple := ((x / 2) + (y / 2)) % 2 == 0;
+            
+            if is_purple {
+                data[index + 0] = 255; // r
+                data[index + 1] = 0; // g
+                data[index + 2] = 255; // b
+                data[index + 3] = 255; // a
+            } else {
+                data[index + 0] = 0; // r
+                data[index + 1] = 0; // g
+                data[index + 2] = 0; // b
+                data[index + 3] = 255; // a
+            }
+        }
+    }
+
+    texture := texture_create_from_data(
+        width,
+        height,
+        data,
+        .{
+            min_filter = .LINEAR_MIPMAP_LINEAR,
+            mag_filter = .NEAREST,
+            wrap_s = .REPEAT,
+            wrap_t = .REPEAT,
+            generate_mipmaps = true,
+        }
+    );
+    free(data);
+    return texture;
 }

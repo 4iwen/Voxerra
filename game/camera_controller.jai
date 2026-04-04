@@ -1,3 +1,7 @@
+#scope_file
+
+#import "Math";
+
 #scope_export
 
 Camera_Controller :: struct {
@@ -22,7 +26,7 @@ camera_controller_update :: (
     assert(window != null, "camera_controller_update: window is null");
     
     // toggle camera control
-    if input_mouse_pressed(.RIGHT) {
+    if input_mouse_pressed(.RIGHT) && ui_state.viewport_hovered {
         window_set_cursor_mode(window, .DISABLED);
         controller.active = true;
     }

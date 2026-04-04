@@ -6,21 +6,12 @@
 
 #scope_module
 
-default_texture: *Texture;
-
 texture_init :: () {
     // flip texture
     stbi_set_flip_vertically_on_load(1);
-
-    create_default_texture();
 }
 
 texture_shutdown :: () {
-    destroy_default_texture();
-}
-
-texture_get_default :: () -> *Texture {
-    return default_texture;
 }
 
 #scope_export
@@ -101,9 +92,9 @@ texture_create_from_file :: (
     );
 
     if !data {
-        log_error("Failed to load texture: %, using default", path);
+        log_error("Failed to load texture: %", path);
         free(texture);
-        return texture_get_default();
+        return null;
     }
 
     defer stbi_image_free(data);
@@ -242,6 +233,7 @@ texture_bind :: (texture: *Texture, slot: u32 = 0) {
 
 texture_destroy :: (texture: *Texture) {
     assert(texture != null, "texture_destroy: texture is null");
+    assert(texture.id != 0, "texture_destroy: texture.id is 0");
 
     glDeleteTextures(1, *texture.id);
     free(texture);
@@ -332,24 +324,23 @@ texture_reload_from_file :: (
 
 to_opengl_filter :: (filter: Texture_Filter) -> GLint {
     if filter == {
-        case .NEAREST; return GL_NEAREST;
-        case .LINEAR; return GL_LINEAR;
+        case .NEAREST;                return GL_NEAREST;
+        case .LINEAR;                 return GL_LINEAR;
         case .NEAREST_MIPMAP_NEAREST; return GL_NEAREST_MIPMAP_NEAREST;
-        case .LINEAR_MIPMAP_NEAREST; return GL_LINEAR_MIPMAP_NEAREST;
-        case .NEAREST_MIPMAP_LINEAR; return GL_NEAREST_MIPMAP_LINEAR;
-        case .LINEAR_MIPMAP_LINEAR; return GL_LINEAR_MIPMAP_LINEAR;
-
-        case; return GL_LINEAR;
+        case .LINEAR_MIPMAP_NEAREST;  return GL_LINEAR_MIPMAP_NEAREST;
+        case .NEAREST_MIPMAP_LINEAR;  return GL_NEAREST_MIPMAP_LINEAR;
+        case .LINEAR_MIPMAP_LINEAR;   return GL_LINEAR_MIPMAP_LINEAR;
+        case;                         return GL_LINEAR;
     }
 }
 
 to_opengl_wrap :: (wrap: Texture_Wrap) -> GLint {
     if wrap == {
-        case .REPEAT; return GL_REPEAT;
-        case .CLAMP_TO_EDGE; return GL_CLAMP_TO_EDGE;
+        case .REPEAT;          return GL_REPEAT;
+        case .CLAMP_TO_EDGE;   return GL_CLAMP_TO_EDGE;
         case .CLAMP_TO_BORDER; return GL_CLAMP_TO_BORDER;
         case .MIRRORED_REPEAT; return GL_MIRRORED_REPEAT;
-        case; return GL_REPEAT;
+        case;                  return GL_REPEAT;
     }
 }
 
@@ -360,50 +351,4 @@ is_mipmapped_filter :: (filter: Texture_Filter) -> bool {
            filter == .LINEAR_MIPMAP_LINEAR;
 }
 
-create_default_texture :: () {
-    width :: 8;
-    height :: 8;
 
-    data := cast(*u8) alloc(width * height * 4);
-
-    for y: 0..height-1 {
-        for x: 0..width-1 {
-            index := (y * width + x) * 4;
-            
-            // checkerboard pattern
-            is_purple := ((x / 2) + (y / 2)) % 2 == 0;
-            
-            if is_purple {
-                data[index + 0] = 255; // r
-                data[index + 1] = 0; // g
-                data[index + 2] = 255; // b
-                data[index + 3] = 255; // a
-            } else {
-                data[index + 0] = 0; // r
-                data[index + 1] = 0; // g
-                data[index + 2] = 0; // b
-                data[index + 3] = 255; // a
-            }
-        }
-    }
-
-    default_texture = texture_create_from_data(
-        width,
-        height,
-        data,
-        .{
-            min_filter = .LINEAR_MIPMAP_LINEAR,
-            mag_filter = .NEAREST,
-            wrap_s = .REPEAT,
-            wrap_t = .REPEAT,
-            generate_mipmaps = true,
-        }
-    );
-    free(data);
-}
-
-destroy_default_texture :: () {
-    if default_texture.id != 0 {
-        texture_destroy(default_texture);
-    }
-}

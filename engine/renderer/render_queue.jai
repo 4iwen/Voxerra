@@ -3,293 +3,192 @@
 #import "Basic";
 #import "Math";
 #import "Sort";
-#import "GL";
 
 #scope_export
 
 Render_Item :: struct {
-    model: *Model;
     mesh: *Mesh;
-    shader: *Shader;
-    texture: *Texture;
-    transform: Transform;
+    material: *Material;
+    world_matrix: Matrix4;
+    world_position: Vector3;
+    is_transparent: bool;
+    distance_squared_to_camera: float; // used for sorting
 }
 
 Render_Queue :: struct {
-    items: [..] Render_Item;
+    opaque: [..] Render_Item;
+    transparent: [..] Render_Item;
+    light_system: Light_System;
 }
 
-render_queue_create :: () -> Render_Queue {
-    queue: Render_Queue;
+render_queue_create :: () -> *Render_Queue {
+    queue := New(Render_Queue);
     return queue;
 }
 
 render_queue_destroy :: (queue: *Render_Queue) {
     assert(queue != null, "render_queue_destroy: queue is null");
 
-    array_free(queue.items);
+    array_free(queue.opaque);
+    array_free(queue.transparent);
+    array_free(queue.light_system.lights);
+    free(queue);
 }
 
 render_queue_clear :: (queue: *Render_Queue) {
-    assert(queue != null, "render_queue_clear: queue is null");
-
-    array_reset(*queue.items);
-}
-
-render_queue_submit :: (
-    queue: *Render_Queue,
-    model: *Model,
-    shader: *Shader,
-    transform := Transform.{}
-) {
-    assert(queue != null, "render_queue_submit: queue is null");
-    assert(model != null, "render_queue_submit: model is null");
-    assert(shader != null, "render_queue_submit: shader is null");
-
-    item: Render_Item;
-    item.model = model;
-    item.shader = shader;
-    item.transform = transform;
-    array_add(*queue.items, item);
+    array_reset(*queue.opaque);
+    array_reset(*queue.transparent);
+    array_reset(*queue.light_system.lights);
 }
 
 render_queue_submit :: (
     queue: *Render_Queue,
     mesh: *Mesh,
-    shader: *Shader,
-    texture: *Texture = null,
-    transform := Transform.{}
+    material: *Material,
+    world_matrix: Matrix4,
+    world_position: Vector3
 ) {
     assert(queue != null, "render_queue_submit: queue is null");
     assert(mesh != null, "render_queue_submit: mesh is null");
-    assert(shader != null, "render_queue_submit: shader is null");
-    
+    assert(material != null, "render_queue_submit: material is null");
+
     item: Render_Item;
     item.mesh = mesh;
-    item.shader = shader;
-    item.texture = texture;
-    item.transform = transform;
-    array_add(*queue.items, item);
+    item.material = material;
+    item.world_matrix = world_matrix;
+    item.world_position = world_position;
+    item.is_transparent = material.blend_mode != .OPAQUE;
+
+    if item.is_transparent {
+        array_add(*queue.transparent, item);
+    } else {
+        array_add(*queue.opaque, item);
+    }
+}
+
+render_queue_submit :: (
+    queue: *Render_Queue,
+    scene: *Scene
+) {
+    assert(queue != null, "render_queue_submit: queue is null");
+    assert(scene != null, "render_queue_submit: scene is null");
+    assert(scene.root != null, "render_queue_submit: scene.root is null");
+    
+    submit_node(scene.root, queue);
 }
 
 render_queue_flush :: (
     queue: *Render_Queue,
-    view: Matrix4,
-    projection: Matrix4,
-    camera_pos: Vector3,
-    lights: *Light_System = null
+    camera: *Camera
 ) {
     assert(queue != null, "render_queue_flush: queue is null");
+    assert(camera != null, "render_queue_flush: camera is null");
 
-    opaque_cmds: [..] Draw_Command;
-    transparent_cmds: [..] Draw_Command;
-    opaque_cmds.allocator = temp;
-    transparent_cmds.allocator = temp;
+    // sort transparent back-to-front
+    for * queue.transparent {
+        it.distance_squared_to_camera = length_squared(camera.position - it.world_position);
+    }
+    quick_sort(
+        queue.transparent,
+        (a, b) => b.distance_squared_to_camera - a.distance_squared_to_camera
+    );
 
-    for item: queue.items {
-        process_render_item(item, camera_pos, *opaque_cmds, *transparent_cmds);
+    // sort opaque front-to-back
+    for * queue.opaque {
+        it.distance_squared_to_camera = length_squared(camera.position - it.world_position);
+    }
+    quick_sort(
+        queue.opaque,
+        (a, b) => a.distance_squared_to_camera - b.distance_squared_to_camera
+    );
+
+    // draw opaque
+    for queue.opaque {
+        render_item_draw(*it, camera, *queue.light_system);
     }
 
-    // pass 1: opaque objects 
-    glDisable(GL_BLEND);
-    glDepthMask(GL_TRUE);
-    
-    for cmd: opaque_cmds {
-        draw_command_execute(cmd, view, projection, camera_pos, lights);
+    // draw transparent
+    for queue.transparent {
+        render_item_draw(*it, camera, *queue.light_system);
     }
 
-    // pass 2: transparent objects
-    // sort back to front
-    quick_sort(transparent_cmds, (a, b) => b.dist_sq - a.dist_sq);
-
-    glEnable(GL_BLEND);
-    glDepthMask(GL_FALSE);
-    
-    for cmd: transparent_cmds {
-        draw_command_execute(cmd, view, projection, camera_pos, lights);
-    }
-    ;
-    glDepthMask(GL_TRUE);
+    // clear stuff that has been drawn
+    array_reset(*queue.opaque);
+    array_reset(*queue.transparent);
+    array_reset(*queue.light_system.lights);
 }
 
 #scope_file
 
-Draw_Command :: struct {
-    mesh: *Mesh;
-    shader: *Shader;
-    transform: Matrix4;
-    
-    // material props
-    albedo_texture: *Texture;
-    normal_texture: *Texture;
-    metallic_roughness_texture: *Texture;
-    occlusion_texture: *Texture;
-    emissive_texture: *Texture;
+submit_node :: (node: *Node, queue: *Render_Queue) {
+    if !node.active then return;
 
-    color: Vector4;
-    metallic: float;
-    roughness: float;
-    alpha_cutoff: float;
+    mesh_comp := node_get_component(node, Static_Mesh_Component);
+    if mesh_comp != null && mesh_comp.mesh != null && mesh_comp.material != null {
+        render_queue_submit(queue, mesh_comp.mesh, mesh_comp.material, node.world_matrix, node.world_position);
+    }
 
-    emissive_color: Vector3;
-    emissive_strength: float;
-    
-    // sorting
-    dist_sq: float;
-}
-
-process_render_item :: (
-    item: Render_Item, 
-    camera_pos: Vector3, 
-    opaque_cmds: *[..] Draw_Command, 
-    transparent_cmds: *[..] Draw_Command
-) {
-    model_matrix := transform_to_matrix(item.transform);
-    dist_sq := length_squared(item.transform.position - camera_pos);
-
-    if item.model {
-        for sm: item.model.submeshes {
-            cmd: Draw_Command;
-            cmd.mesh = sm.mesh;
-            cmd.shader = item.shader;
-            cmd.transform = model_matrix;
-            cmd.dist_sq = dist_sq;
-
-            is_transparent := false;
-
-            if sm.material {
-                cmd.albedo_texture = sm.material.albedo_texture;
-                cmd.normal_texture = sm.material.normal_texture;
-                cmd.metallic_roughness_texture =
-                    sm.material.metallic_roughness_texture;
-                cmd.occlusion_texture = sm.material.occlusion_texture;
-                cmd.emissive_texture = sm.material.emissive_texture;
-                
-                cmd.color = sm.material.color;
-                cmd.metallic = sm.material.metallic;
-                cmd.roughness = sm.material.roughness;
-                cmd.alpha_cutoff = sm.material.alpha_cutoff;
-                
-                cmd.emissive_color = sm.material.emissive_color;
-                cmd.emissive_strength = sm.material.emissive_strength;
-
-                is_transparent = sm.material.is_transparent;
-            } else {
-                populate_default_material_props(*cmd);
-            }
-
-            if cmd.color.w < 1.0 is_transparent = true;
-
-            if is_transparent {
-                array_add(transparent_cmds, cmd);
-            } else {
-                array_add(opaque_cmds, cmd);
-            }
-        }
-    } else {
-        cmd: Draw_Command;
-        cmd.mesh = item.mesh;
-        cmd.shader = item.shader;
-        cmd.transform = model_matrix;
-        cmd.dist_sq = dist_sq;
-        cmd.albedo_texture = item.texture;
+    light_comp := node_get_component(node, Light_Component);
+    if light_comp != null {
+        light := light_comp.light;
         
-        populate_default_material_props(*cmd);
+        light.position = (node.world_matrix * Vector4.{0, 0, 0, 1}).xyz;
         
-        // single mesh items are currently always treated as opaque
-        // unless we add logic here
-        array_add(opaque_cmds, cmd);
+        // -z as front 
+        forward := Vector4.{0, 0, -1, 0};
+        world_dir := (node.world_matrix * forward).xyz;
+        light.direction = normalize(world_dir);
+
+        array_add(*queue.light_system.lights, light);
+    }
+
+    for node.children {
+        submit_node(it, queue);
     }
 }
 
-populate_default_material_props :: (cmd: *Draw_Command) {
-    cmd.color = .{1,1,1,1};
-    cmd.metallic = 0.0;
-    cmd.roughness = 0.5;
-    cmd.alpha_cutoff = 0.01;
-    cmd.emissive_color = .{0,0,0};
-    cmd.emissive_strength = 1.0;
-}
-
-draw_command_execute :: (
-    cmd: Draw_Command,
-    view: Matrix4,
-    projection: Matrix4,
-    camera_pos: Vector3,
+render_item_draw :: (
+    item: *Render_Item,
+    camera: *Camera,
     lights: *Light_System
 ) {
-    shader_use(cmd.shader);
-    shader_set_mat4(cmd.shader, "u_projection", projection);
-    shader_set_mat4(cmd.shader, "u_view", view);
-    shader_set_vec3(cmd.shader, "u_camera_position", camera_pos);
-    shader_set_mat4(cmd.shader, "u_model", cmd.transform);
+    assert(item != null, "render_item_draw: item is null");
+    assert(camera != null, "render_item_draw: camera is null");
 
-    // calculate normal matrix
-    success, inv := inverse(cmd.transform);
-    if !success {
-        inv = Matrix4_Identity;
+    using engine_state;
+
+    shader := item.material.shader;
+
+    // bind shader
+    shader_use(shader);
+
+    // set camera properties
+    shader_set_mat4(shader, "u_view", camera_get_view_matrix(camera));
+    aspect := 1.0;
+    if main_framebuffer {
+        aspect = main_framebuffer.aspect;
+    } else {
+        aspect = cast(float) window.width / cast(float) window.height;
     }
-    nm_4 := transpose(inv);
+    shader_set_mat4(shader, "u_projection", camera_get_projection_matrix(camera, aspect));
+
+    // set item properties
+    shader_set_mat4(shader, "u_model", item.world_matrix);
     
-    // extract 3x3
-    nm: Matrix3;
-    nm._11 = nm_4._11; nm._12 = nm_4._12; nm._13 = nm_4._13;
-    nm._21 = nm_4._21; nm._22 = nm_4._22; nm._23 = nm_4._23;
-    nm._31 = nm_4._31; nm._32 = nm_4._32; nm._33 = nm_4._33;
-    
-    shader_set_mat3(cmd.shader, "u_normal_matrix", nm);
+    material_use(item.material);
+
+    shader_set_vec3(shader, "u_view_position", camera.position);
 
     if lights {
-        light_upload_to_shader(cmd.shader, lights);
+        light_upload_to_shader(shader, lights);
+    } else {
+        // default if no light system provided
+        shader_set_vec3(shader, "u_global_ambient", .{0.1, 0.1, 0.1});
+        shader_set_int(shader, "u_point_light_count", 0);
+        shader_set_int(shader, "u_spot_light_count", 0);
+        shader_set_int(shader, "u_has_directional_light", 0);
     }
-
-    albedo := Vector3.{cmd.color.x, cmd.color.y, cmd.color.z};
     
-    shader_set_vec3(cmd.shader, "u_albedo", albedo);
-    shader_set_float(cmd.shader, "u_metallic", cmd.metallic);
-    shader_set_float(cmd.shader, "u_roughness", cmd.roughness);
-    shader_set_float(cmd.shader, "u_ambient_occlusion", 1.0); 
-    shader_set_float(cmd.shader, "u_alpha_cutoff", cmd.alpha_cutoff);
-
-    shader_set_vec3(cmd.shader, "u_emissive_factor", cmd.emissive_color);
-    shader_set_float(cmd.shader, "u_emissive_strength", cmd.emissive_strength);
-    
-    // Bind textures
-    shader_set_texture(cmd.shader, "u_albedo_map", cmd.albedo_texture, 0);
-    shader_set_texture(cmd.shader, "u_normal_map", cmd.normal_texture, 1);
-    shader_set_texture(
-        cmd.shader,
-        "u_metallic_roughness_map",
-        cmd.metallic_roughness_texture,
-        2
-    );
-    shader_set_texture(cmd.shader, "u_occlusion_map", cmd.occlusion_texture, 3);
-    shader_set_texture(cmd.shader, "u_emissive_map", cmd.emissive_texture, 4);
-
-    shader_set_int(
-        cmd.shader,
-        "u_has_albedo_map",
-        cast(s32) ifx cmd.albedo_texture then 1 else 0
-    );
-    shader_set_int(
-        cmd.shader,
-        "u_has_normal_map",
-        cast(s32) ifx cmd.normal_texture then 1 else 0
-    );
-    shader_set_int(
-        cmd.shader,
-        "u_has_metallic_roughness_map",
-        cast(s32) ifx cmd.metallic_roughness_texture then 1 else 0
-    );
-    shader_set_int(
-        cmd.shader,
-        "u_has_occlusion_map",
-        cast(s32) ifx cmd.occlusion_texture then 1 else 0
-    );
-    shader_set_int(
-        cmd.shader,
-        "u_has_emissive_map", cast(s32) ifx cmd.emissive_texture then 1 else 0
-    );
-    
-    mesh_draw(cmd.mesh);
+    // draw
+    mesh_draw(item.mesh);
 }

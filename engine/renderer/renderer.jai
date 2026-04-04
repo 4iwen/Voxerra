@@ -60,3 +60,27 @@ renderer_set_culling :: (enabled: bool) {
         glDisable(GL_CULL_FACE);
     }
 }
+
+renderer_set_blending :: (enabled: bool) {
+    if enabled {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
+renderer_set_depth_write :: (enabled: bool) {
+    if enabled {
+        glDepthMask(GL_TRUE);
+    } else {
+        glDepthMask(GL_FALSE);
+    }
+}
+
+renderer_set_depth_test :: (enabled: bool) {
+    if enabled {
+        glEnable(GL_DEPTH_TEST);
+    } else {
+        glDisable(GL_DEPTH_TEST);
+    }
+}

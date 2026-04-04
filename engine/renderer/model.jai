@@ -232,7 +232,7 @@ assimp_load_meshes :: (
         if !found_metallic {
             ok, v := try_load_float(ai_mat, "$mat.metallicFactor");
             if ok { 
-                material.metallic = v;
+                material.shininess = v;
                 found_metallic = true;
             }
         }
@@ -242,60 +242,60 @@ assimp_load_meshes :: (
                 "$mat.gltf.pbrMetallicRoughness.metallicFactor"
             );
             if ok { 
-                material.metallic = v;
+                material.shininess = v;
                 found_metallic = true;
             }
         }
 
-        // roughness
-        if !found_roughness {
-            ok, v := try_load_float(ai_mat, "$mat.roughnessFactor");
-            if ok { 
-                material.roughness = v;
-                found_roughness = true;
-            }
-        }
-        if !found_roughness {
-            ok, v := try_load_float(
-                ai_mat,
-                "$mat.gltf.pbrMetallicRoughness.roughnessFactor"
-            );
-            if ok { 
-                material.roughness = v;
-                found_roughness = true;
-            }
-        }
+        // // roughness
+        // if !found_roughness {
+        //     ok, v := try_load_float(ai_mat, "$mat.roughnessFactor");
+        //     if ok { 
+        //         material.roughness = v;
+        //         found_roughness = true;
+        //     }
+        // }
+        // if !found_roughness {
+        //     ok, v := try_load_float(
+        //         ai_mat,
+        //         "$mat.gltf.pbrMetallicRoughness.roughnessFactor"
+        //     );
+        //     if ok { 
+        //         material.roughness = v;
+        //         found_roughness = true;
+        //     }
+        // }
 
-        // legacy fallback
-        if !found_roughness {
-            ok, shininess := try_load_float(ai_mat, "$mat.shininess");
-            if ok {
-                material.roughness = sqrt(2.0 / (shininess + 2.0));
+        // // legacy fallback
+        // if !found_roughness {
+        //     ok, shininess := try_load_float(ai_mat, "$mat.shininess");
+        //     if ok {
+        //         material.roughness = sqrt(2.0 / (shininess + 2.0));
 
-                if !found_metallic {
-                    material.metallic = 0.0;
-                    found_metallic = true;
-                }
-                found_roughness = true;
-            }
-        }
+        //         if !found_metallic {
+        //             material.metallic = 0.0;
+        //             found_metallic = true;
+        //         }
+        //         found_roughness = true;
+        //     }
+        // }
 
-        // emissive
-        {
-            ok, c := try_load_color(ai_mat, "$clr.emissive");
-            if ok {
-                material.emissive_color = c;
-            }
+        // // emissive
+        // {
+        //     ok, c := try_load_color(ai_mat, "$clr.emissive");
+        //     if ok {
+        //         material.emissive_color = c;
+        //     }
 
-            ok2, s := try_load_float(ai_mat, "$mat.emissiveIntensity");
-            if !ok2 {
-                ok2, s = try_load_float(ai_mat, "$mat.emissiveStrength");
-            }
+        //     ok2, s := try_load_float(ai_mat, "$mat.emissiveIntensity");
+        //     if !ok2 {
+        //         ok2, s = try_load_float(ai_mat, "$mat.emissiveStrength");
+        //     }
             
-            if ok2 {
-                material.emissive_strength = s;
-            }
-        }
+        //     if ok2 {
+        //         material.emissive_strength = s;
+        //     }
+        // }
 
         // transparency
         {
@@ -319,7 +319,6 @@ assimp_load_meshes :: (
             ok_mode, mode_str := try_load_string(ai_mat, "$mat.gltf.alphaMode");
             if ok_mode {
                 if mode_str == "BLEND" {
-                    material.is_transparent = true;
                     material.alpha_cutoff = 0.0; // no cutoff for blend mode
                 } else if mode_str == "MASK" {
                     // use alpha cutoff for masked geometry
@@ -338,7 +337,7 @@ assimp_load_meshes :: (
             key_c := to_c_string("$clr.diffuse");
             defer free(key_c);
             if aiGetMaterialColor(ai_mat, key_c, 0, 0, *c4) == .SUCCESS {
-                material.color = .{c4.r, c4.g, c4.b, c4.a};
+                material.diffuse_color = .{c4.r, c4.g, c4.b};
             }
         }
 
@@ -348,7 +347,7 @@ assimp_load_meshes :: (
             types := aiTextureType.[.BASE_COLOR, .DIFFUSE];
             tex := load_texture_from_material(scene, ai_mat, types, path, true);
             if tex {
-                material.albedo_texture = tex;
+                material.diffuse_map = tex;
             }
         }
 
@@ -358,7 +357,7 @@ assimp_load_meshes :: (
             tex := load_texture_from_material(scene, ai_mat, types, path, false);
 
             if tex {
-                material.metallic_roughness_texture = tex;
+                material.specular_map = tex;
             } else {
                 types := aiTextureType.[.METALNESS];
                 tex := load_texture_from_material(
@@ -369,26 +368,26 @@ assimp_load_meshes :: (
                     false
                 );
                 if tex {
-                    material.metallic_roughness_texture = tex;
+                    material.specular_map = tex;
                 }
             }
         }
 
-        // occlusion
-        {
-            types := aiTextureType.[.AMBIENT_OCCLUSION, .LIGHTMAP];
-            tex := load_texture_from_material(scene, ai_mat, types, path, false);
-            if tex {
-                material.occlusion_texture = tex;
-            }
-        }
+        // // occlusion
+        // {
+        //     types := aiTextureType.[.AMBIENT_OCCLUSION, .LIGHTMAP];
+        //     tex := load_texture_from_material(scene, ai_mat, types, path, false);
+        //     if tex {
+        //         material.occlusion_texture = tex;
+        //     }
+        // }
 
-        // emissive
-        {
-            types := aiTextureType.[.EMISSIVE, .EMISSION_COLOR];
-            tex := load_texture_from_material(scene, ai_mat, types, path, true);
-            if tex material.emissive_texture = tex;
-        }
+        // // emissive
+        // {
+        //     types := aiTextureType.[.EMISSIVE, .EMISSION_COLOR];
+        //     tex := load_texture_from_material(scene, ai_mat, types, path, true);
+        //     if tex material.emissive_texture = tex;
+        // }
 
         array_add(*materials, material);
     }

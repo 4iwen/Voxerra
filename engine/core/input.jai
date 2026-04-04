@@ -2,6 +2,7 @@
 
 #import "Basic";
 #import "glfw";
+#import "jai-imgui";
 
 #scope_export
 
@@ -181,23 +182,25 @@ Input_State :: struct {
     scroll_y: float64;
 
     text_input: [..] u32;
-}
 
-input_state: Input_State;
+    cursor_disabled: bool;
+}
 
 #scope_export
 
+input_state: Input_State;
+
 input_poll :: () {
-    input_state.keys_previous = input_state.keys_current;
-    input_state.mouse_previous = input_state.mouse_current;
+    using input_state;
 
-    input_state.mouse_delta_x = 0;
-    input_state.mouse_delta_y = 0;
+    keys_previous  = keys_current;
+    mouse_previous = mouse_current;
+    mouse_delta_x  = 0;
+    mouse_delta_y  = 0;
+    scroll_x       = 0; 
+    scroll_y       = 0;
 
-    input_state.scroll_x = 0;
-    input_state.scroll_y = 0;
-
-    array_reset(*input_state.text_input);
+    array_reset(*text_input);
 }
 
 input_key_down :: (key: Key_Code) -> bool {
@@ -217,13 +220,11 @@ input_mouse_down :: (button: Mouse_Button) -> bool {
 }
 
 input_mouse_pressed :: (button: Mouse_Button) -> bool {
-    return input_state.mouse_current[button] &&
-          !input_state.mouse_previous[button];
+    return input_state.mouse_current[button] && !input_state.mouse_previous[button];
 }
 
 input_mouse_released :: (button: Mouse_Button) -> bool {
-    return !input_state.mouse_current[button] &&
-            input_state.mouse_previous[button];
+    return !input_state.mouse_current[button] && input_state.mouse_previous[button];
 }
 
 input_mouse_position :: () -> float64, float64 {
@@ -248,6 +249,26 @@ input_shutdown :: () {
 
 #scope_file
 
+input_should_ignore :: (window: *GLFWwindow, action: s32, is_mouse: bool) -> bool {
+    // if the cursor is locked, dont ignore input
+    if input_state.cursor_disabled {
+        return false;
+    }
+    
+    // do not ignore releases
+    if action == GLFW_RELEASE {
+        return false;
+    }
+    
+    io := GetIO();
+    
+    if is_mouse {
+        return io.WantCaptureMouse && !ui_state.viewport_hovered;
+    } else {
+        return io.WantCaptureKeyboard && !ui_state.viewport_focused;
+    }
+}
+
 key_callback :: (
     window: *GLFWwindow,
     key: s32,
@@ -255,21 +276,25 @@ key_callback :: (
     action: s32,
     mods: s32
 ) #c_call {
-    // engine := map_key(key);
-    // no need for mapping since our keys are based on glfw
-    engine_key := key;
-    if engine_key == cast(s32) Key_Code.UNKNOWN {
-        return;
-    }
-    if engine_key < 0 || engine_key >= cast(s32) KEY_CODE_COUNT {
-        return;
-    }
+    push_context {
+        if input_should_ignore(window, action, is_mouse = false) then return;
 
-    if action == GLFW_PRESS {
-        input_state.keys_current[engine_key] = true;
-    }
-    if action == GLFW_RELEASE {
-        input_state.keys_current[engine_key] = false;
+        // engine := map_key(key);
+        // no need for mapping since our keys are based on glfw
+        engine_key := key;
+        if engine_key == cast(s32) Key_Code.UNKNOWN {
+            return;
+        }
+        if engine_key < 0 || engine_key >= cast(s32) KEY_CODE_COUNT {
+            return;
+        }
+
+        if action == GLFW_PRESS {
+            input_state.keys_current[engine_key] = true;
+        }
+        if action == GLFW_RELEASE {
+            input_state.keys_current[engine_key] = false;
+        }
     }
 }
 
@@ -279,24 +304,33 @@ mouse_button_callback :: (
     action: s32,
     mods: s32
 ) #c_call {
-    if button < 0 || button >= MOUSE_BUTTON_COUNT {
-        return;
-    }
+    push_context {
+        if input_should_ignore(window, action, is_mouse = true) then return;
 
-    if action == GLFW_PRESS {
-        input_state.mouse_current[button] = true;
-    }
-    if action == GLFW_RELEASE {
-        input_state.mouse_current[button] = false;
+        if button < 0 || button >= MOUSE_BUTTON_COUNT {
+            return;
+        }
+
+        if action == GLFW_PRESS {
+            input_state.mouse_current[button] = true;
+        }
+        if action == GLFW_RELEASE {
+            input_state.mouse_current[button] = false;
+        }
     }
 }
 
 cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
-    input_state.mouse_delta_x += x - input_state.mouse_x;
-    input_state.mouse_delta_y += y - input_state.mouse_y;
+    push_context {
+        if input_should_ignore(window, -1, is_mouse = true) then return;
 
-    input_state.mouse_x = x;
-    input_state.mouse_y = y;
+        using input_state;
+
+        mouse_delta_x += x - mouse_x;
+        mouse_delta_y += y - mouse_y;
+        mouse_x        = x;
+        mouse_y        = y;
+    }
 }
 
 scroll_callback :: (
@@ -304,12 +338,18 @@ scroll_callback :: (
     xoffset: float64,
     yoffset: float64
 ) #c_call {
-    input_state.scroll_x += xoffset;
-    input_state.scroll_y += yoffset;
+    push_context {
+        if input_should_ignore(window, -1, is_mouse = true) then return;
+
+        input_state.scroll_x += xoffset;
+        input_state.scroll_y += yoffset;
+    }
 }
 
 char_callback :: (window: *GLFWwindow, codepoint: u32) #c_call {
     push_context {
+        if input_should_ignore(window, -1, is_mouse = false) then return;
+
         array_add(*input_state.text_input, codepoint);
     }
 }
@@ -325,10 +365,12 @@ input_install_callbacks :: (window: *GLFWwindow) {
 }
 
 input_reset_mouse_position :: (window: *GLFWwindow) {
+    using input_state;
+
     x, y: float64;
     glfwGetCursorPos(window, *x, *y);
-    input_state.mouse_x = x;
-    input_state.mouse_y = y;
-    input_state.mouse_delta_x = 0;
-    input_state.mouse_delta_y = 0;
+    mouse_x       = x;
+    mouse_y       = y;
+    mouse_delta_x = 0;
+    mouse_delta_y = 0;
 }

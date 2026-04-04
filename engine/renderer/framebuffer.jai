@@ -11,6 +11,7 @@ Framebuffer :: struct {
     pixel_height: s32;
     width: float;
     height: float;
+    aspect: float;
     color_texture: u32;
     depth_buffer: u32;
 }
@@ -21,6 +22,7 @@ framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
     framebuffer.pixel_height = height;
     framebuffer.width = cast(float) width;
     framebuffer.height = cast(float) height;
+    framebuffer.aspect = cast(float) width / cast(float) height;
 
     // create framebuffer
     glGenFramebuffers(1, *framebuffer.id);
@@ -113,6 +115,9 @@ framebuffer_resize :: (framebuffer: *Framebuffer, width: s32, height: s32) {
 
     framebuffer.pixel_width = width;
     framebuffer.pixel_height = height;
+    framebuffer.width = cast(float) width;
+    framebuffer.height = cast(float) height;
+    framebuffer.aspect = cast(float) width / cast(float) height;
 
     glBindTexture(GL_TEXTURE_2D, framebuffer.color_texture);
     glTexImage2D(

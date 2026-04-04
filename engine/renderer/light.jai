@@ -23,7 +23,9 @@ Light :: struct {
     outer_cos: float; // for spot
 }
 
-MAX_SHADER_LIGHTS :: 32;
+MAX_POINT_LIGHTS :: 32;
+MAX_SPOT_LIGHTS :: 16;
+MAX_DIRECTIONAL_LIGHTS :: 1;
 
 Light_System :: struct {
     ambient_color: Vector3;
@@ -105,24 +107,47 @@ light_upload_to_shader :: (shader: *Shader, system: *Light_System) {
     assert(shader != null, "light_upload_to_shader: shader is null");
     assert(system != null, "light_upload_to_shader: system is null");
     
-    shader_set_vec3(shader, "u_ambient_color", system.ambient_color);
+    // set global ambient
+    shader_set_vec3(shader, "u_global_ambient", system.ambient_color);
 
-    count := system.lights.count;
-    if count > MAX_SHADER_LIGHTS {
-        log_warning("Capping lights to % (got %)", MAX_SHADER_LIGHTS, count);
-        count = MAX_SHADER_LIGHTS;
-    }
-    shader_set_int(shader, "u_light_count", cast(s32) count);
+    directional_set := false;
+    point_count := 0;
+    spot_count := 0;
 
-    for i: 0..count - 1 {
-        l := system.lights[i];
-        shader_set_int(shader, tprint("u_lights[%].type", i), cast(s32) l.type);
-        shader_set_vec3(shader, tprint("u_lights[%].position", i), l.position);
-        shader_set_vec3(shader, tprint("u_lights[%].direction", i), l.direction);
-        shader_set_vec3(shader, tprint("u_lights[%].color", i), l.color);
-        shader_set_float(shader, tprint("u_lights[%].intensity", i), l.intensity);
-        shader_set_float(shader, tprint("u_lights[%].range", i), l.range);
-        shader_set_float(shader, tprint("u_lights[%].inner_cos", i), l.inner_cos);
-        shader_set_float(shader, tprint("u_lights[%].outer_cos", i), l.outer_cos);
+    for l: system.lights {
+        diffuse_color := l.color * min(l.intensity, 1.0);
+        specular_color := l.color * min(l.intensity * 0.5, 1.0);
+
+        if l.type == .Directional && !directional_set {
+            shader_set_vec3(shader, "u_directional_light.direction", l.direction);
+            shader_set_vec3(shader, "u_directional_light.diffuse", diffuse_color);
+            shader_set_vec3(shader, "u_directional_light.specular", specular_color);
+            directional_set = true;
+        } else if l.type == .Point && point_count < MAX_POINT_LIGHTS {
+            prefix := tprint("u_point_lights[%]", point_count);
+            shader_set_vec3(shader, tprint("%.position", prefix), l.position);
+            shader_set_float(shader, tprint("%.constant", prefix), 1.0);
+            shader_set_float(shader, tprint("%.linear", prefix), 4.5 / max(l.range, 0.01));
+            shader_set_float(shader, tprint("%.quadratic", prefix), 75.0 / max(l.range * l.range, 0.01));
+            shader_set_vec3(shader, tprint("%.diffuse", prefix), diffuse_color);
+            shader_set_vec3(shader, tprint("%.specular", prefix), specular_color);
+            point_count += 1;
+        } else if l.type == .Spot && spot_count < MAX_SPOT_LIGHTS {
+            prefix := tprint("u_spot_lights[%]", spot_count);
+            shader_set_vec3(shader, tprint("%.position", prefix), l.position);
+            shader_set_vec3(shader, tprint("%.direction", prefix), l.direction);
+            shader_set_float(shader, tprint("%.cutoff", prefix), l.inner_cos);
+            shader_set_float(shader, tprint("%.outer_cutoff", prefix), l.outer_cos);
+            shader_set_float(shader, tprint("%.constant", prefix), 1.0);
+            shader_set_float(shader, tprint("%.linear", prefix), 4.5 / max(l.range, 0.01));
+            shader_set_float(shader, tprint("%.quadratic", prefix), 75.0 / max(l.range * l.range, 0.01));
+            shader_set_vec3(shader, tprint("%.diffuse", prefix), diffuse_color);
+            shader_set_vec3(shader, tprint("%.specular", prefix), specular_color);
+            spot_count += 1;
+        }
     }
+    
+    shader_set_int(shader, "u_point_light_count", cast(s32) point_count);
+    shader_set_int(shader, "u_spot_light_count", cast(s32) spot_count);
+    shader_set_int(shader, "u_has_directional_light", cast(s32) directional_set);
 }

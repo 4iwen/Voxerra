@@ -73,7 +73,7 @@ metrics_draw :: () {
     End();
 } @UI_Window
 
-#scope_file
+#scope_module
 
 METRICS_PLOT_COUNT :: 240;
 
@@ -87,6 +87,8 @@ Metrics_State :: struct {
 }
 
 metrics_state: Metrics_State;
+
+#scope_file
 
 metrics_ui :: (
     fps: float,
