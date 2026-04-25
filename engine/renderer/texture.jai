@@ -1,6 +1,7 @@
 #scope_file
 
 #import "Basic";
+#import "File";
 #import "GL";
 #import "stb_image";
 
@@ -96,7 +97,6 @@ texture_create_from_file :: (
         free(texture);
         return null;
     }
-
     defer stbi_image_free(data);
 
     texture.width = width;
@@ -350,5 +350,3 @@ is_mipmapped_filter :: (filter: Texture_Filter) -> bool {
            filter == .NEAREST_MIPMAP_LINEAR ||
            filter == .LINEAR_MIPMAP_LINEAR;
 }
-
-

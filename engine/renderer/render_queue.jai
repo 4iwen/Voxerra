@@ -73,7 +73,9 @@ render_queue_submit :: (
     assert(queue != null, "render_queue_submit: queue is null");
     assert(scene != null, "render_queue_submit: scene is null");
     assert(scene.root != null, "render_queue_submit: scene.root is null");
-    
+
+    queue.light_system.ambient_color = .{0, 0, 0};
+
     submit_node(scene.root, queue);
 }
 

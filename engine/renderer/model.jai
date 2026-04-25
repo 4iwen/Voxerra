@@ -39,23 +39,23 @@ model_create_from_file :: (
         log_error("Failed to load mesh file: %", path);
         return null;
     }
-    
+
     model := New(Model);
     model.name = copy_string(path);
     model.materials = materials;
-    
-    for mesh, idx: meshes {
+
+    for mesh, index: meshes {
         submesh := New(Sub_Mesh);
         submesh.mesh = mesh;
-        
-        mat_idx := material_indices[idx];
-        if mat_idx < materials.count {
-            submesh.material = materials[mat_idx];
+
+        material_index := material_indices[index];
+        if material_index < materials.count {
+            submesh.material = materials[material_index];
         }
-        
+
         array_add(*model.submeshes, submesh);
     }
-    
+
     array_free(meshes);
     array_free(material_indices);
 
@@ -64,10 +64,8 @@ model_create_from_file :: (
 
 model_destroy :: (model: *Model) {
     assert(model != null, "model_destroy: model is null");
-    
-    if model.name {
-        free(model.name);
-    }
+
+    if model.name then free(model.name);
 
     for model.submeshes {
         mesh_destroy(it.mesh);
@@ -99,29 +97,29 @@ model_reload_from_file :: (
         return false;
     }
 
-    // destroy previous submeshes
+    // clear old submeshes
     for model.submeshes {
         mesh_destroy(it.mesh);
         free(it);
     }
     array_reset(*model.submeshes);
 
-    // destroy previous materials
+    // clear old materials
     for model.materials {
         material_destroy(it);
     }
     array_reset(*model.materials);
 
-    // rebuild submeshes from freshly loaded data
+    // rebuild submeshes
     model.materials = materials;
-    for mesh, idx: meshes {
-        sm := New(Sub_Mesh);
-        sm.mesh = mesh;
-        mat_idx := material_indices[idx];
-        if mat_idx < materials.count {
-            sm.material = materials[mat_idx];
+    for mesh, index: meshes {
+        submesh := New(Sub_Mesh);
+        submesh.mesh = mesh;
+        material_index := material_indices[index];
+        if material_index < materials.count {
+            submesh.material = materials[material_index];
         }
-        array_add(*model.submeshes, sm);
+        array_add(*model.submeshes, submesh);
     }
 
     array_free(meshes);
@@ -132,6 +130,50 @@ model_reload_from_file :: (
 
 #scope_file
 
+// assimp helpers
+try_load_float :: (material: *aiMaterial, key: string) -> bool, float {
+    value: float;
+    value_count: u32 = 1;
+
+    key_c_str := to_c_string(key);
+    defer free(key_c_str);
+
+    if aiGetMaterialFloatArray(material, key_c_str, 0, 0, *value, *value_count) == .SUCCESS {
+        return true, value;
+    }
+    return false, 0.0;
+}
+
+try_load_color :: (material: *aiMaterial, key: string) -> bool, Vector3 {
+    color: aiColor4D;
+
+    key_c_str := to_c_string(key);
+    defer free(key_c_str);
+
+    if aiGetMaterialColor(material, key_c_str, 0, 0, *color) == .SUCCESS {
+        return true, .{color.r, color.g, color.b};
+    }
+    return false, .{0, 0, 0};
+}
+
+try_load_string :: (material: *aiMaterial, key: string) -> bool, string {
+    ai_string: aiString;
+    key_c_str := to_c_string(key);
+    defer free(key_c_str);
+
+    if aiGetMaterialString(material, key_c_str, 0, 0, *ai_string) == .SUCCESS {
+        length := cast(s64) ai_string.length;
+        if length > 0 {
+            source: string;
+            source.data  = ai_string.data.data;
+            source.count = length;
+            return true, copy_string(source);
+        }
+    }
+    return false, "";
+}
+
+// load materials and meshes
 assimp_load_meshes :: (
     path: string,
     options: Model_Load_Options
@@ -140,30 +182,22 @@ assimp_load_meshes :: (
     materials: [..] *Material;
     material_indices: [..] u32;
 
-    path_c := to_c_string(path);
-    defer free(path_c);
+    path_c_str := to_c_string(path);
+    defer free(path_c_str);
 
-    // import file with assimp
-    flags := aiPostProcessSteps.Triangulate | 
+    // import with assimp
+    flags := aiPostProcessSteps.Triangulate |
              aiPostProcessSteps.JoinIdenticalVertices |
              aiPostProcessSteps.GenUVCoords;
-    
-    if options.calculate_tangents {
-        flags |= aiPostProcessSteps.CalcTangentSpace;
-    }
-    if options.flip_uvs {
-        flags |= aiPostProcessSteps.FlipUVs;
-    }
-    
-    scene := aiImportFile(path_c, cast(u32) flags);
+
+    if options.calculate_tangents then flags |= aiPostProcessSteps.CalcTangentSpace;
+    if options.flip_uvs           then flags |= aiPostProcessSteps.FlipUVs;
+
+    scene := aiImportFile(path_c_str, cast(u32) flags);
     if !scene {
         error := aiGetErrorString();
         if error {
-            log_error(
-                "Assimp failed to load file: %, Error: %",
-                path,
-                to_string(error)
-            );
+            log_error("Assimp failed to load file: %, Error: %", path, to_string(error));
         } else {
             log_error("Assimp failed to load file: %", path);
         }
@@ -174,11 +208,7 @@ assimp_load_meshes :: (
     if scene.mFlags & AI_SCENE_FLAGS_INCOMPLETE {
         error := aiGetErrorString();
         if error {
-            log_error(
-                "Assimp scene incomplete: %, Error: %",
-                path,
-                to_string(error)
-            );
+            log_error("Assimp scene incomplete: %, Error: %", path, to_string(error));
         } else {
             log_error("Assimp scene incomplete: %", path);
         }
@@ -189,205 +219,61 @@ assimp_load_meshes :: (
         log_error("No meshes found in file: %", path);
         return false, meshes, materials, material_indices;
     }
-    
 
     // materials
-    for mat_idx: 0..scene.mNumMaterials - 1 {
-        ai_mat := scene.mMaterials[mat_idx];
+    for material_index: 0..scene.mNumMaterials - 1 {
+        ai_material := scene.mMaterials[material_index];
         material := material_create();
-        
-        // scalars
-        try_load_float :: (mat: *aiMaterial, key: string) -> bool, float {
-            v: float;
-            n: u32 = 1;
 
-            key_c := to_c_string(key);
-            defer free(key_c);
-        
-            if aiGetMaterialFloatArray(mat, key_c, 0, 0, *v, *n) == .SUCCESS {
-                return true, v;
-            }
-
-            return false, 0.0;
-        }
-
-        // color
-        try_load_color :: (mat: *aiMaterial, key: string) -> bool, Vector3 {
-            c: aiColor4D;
-            
-            key_c := to_c_string(key);
-            defer free(key_c);
-            
-            if aiGetMaterialColor(mat, key_c, 0, 0, *c) == .SUCCESS {
-                return true, .{c.r, c.g, c.b};
-            }
-            
-            return false, .{0, 0, 0};
-        }
-
-        found_metallic  := false;
-        found_roughness := false;
-
-        // metallic
-        if !found_metallic {
-            ok, v := try_load_float(ai_mat, "$mat.metallicFactor");
-            if ok { 
-                material.shininess = v;
-                found_metallic = true;
-            }
-        }
-        if !found_metallic {
-            ok, v := try_load_float(
-                ai_mat,
-                "$mat.gltf.pbrMetallicRoughness.metallicFactor"
-            );
-            if ok { 
-                material.shininess = v;
-                found_metallic = true;
-            }
-        }
-
-        // // roughness
-        // if !found_roughness {
-        //     ok, v := try_load_float(ai_mat, "$mat.roughnessFactor");
-        //     if ok { 
-        //         material.roughness = v;
-        //         found_roughness = true;
-        //     }
-        // }
-        // if !found_roughness {
-        //     ok, v := try_load_float(
-        //         ai_mat,
-        //         "$mat.gltf.pbrMetallicRoughness.roughnessFactor"
-        //     );
-        //     if ok { 
-        //         material.roughness = v;
-        //         found_roughness = true;
-        //     }
-        // }
-
-        // // legacy fallback
-        // if !found_roughness {
-        //     ok, shininess := try_load_float(ai_mat, "$mat.shininess");
-        //     if ok {
-        //         material.roughness = sqrt(2.0 / (shininess + 2.0));
-
-        //         if !found_metallic {
-        //             material.metallic = 0.0;
-        //             found_metallic = true;
-        //         }
-        //         found_roughness = true;
-        //     }
-        // }
-
-        // // emissive
-        // {
-        //     ok, c := try_load_color(ai_mat, "$clr.emissive");
-        //     if ok {
-        //         material.emissive_color = c;
-        //     }
-
-        //     ok2, s := try_load_float(ai_mat, "$mat.emissiveIntensity");
-        //     if !ok2 {
-        //         ok2, s = try_load_float(ai_mat, "$mat.emissiveStrength");
-        //     }
-            
-        //     if ok2 {
-        //         material.emissive_strength = s;
-        //     }
-        // }
-
-        // transparency
+        // diffuse
         {
-            try_load_string :: (mat: *aiMaterial, key: string) -> bool, string {
-                ai_str: aiString;
-                key_c := to_c_string(key);
-                defer free(key_c);
-                if aiGetMaterialString(mat, key_c, 0, 0, *ai_str) == .SUCCESS {
-                    len := cast(s64) ai_str.length;
-                    if len > 0 {
-                        src: string;
-                        src.data = ai_str.data.data;
-                        src.count = len;
-                        result := copy_string(src);
-                        return true, result;
-                    }
-                }
-                return false, "";
-            }
+            ok, color := try_load_color(ai_material, "$clr.diffuse");
+            if ok then material.diffuse_color = color;
+        }
 
-            ok_mode, mode_str := try_load_string(ai_mat, "$mat.gltf.alphaMode");
+        // specular
+        {
+            ok, color := try_load_color(ai_material, "$clr.specular");
+            if ok then material.specular_color = color;
+        }
+
+        // shininess
+        {
+            ok, value := try_load_float(ai_material, "$mat.shininess");
+            if ok && value > 0 then material.shininess = value;
+        }
+
+        // alpha
+        {
+            ok_mode, mode_str := try_load_string(ai_material, "$mat.gltf.alphaMode");
             if ok_mode {
                 if mode_str == "BLEND" {
-                    material.alpha_cutoff = 0.0; // no cutoff for blend mode
+                    material.alpha_cutoff = 0.0;
                 } else if mode_str == "MASK" {
-                    // use alpha cutoff for masked geometry
-                    ok_cutoff, cutoff := try_load_float(ai_mat, "$mat.gltf.alphaCutoff");
+                    ok_cutoff, cutoff := try_load_float(ai_material, "$mat.gltf.alphaCutoff");
                     if ok_cutoff {
                         material.alpha_cutoff = cutoff;
                     } else {
-                        material.alpha_cutoff = 0.5; // glTF default
+                        material.alpha_cutoff = 0.5; // gltf default
                     }
                 }
-                if mode_str.count > 0 free(mode_str);
-            }
-
-            // also check base color alpha
-            c4: aiColor4D;
-            key_c := to_c_string("$clr.diffuse");
-            defer free(key_c);
-            if aiGetMaterialColor(ai_mat, key_c, 0, 0, *c4) == .SUCCESS {
-                material.diffuse_color = .{c4.r, c4.g, c4.b};
+                if mode_str.count > 0 then free(mode_str);
             }
         }
 
-        // textures
-        // albedo
+        // diffuse map
         {
             types := aiTextureType.[.BASE_COLOR, .DIFFUSE];
-            tex := load_texture_from_material(scene, ai_mat, types, path, true);
-            if tex {
-                material.diffuse_map = tex;
-            }
+            texture := load_texture_from_material(scene, ai_material, types, path, true);
+            if texture then material.diffuse_map = texture;
         }
 
-        // metallic roughness
+        // specular map
         {
-            types := aiTextureType.[.GLTF_METALLIC_ROUGHNESS, .UNKNOWN];
-            tex := load_texture_from_material(scene, ai_mat, types, path, false);
-
-            if tex {
-                material.specular_map = tex;
-            } else {
-                types := aiTextureType.[.METALNESS];
-                tex := load_texture_from_material(
-                    scene,
-                    ai_mat,
-                    types,
-                    path,
-                    false
-                );
-                if tex {
-                    material.specular_map = tex;
-                }
-            }
+            types := aiTextureType.[.SPECULAR];
+            texture := load_texture_from_material(scene, ai_material, types, path, false);
+            if texture then material.specular_map = texture;
         }
-
-        // // occlusion
-        // {
-        //     types := aiTextureType.[.AMBIENT_OCCLUSION, .LIGHTMAP];
-        //     tex := load_texture_from_material(scene, ai_mat, types, path, false);
-        //     if tex {
-        //         material.occlusion_texture = tex;
-        //     }
-        // }
-
-        // // emissive
-        // {
-        //     types := aiTextureType.[.EMISSIVE, .EMISSION_COLOR];
-        //     tex := load_texture_from_material(scene, ai_mat, types, path, true);
-        //     if tex material.emissive_texture = tex;
-        // }
 
         array_add(*materials, material);
     }
@@ -404,45 +290,40 @@ assimp_load_meshes :: (
     return true, meshes, materials, material_indices;
 }
 
+// load textures
 load_texture_from_material :: (
-    scene: *aiScene, 
-    ai_mat: *aiMaterial, 
-    types: [] aiTextureType, 
+    scene: *aiScene,
+    ai_material: *aiMaterial,
+    types: [] aiTextureType,
     model_path: string,
     srgb: bool
 ) -> *Texture {
     for type: types {
-        if aiGetMaterialTextureCount(ai_mat, type) <= 0 {
-            continue;
-        }
+        if aiGetMaterialTextureCount(ai_material, type) <= 0 then continue;
 
         ai_path: aiString;
         if aiGetMaterialTexture(
-            ai_mat, type, 0, *ai_path,
+            ai_material, type, 0, *ai_path,
             null, null, null, null, null, null
         ) != .SUCCESS {
             continue;
         }
 
-        tex_len := cast(s64) ai_path.length;
-        if tex_len <= 0 {
-            continue;
-        }
+        texture_length := cast(s64) ai_path.length;
+        if texture_length <= 0 then continue;
 
         if ai_path.data[0] == #char "*" {
-            // embedded texture
-            tex_idx: s32 = 0;
-            for i: 1..tex_len - 1 {
-                c := ai_path.data[i];
-                if c < #char "0" || c > #char "9" break;
-                tex_idx = tex_idx * 10 + cast(s32) (c - #char "0");
+            // parse "*<index>"
+            texture_index: s32 = 0;
+            for i: 1..texture_length - 1 {
+                digit_char := ai_path.data[i];
+                if digit_char < #char "0" || digit_char > #char "9" then break;
+                texture_index = texture_index * 10 + cast(s32) (digit_char - #char "0");
             }
-            if tex_idx < 0 || tex_idx >= cast(s32) scene.mNumTextures {
-                continue;
-            }
+            if texture_index < 0 || texture_index >= cast(s32) scene.mNumTextures then continue;
 
-            ai_tex := scene.mTextures[tex_idx];
-            is_compressed := ai_tex.mHeight == 0;
+            ai_texture := scene.mTextures[texture_index];
+            is_compressed := ai_texture.mHeight == 0;
 
             width, height, channels: s32;
             data: *u8;
@@ -450,42 +331,38 @@ load_texture_from_material :: (
             if is_compressed {
                 desired_channels: s32 = 4;
                 data = stbi_load_from_memory(
-                    cast(*u8) ai_tex.pcData,
-                    cast(s32) ai_tex.mWidth,
+                    cast(*u8) ai_texture.pcData,
+                    cast(s32) ai_texture.mWidth,
                     *width, *height, *channels, desired_channels
                 );
             } else {
-                width = cast(s32) ai_tex.mWidth;
-                height = cast(s32) ai_tex.mHeight;
+                width  = cast(s32) ai_texture.mWidth;
+                height = cast(s32) ai_texture.mHeight;
 
                 data = alloc(width * height * 4);
-                src := cast(*aiTexel) ai_tex.pcData;
-                
+                source := cast(*aiTexel) ai_texture.pcData;
+
                 for i: 0..(width * height) - 1 {
-                    data[i * 4 + 0] = src[i].r;
-                    data[i * 4 + 1] = src[i].g;
-                    data[i * 4 + 2] = src[i].b;
-                    data[i * 4 + 3] = src[i].a;
+                    data[i * 4 + 0] = source[i].r;
+                    data[i * 4 + 1] = source[i].g;
+                    data[i * 4 + 2] = source[i].b;
+                    data[i * 4 + 3] = source[i].a;
                 }
             }
 
             if data {
                 spec := DEFAULT_TEXTURE_SPEC;
                 spec.srgb = srgb;
-                tex := texture_create_from_data(width, height, data, spec);
+                texture := texture_create_from_data(width, height, data, spec);
 
-                ifx is_compressed then stbi_image_free(data) else free(data); 
-                
-                return tex;
+                ifx is_compressed then stbi_image_free(data) else free(data);
+
+                return texture;
             }
         } else {
-            // external texture
+            // load relative texture
             model_abs, success := get_absolute_path(model_path);
-            assert(
-                success,
-                "Failed to get absolute path for texture: %",
-                model_path
-            );
+            assert(success, "Failed to get absolute path for texture: %", model_path);
 
             folder := model_abs;
             last_slash := -1;
@@ -494,31 +371,29 @@ load_texture_from_material :: (
                     last_slash = i;
                 }
             }
-            if last_slash >= 0 {
-                folder.count = last_slash + 1;
-            }
+            if last_slash >= 0 then folder.count = last_slash + 1;
 
-            // convert path
-            tex_path_buf := cast(*u8) alloc(tex_len);
-            memcpy(tex_path_buf, *ai_path.data, tex_len);
-            defer free(tex_path_buf);
-            
-            tex_rel: string;
-            tex_rel.data = tex_path_buf;
-            tex_rel.count = tex_len;
+            texture_path_buffer := cast(*u8) alloc(texture_length);
+            memcpy(texture_path_buffer, *ai_path.data, texture_length);
+            defer free(texture_path_buffer);
 
-            full_path_str := tprint("%%", folder, tex_rel);
-            
+            texture_relative_path: string;
+            texture_relative_path.data  = texture_path_buffer;
+            texture_relative_path.count = texture_length;
+
+            full_path_str := tprint("%%", folder, texture_relative_path);
+
             spec := DEFAULT_TEXTURE_SPEC;
             spec.srgb = srgb;
-            
+
             return asset_manager_load_texture(full_path_str, spec, false);
         }
     }
-    
-    return null; 
+
+    return null;
 }
 
+// walk nodes
 process_node :: (
     node: *aiNode,
     scene: *aiScene,
@@ -526,14 +401,12 @@ process_node :: (
     meshes_out: *[..] *Mesh,
     material_indices_out: *[..] u32
 ) {
-    if !node {
-        return;
-    }
+    if !node then return;
 
-    local_transform := matrix4_from_assimp(node.mTransformation);
+    local_transform  := matrix4_from_assimp(node.mTransformation);
     global_transform := parent_transform * local_transform;
 
-    // process meshes referenced by this node
+    // submit node meshes
     if node.mMeshes {
         for i: 0..node.mNumMeshes - 1 {
             mesh_index := node.mMeshes[i];
@@ -550,7 +423,6 @@ process_node :: (
             }
 
             mesh := build_mesh_from_ai_mesh(ai_mesh, global_transform);
-
             if mesh {
                 array_add(meshes_out, mesh);
                 array_add(material_indices_out, ai_mesh.mMaterialIndex);
@@ -558,12 +430,11 @@ process_node :: (
         }
     }
 
-    // recurse
+    // walk children
     if node.mChildren {
         for i: 0..node.mNumChildren - 1 {
-            child := node.mChildren[i];
             process_node(
-                child,
+                node.mChildren[i],
                 scene,
                 global_transform,
                 meshes_out,
@@ -578,49 +449,50 @@ build_mesh_from_ai_mesh :: (
     transform: Matrix4
 ) -> *Mesh {
     vertices: [..] Vertex;
-    indices: [..] u32;
+    indices:  [..] u32;
 
-    success, inverse := inverse(transform);
+    success, inverse_transform := inverse(transform);
     assert(success, "Failed to compute inverse");
-    normal_matrix := transpose(inverse);
+    // fix normal transform
+    normal_matrix := transpose(inverse_transform);
 
     for i: 0..ai_mesh.mNumVertices - 1 {
-        v: Vertex;
+        vertex: Vertex;
 
         pos := ai_mesh.mVertices[i];
         world_pos := transform * Vector4.{pos.x, pos.y, pos.z, 1.0};
-        v.position = world_pos.xyz;
+        vertex.position = world_pos.xyz;
 
         if ai_mesh.mNormals {
-            n := ai_mesh.mNormals[i];
-            world_n := normal_matrix * Vector4.{n.x, n.y, n.z, 0.0};
-            v.normal = normalize(world_n.xyz);
+            normal := ai_mesh.mNormals[i];
+            world_normal := normal_matrix * Vector4.{normal.x, normal.y, normal.z, 0.0};
+            vertex.normal = normalize(world_normal.xyz);
         } else {
-            v.normal = .{0, 1, 0};
+            vertex.normal = .{0, 1, 0};
         }
 
         if ai_mesh.mTangents {
-            t := ai_mesh.mTangents[i];
-            world_t := transform * Vector4.{t.x, t.y, t.z, 0.0};
-            v.tangent = normalize(world_t.xyz);
+            tangent := ai_mesh.mTangents[i];
+            world_tangent := transform * Vector4.{tangent.x, tangent.y, tangent.z, 0.0};
+            vertex.tangent = normalize(world_tangent.xyz);
         } else {
-            v.tangent = .{1, 0, 0};
+            vertex.tangent = .{1, 0, 0};
         }
 
         if ai_mesh.mTextureCoords[0] {
             uv := ai_mesh.mTextureCoords[0][i];
-            v.uv = .{uv.x, uv.y};
+            vertex.uv = .{uv.x, uv.y};
         } else {
-            v.uv = .{0, 0};
+            vertex.uv = .{0, 0};
         }
 
-        array_add(*vertices, v);
+        array_add(*vertices, vertex);
     }
 
     for i: 0..ai_mesh.mNumFaces - 1 {
         face := ai_mesh.mFaces[i];
-        for j: 0..face.mNumIndices - 1 {
-            array_add(*indices, face.mIndices[j]);
+        for index: 0..face.mNumIndices - 1 {
+            array_add(*indices, face.mIndices[index]);
         }
     }
 

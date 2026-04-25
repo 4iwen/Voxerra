@@ -7,10 +7,10 @@
 
 selected_node: *Node;
 
-scene_graph_draw :: () {
+node_hierarchy_draw :: () {
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
-    if Begin("Scene Graph") {
-        if engine_state.current_scene.root != null {
+    if Begin("Node Hierarchy") {
+        if engine_state.current_scene && engine_state.current_scene.root != null {
             draw_node(engine_state.current_scene.root);
         } else {
             TextDisabled("No scene loaded");
@@ -22,6 +22,9 @@ scene_graph_draw :: () {
 #scope_file
 
 draw_node :: (node: *Node) {
+    PushID(node);
+    defer PopID();
+
     flags: TreeNodeFlags = .OpenOnArrow | .SpanAvailWidth | .DrawLinesToNodes | .DefaultOpen;
 
     if node.children.count == 0 {
@@ -44,5 +47,15 @@ draw_node :: (node: *Node) {
             draw_node(it);
         }
         TreePop();
+    }
+
+    if BeginPopupContextItem("node_context") {
+        if MenuItem("Add new child node") {
+            node_add_node(node);
+        }
+        if MenuItem("Destroy") {
+            //node_destroy(node);
+        }
+        EndPopup();
     }
 }

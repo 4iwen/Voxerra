@@ -17,4 +17,5 @@
 - Add gizmos
 - Add components
 - Add scene descriptor file, saving and loading scenes
-
+- Add cubemap and their hot reloading
+- use Iprof/Tracy when implementing profiling

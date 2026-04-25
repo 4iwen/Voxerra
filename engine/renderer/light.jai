@@ -13,14 +13,14 @@ Light_Type :: enum u32 {
 }
 
 Light :: struct {
-    type: Light_Type;
-    position: Vector3;
-    direction: Vector3;
-    color: Vector3;
-    intensity: float;
-    range: float; // for point, spot
-    inner_cos: float; // for spot
-    outer_cos: float; // for spot
+    type: Light_Type; @"Tooltip(\"The type of light, it defines how the light is projected\")"
+    position: Vector3; @Hidden
+    direction: Vector3; @Hidden
+    color: Vector3 = .{1, 1, 1}; @Color @"Tooltip(\"The color of the light\")"
+    intensity: float; @"Speed(0.1)" @"Range(0.0, 100.0)" @"Tooltip(\"The brightness of the light\")"
+    range: float; @"Speed(0.5)" @"Range(0.0, 1000.0)" @"Tooltip(\"The maximum distance the light reaches\")"
+    inner_cos: float; @"Speed(0.01)" @"Range(0.0, 1.0)" @"Tooltip(\"The cosine of the inner cone angle, light is at full intensity inside this region\")"
+    outer_cos: float; @"Speed(0.01)" @"Range(0.0, 1.0)" @"Tooltip(\"The cosine of the outer cone angle, light fades smoothly to zero between the inner and outer cones\")"
 }
 
 MAX_POINT_LIGHTS :: 32;

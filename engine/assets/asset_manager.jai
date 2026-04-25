@@ -5,6 +5,7 @@
 #import "Hash_Table";
 #import "File";
 #import "File_Watcher";
+#import "File_Utilities";
 
 manager: Asset_Manager;
 
@@ -52,15 +53,19 @@ asset_manager_get_default_texture :: () -> *Texture {
     return manager.default_texture;
 }
 
-asset_manager_init :: () {
-    // initialize tables
-    init(*manager.textures);
-    init(*manager.shaders);
-    init(*manager.models);
-    init(*manager.hot_reload_textures);
-    init(*manager.hot_reload_shaders);
-    init(*manager.hot_reload_models);
+asset_manager_get_textures :: () -> *Table(string, Texture_Asset) {
+    return *manager.textures;
+}
 
+asset_manager_get_shaders :: () -> *Table(string, Shader_Asset) {
+    return *manager.shaders;
+}
+
+asset_manager_get_models :: () -> *Table(string, Model_Asset) {
+    return *manager.models;
+}
+
+asset_manager_init :: () {
     // initialize file watcher
     manager.watcher = New(File_Watcher(void));
     watcher_ok := init(
@@ -147,9 +152,9 @@ asset_manager_load_texture :: (
     }
 
     // load new
-    texture := texture_create_from_file(path, spec);
-    if !texture {
-        texture = manager.default_texture;
+    texture := texture_create_from_file(absolute_path, spec);
+    if !texture {   
+        return manager.default_texture;
     }
     
     asset: Texture_Asset;
@@ -210,7 +215,7 @@ asset_manager_load_shader :: (
         fragment_path
     );
     
-    key := tprint("%%", vertex_absolute, fragment_absolute);
+    key := tprint("%|%", vertex_absolute, fragment_absolute);
 
     // check if already present
     found, existing_asset := table_find(*manager.shaders, key);
@@ -220,6 +225,10 @@ asset_manager_load_shader :: (
 
     // load new
     shader := shader_create_from_file(vertex_absolute, fragment_absolute);
+    if !shader {
+        log_error("Failed to load shader: %, %", vertex_absolute, fragment_absolute);
+        return null;
+    }
 
     asset: Shader_Asset;
     asset.shader = shader;
@@ -262,7 +271,7 @@ asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
         fragment_path
     );
 
-    key := tprint("%%", vertex_absolute, fragment_absolute);
+    key := tprint("%|%", vertex_absolute, fragment_absolute);
     
     found, asset := table_find(*manager.shaders, key);
     if !found {
@@ -292,9 +301,9 @@ asset_manager_load_model :: (
         return existing_asset.model;
     }
 
-    model := model_create_from_file(path, options);
+    model := model_create_from_file(absolute_path, options);
     if !model {
-        log_error("Failed to load mesh from file: %", path);
+        log_error("Failed to load mesh from file: %", absolute_path);
         return null;
     }
     
@@ -424,10 +433,10 @@ create_white_1x1_texture :: () -> *Texture {
         1,
         pixel.data,
         .{
-            min_filter = .LINEAR,
-            mag_filter = .NEAREST,
-            wrap_s = .REPEAT,
-            wrap_t = .REPEAT,
+            min_filter       = .NEAREST,
+            mag_filter       = .NEAREST,
+            wrap_s           = .REPEAT,
+            wrap_t           = .REPEAT,
             generate_mipmaps = false,
         }
     );
@@ -441,21 +450,21 @@ create_checker_texture :: () -> *Texture {
 
     data := cast(*u8) alloc(width * height * 4);
 
-    for y: 0..height-1 {
-        for x: 0..width-1 {
+    for y: 0..height - 1 {
+        for x: 0..width - 1 {
             index := (y * width + x) * 4;
             
             is_purple := ((x / 2) + (y / 2)) % 2 == 0;
             
             if is_purple {
                 data[index + 0] = 255; // r
-                data[index + 1] = 0; // g
+                data[index + 1] = 0;   // g
                 data[index + 2] = 255; // b
                 data[index + 3] = 255; // a
             } else {
-                data[index + 0] = 0; // r
-                data[index + 1] = 0; // g
-                data[index + 2] = 0; // b
+                data[index + 0] = 0;   // r
+                data[index + 1] = 0;   // g
+                data[index + 2] = 0;   // b
                 data[index + 3] = 255; // a
             }
         }

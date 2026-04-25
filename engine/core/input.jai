@@ -184,6 +184,7 @@ Input_State :: struct {
     text_input: [..] u32;
 
     cursor_disabled: bool;
+    ignored_cursor_events: s32;
 }
 
 #scope_export
@@ -250,22 +251,23 @@ input_shutdown :: () {
 #scope_file
 
 input_should_ignore :: (window: *GLFWwindow, action: s32, is_mouse: bool) -> bool {
-    // if the cursor is locked, dont ignore input
-    if input_state.cursor_disabled {
-        return false;
-    }
-    
-    // do not ignore releases
-    if action == GLFW_RELEASE {
-        return false;
-    }
-    
-    io := GetIO();
-    
-    if is_mouse {
-        return io.WantCaptureMouse && !ui_state.viewport_hovered;
+    #if BUILD_MODE == .EDITOR {
+        // if the cursor is locked, dont ignore input
+        if input_state.cursor_disabled then return false;
+
+        // do not ignore releases
+        if action == GLFW_RELEASE then return false;
+
+        io := GetIO();
+
+        if is_mouse {
+            return io.WantCaptureMouse && !ui_state.viewport_hovered;
+        } else {
+            return io.WantCaptureKeyboard && !ui_state.viewport_focused;
+        }
     } else {
-        return io.WantCaptureKeyboard && !ui_state.viewport_focused;
+        // export never ignores input
+        return false;
     }
 }
 
@@ -326,6 +328,15 @@ cursor_callback :: (window: *GLFWwindow, x: float64, y: float64) #c_call {
 
         using input_state;
 
+        if ignored_cursor_events > 0 {
+            ignored_cursor_events -= 1;
+            mouse_x = x;
+            mouse_y = y;
+            mouse_delta_x = 0;
+            mouse_delta_y = 0;
+            return;
+        }
+
         mouse_delta_x += x - mouse_x;
         mouse_delta_y += y - mouse_y;
         mouse_x        = x;
@@ -373,4 +384,5 @@ input_reset_mouse_position :: (window: *GLFWwindow) {
     mouse_y       = y;
     mouse_delta_x = 0;
     mouse_delta_y = 0;
+    ignored_cursor_events = 2;
 }

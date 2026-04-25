@@ -26,7 +26,7 @@ platform_shutdown :: () {
 
 glfw_error_callback :: (error: s32, description: *u8) #c_call {
     push_context {
-        log_install();
+        logging_install_logger();
         log_error("Glfw error %: %", error, to_string(description));
     }
 }

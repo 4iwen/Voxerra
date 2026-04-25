@@ -6,9 +6,9 @@
 #scope_export
 
 Transform :: struct {
-    position: Vector3 = .{0, 0, 0};
-    rotation: Quaternion = .{0, 0, 0, 1};
-    scale: Vector3 = .{1, 1, 1};
+    position: Vector3 = .{0, 0, 0}; @"Tooltip(\"The local 3D position relative to the parent\")"
+    rotation: Quaternion = .{0, 0, 0, 1}; @"Tooltip(\"The local orientation rotation\")"
+    scale: Vector3 = .{1, 1, 1}; @"Tooltip(\"The local scale multiplier\")"
 }
 
 quaternion_from_euler_xyz :: (xyz_radians: Vector3) -> Quaternion {

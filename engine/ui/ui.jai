@@ -18,6 +18,9 @@ UI_State :: struct {
 
 ui_state: UI_State;
 
+COLLAPSING_HEADER_FLAGS: TreeNodeFlags : .DefaultOpen | .Framed | .SpanAvailWidth;
+TABLE_FLAGS: TableFlags : .BordersInnerV | .SizingStretchProp | .NoBordersInBody;
+
 ui_init :: (window: *Window) {
 	ui_state.imgui_context = CreateContext();
     
@@ -39,9 +42,13 @@ ui_init :: (window: *Window) {
 
     ImplGlfw_InitForOpenGL(window.handle, true);
     ImplOpenGL3_Init("#version 330");
+
+    properties_init();
 }
 
 ui_shutdown :: () {
+    properties_shutdown();
+	
     ImplOpenGL3_Shutdown();
     ImplGlfw_Shutdown();
 	DestroyContext(ui_state.imgui_context);

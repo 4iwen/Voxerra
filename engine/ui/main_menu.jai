@@ -8,14 +8,11 @@
 main_menu_draw :: () {
     if BeginMainMenuBar() {
         if BeginMenu("File") {
-            if MenuItem("New Scene", "Ctrl+N") {
-                // @ToDo: clear scene, prompt to save a scene or discard
+            if MenuItem("New Scene", "Ctrl+N", enabled = false) {
             }
-            if MenuItem("Load Scene...", "Ctrl+O") {
-                // @ToDo: load TOML
+            if MenuItem("Load Scene...", "Ctrl+O", enabled = false) {
             }
-            if MenuItem("Save Scene...", "Ctrl+S") {
-                // @ToDo: save TOML
+            if MenuItem("Save Scene...", "Ctrl+S", enabled = false) {
             }
             Separator();
             if MenuItem("Exit", "Alt+F4") {
@@ -23,11 +20,18 @@ main_menu_draw :: () {
             }
             EndMenu();
         }
+
+        if BeginMenu("Run") {
+            if MenuItem("Play", "F5", enabled = false) {
+            }
+            if MenuItem("Stop", "Shift+F5", enabled = false) {
+            }
+            EndMenu();
+        }
         
         if BeginMenu("Edit") {
             if MenuItem("Add Node", "", enabled = cast(bool) selected_node) {
-                new_node := node_add_node(selected_node);
-                // mesh_component := node_add_component(new_node, Static_Mesh_Component);
+                node_add_node(selected_node);
             }
             EndMenu();
         }
