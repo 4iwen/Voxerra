@@ -16,6 +16,8 @@ Scene :: struct {
 
     // lights
     lights: *Light_System;
+    
+    ambient_color: Vector3 = .{0, 0, 0};
 }
 
 scene_create :: (name: string = "") -> *Scene {
@@ -47,6 +49,7 @@ scene_clone :: (scene: *Scene) -> *Scene {
     assert(scene != null, "scene_clone: scene is null");
 
     clone := scene_create(scene.name);
+    clone.ambient_color = scene.ambient_color;
 
     node_destroy(clone.root);
     clone.root = node_clone(scene.root, scene.camera, *clone.camera);

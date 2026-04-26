@@ -38,6 +38,18 @@ main_menu_draw :: () {
 
         if BeginMenu("View") {
             MenuItem("ImGui Demo", "", *ui_state.draw_demo);
+            MenuItem("PostFX", "", *ui_state.show_postfx_window);
+            wireframe_enabled := renderer_get_wireframe();
+            if MenuItem("Wireframe", "", selected = wireframe_enabled) {
+                renderer_set_wireframe(!wireframe_enabled);
+            }
+
+            if engine_state.window {
+                vsync_enabled := window_get_vsync(engine_state.window);
+                if MenuItem("VSync", "", selected = vsync_enabled) {
+                    window_set_vsync(engine_state.window, !vsync_enabled);
+                }
+            }
             EndMenu();
         }
 

@@ -12,14 +12,11 @@ Build_Mode :: enum u8 {
 
 Runtime_State :: struct {
     game_module: Game_Module;
-    editor_scene: *Scene;
-    play_scene: *Scene;
-    is_playing: bool;
     fixed_delta_time: float64 = 1.0 / 60.0;
     fixed_accumulator: float64;
-    editor_camera: Camera_Controller;
     render_queue: *Render_Queue;
     skybox: *Skybox;
+    scene_framebuffer: *Framebuffer;
     missing_camera_warning_emitted: bool;
 }
 
@@ -30,7 +27,6 @@ runtime_state: Runtime_State;
 app_init :: (game_module: Game_Module) -> bool {
     runtime_state = .{};
     runtime_state.game_module = game_module;
-    runtime_state.editor_camera = camera_controller_create(.{0.0, 1.5, 5.0});
 
     if !engine_init() {
         return false;
@@ -42,13 +38,19 @@ app_init :: (game_module: Game_Module) -> bool {
         return false;
     }
 
-    window_set_vsync(true);
+    window_set_vsync(window, true);
 
     runtime_state.render_queue = render_queue_create();
     runtime_state.skybox = skybox_init();
-    app_load_default_assets();
+    postfx_init();
+
+    runtime_state.scene_framebuffer = framebuffer_create(
+        window.framebuffer_width,
+        window.framebuffer_height
+    );
 
     #if BUILD_MODE == .EDITOR {
+        editor_picking_init();
         ui_init(window);
         engine_state.main_framebuffer = framebuffer_create(
             window.framebuffer_width,
@@ -56,30 +58,29 @@ app_init :: (game_module: Game_Module) -> bool {
         );
     }
 
-    scene := scene_create("Default Scene");
-    app_populate_default_scene(scene);
-
-    runtime_state.editor_scene = scene;
-    engine_state.current_scene = scene;
-
-    #if BUILD_MODE == .EDITOR {
-        selected_node = scene.root;
-    }
+    runtime_state.game_module.game_init();
 
     return true;
 }
 
 app_shutdown :: () {
-    if runtime_state.editor_scene {
-        scene_destroy(runtime_state.editor_scene);
+    runtime_state.game_module.game_shutdown();
+    if engine_state.current_scene {
+        scene_destroy(engine_state.current_scene);
+        engine_state.current_scene = null;
+    }
+    if runtime_state.scene_framebuffer {
+        framebuffer_destroy(runtime_state.scene_framebuffer);
     }
     if engine_state.main_framebuffer {
         framebuffer_destroy(engine_state.main_framebuffer);
     }
+    postfx_shutdown();
     skybox_shutdown(runtime_state.skybox);
     render_queue_destroy(runtime_state.render_queue);
 
     #if BUILD_MODE == .EDITOR {
+        editor_picking_shutdown();
         ui_shutdown();
     }
 
@@ -92,25 +93,14 @@ app_run_frame :: () {
 
     #if BUILD_MODE == .EDITOR {
         ui_begin_frame();
-        ui_draw();
     }
 
-    if runtime_state.is_playing {
-        app_update_game(delta_time);
-    } else #if BUILD_MODE == .EDITOR {
-        viewport_hovered := true;
-        viewport_hovered = ui_state.viewport_hovered;
-        camera_controller_update(
-            *runtime_state.editor_camera,
-            engine_state.window,
-            delta_time,
-            viewport_hovered
-        );
-    }
+    app_update_game(delta_time);
 
     app_render_scene();
 
     #if BUILD_MODE == .EDITOR {
+        ui_draw();
         ui_end_frame();
     }
 
@@ -120,8 +110,6 @@ app_run_frame :: () {
 app_should_close :: () -> bool {
     return window_should_close(engine_state.window);
 }
-
-#scope_file
 
 app_update_game :: (delta_time: float64) {
     delta := min(delta_time, 0.25);
@@ -139,71 +127,27 @@ app_update_game :: (delta_time: float64) {
     runtime_state.game_module.game_update();
 }
 
-app_load_default_assets :: () {
-    shader := asset_manager_load_shader(
-        "engine/assets/shaders/blinn_phong.vert",
-        "engine/assets/shaders/blinn_phong.frag",
-        true
-    );
-    if shader {
-        asset_manager_set_default_shader(shader);
-    } else {
-        log_error("Failed to load default scene shader");
-    }
-}
-
-app_populate_default_scene :: (scene: *Scene) {
-    assert(scene != null, "app_populate_default_scene: scene is null");
-
-    camera_node := node_add_node(scene.root, "Camera");
-    camera_node.local.position = .{0.0, 1.5, 5.0};
-    camera_component := node_add_component(camera_node, Camera_Component);
-    camera_component.camera = camera_create(camera_node.local.position);
-    scene_set_active_camera(scene, camera_component);
-
-    model := asset_manager_load_model("game/assets/models/utah_teapot.obj");
-    if model {
-        model_node := node_add_node(scene.root, "Teapot");
-        model_node.local.position = .{0.0, 0.0, -10.0};
-
-        for model.submeshes {
-            sub_node := node_add_node(model_node, "teapot_mesh");
-            mesh_component := node_add_component(sub_node, Static_Mesh_Component);
-            mesh_component.mesh = it.mesh;
-            mesh_component.material = it.material;
-        }
-    } else {
-        log_error("Failed to load default scene model");
-    }
-
-    sun_node := node_add_node(scene.root, "Sun");
-    sun_node.local.rotation = quaternion_from_euler_xyz(.{-PI / 2.0 - 0.2, 0.0, 0.0});
-    sun_light := node_add_component(sun_node, Light_Component);
-    sun_light.light.type = .Directional;
-    sun_light.light.color = .{1.0, 0.95, 0.9};
-    sun_light.light.intensity = 2.0;
-
-    point_node := node_add_node(scene.root, "Point Light");
-    point_node.local.position = .{3.0, 3.0, -7.5};
-    point_light := node_add_component(point_node, Light_Component);
-    point_light.light.type = .Point;
-    point_light.light.color = .{1.0, 0.0, 0.0};
-    point_light.light.intensity = 2.0;
-    point_light.light.range = 20.0;
-}
-
 app_render_scene :: () {
     scene := engine_state.current_scene;
+    output_framebuffer: *Framebuffer;
+    output_width := engine_state.window.framebuffer_width;
+    output_height := engine_state.window.framebuffer_height;
+
+    #if BUILD_MODE == .EDITOR {
+        if engine_state.main_framebuffer {
+            output_framebuffer = engine_state.main_framebuffer;
+            output_width = output_framebuffer.pixel_width;
+            output_height = output_framebuffer.pixel_height;
+        }
+    }
+
     if !scene {
-        #if BUILD_MODE == .EDITOR {
-            if engine_state.main_framebuffer {
-                framebuffer_bind(engine_state.main_framebuffer);
-                renderer_begin_frame(.{0.08, 0.08, 0.09, 1.0});
-                framebuffer_unbind();
-            } else {
-                renderer_begin_frame(.{0.08, 0.08, 0.09, 1.0});
-            }
+        if output_framebuffer {
+            framebuffer_bind(output_framebuffer);
+            renderer_begin_frame(.{0.08, 0.08, 0.09, 1.0});
+            framebuffer_unbind();
         } else {
+            renderer_set_viewport_size(output_width, output_height);
             renderer_begin_frame(.{0.08, 0.08, 0.09, 1.0});
         }
         return;
@@ -214,35 +158,39 @@ app_render_scene :: () {
         return;
     }
 
-    #if BUILD_MODE == .EDITOR {
-        if engine_state.main_framebuffer {
-            framebuffer_bind(engine_state.main_framebuffer);
-        } else {
-            renderer_set_viewport_size(
-                engine_state.window.framebuffer_width,
-                engine_state.window.framebuffer_height
-            );
-        }
+    render_framebuffer := output_framebuffer;
+    if postfx_get_enabled() {
+        render_framebuffer = runtime_state.scene_framebuffer;
+        framebuffer_resize(render_framebuffer, output_width, output_height);
+        postfx_resize(output_width, output_height);
+    }
+
+    if render_framebuffer {
+        framebuffer_bind(render_framebuffer);
     } else {
-        renderer_set_viewport_size(
-            engine_state.window.framebuffer_width,
-            engine_state.window.framebuffer_height
-        );
+        renderer_set_viewport_size(output_width, output_height);
     }
 
     renderer_begin_frame(.{0.08, 0.08, 0.09, 1.0});
 
     scene_update_transforms(scene);
+
+    #if BUILD_MODE == .EDITOR {
+        editor_picking_render(scene, camera, output_width, output_height);
+        if render_framebuffer {
+            framebuffer_bind(render_framebuffer);
+        } else {
+            renderer_set_viewport_size(output_width, output_height);
+        }
+    }
+
     render_queue_submit(runtime_state.render_queue, scene);
     render_queue_flush(runtime_state.render_queue, camera);
 
     if runtime_state.skybox {
         aspect := 1.0;
-        if engine_state.main_framebuffer {
-            aspect = engine_state.main_framebuffer.aspect;
-        } else if engine_state.window.framebuffer_height > 0 {
-            aspect = cast(float) engine_state.window.framebuffer_width /
-                     cast(float) engine_state.window.framebuffer_height;
+        if output_height > 0 {
+            aspect = cast(float) output_width / cast(float) output_height;
         }
 
         skybox_draw(
@@ -252,30 +200,40 @@ app_render_scene :: () {
         );
     }
 
+    if postfx_get_enabled() {
+        postfx_apply(
+            runtime_state.scene_framebuffer,
+            output_framebuffer,
+            camera,
+            output_width,
+            output_height
+        );
+    }
+
     #if BUILD_MODE == .EDITOR {
-        if engine_state.main_framebuffer {
+        if output_framebuffer {
+            framebuffer_unbind();
+        }
+    } else {
+        if output_framebuffer {
             framebuffer_unbind();
         }
     }
 }
 
 app_get_render_camera :: () -> *Camera {
-    if runtime_state.is_playing {
-        scene := engine_state.current_scene;
-        if scene {
-            app_ensure_scene_camera(scene);
-            if scene.camera {
-                return scene.camera;
-            }
-        }
-
-        if !runtime_state.missing_camera_warning_emitted {
-            log_warning("No active scene camera found, using editor camera fallback");
-            runtime_state.missing_camera_warning_emitted = true;
-        }
+    scene := engine_state.current_scene;
+    if scene {
+        app_ensure_scene_camera(scene);
+        if scene.camera then return scene.camera;
     }
 
-    return *runtime_state.editor_camera.camera;
+    if !runtime_state.missing_camera_warning_emitted {
+        log_warning("No active scene camera found");
+        runtime_state.missing_camera_warning_emitted = true;
+    }
+
+    return null;
 }
 
 app_ensure_scene_camera :: (scene: *Scene) {

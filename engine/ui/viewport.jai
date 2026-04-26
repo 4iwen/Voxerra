@@ -12,6 +12,10 @@ viewport_draw :: () {
     
     ui_state.viewport_hovered = IsWindowHovered();
     ui_state.viewport_focused = IsWindowFocused();
+    ui_state.viewport_image_visible = false;
+    ui_state.viewport_screen_min = .{0, 0};
+    ui_state.viewport_screen_max = .{0, 0};
+    ui_state.viewport_size = .{0, 0};
 
     size := GetContentRegionAvail();
     
@@ -42,6 +46,11 @@ viewport_draw :: () {
                 .{0, 1},
                 .{1, 0}
             );
+
+            ui_state.viewport_image_visible = true;
+            ui_state.viewport_screen_min = GetItemRectMin();
+            ui_state.viewport_screen_max = GetItemRectMax();
+            ui_state.viewport_size = ui_state.viewport_screen_max - ui_state.viewport_screen_min;
         }
     }
     End();

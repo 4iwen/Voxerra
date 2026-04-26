@@ -248,8 +248,10 @@ assimp_load_meshes :: (
             ok_mode, mode_str := try_load_string(ai_material, "$mat.gltf.alphaMode");
             if ok_mode {
                 if mode_str == "BLEND" {
+                    material.blend_mode = .ALPHA_BLEND;
                     material.alpha_cutoff = 0.0;
                 } else if mode_str == "MASK" {
+                    material.blend_mode = .ALPHA_CLIP;
                     ok_cutoff, cutoff := try_load_float(ai_material, "$mat.gltf.alphaCutoff");
                     if ok_cutoff {
                         material.alpha_cutoff = cutoff;
@@ -261,11 +263,28 @@ assimp_load_meshes :: (
             }
         }
 
+        {
+            ok_opacity, opacity := try_load_float(ai_material, "$mat.opacity");
+            if ok_opacity {
+                material.alpha = clamp(opacity, 0.0, 1.0);
+                if material.alpha < 0.999 && material.blend_mode == .OPAQUE {
+                    material.blend_mode = .ALPHA_BLEND;
+                }
+            }
+        }
+
         // diffuse map
         {
             types := aiTextureType.[.BASE_COLOR, .DIFFUSE];
             texture := load_texture_from_material(scene, ai_material, types, path, true);
-            if texture then material.diffuse_map = texture;
+            if texture {
+                material.diffuse_map = texture;
+
+                if material.blend_mode == .OPAQUE && texture.has_transparency {
+                    material.blend_mode = .ALPHA_CLIP;
+                    material.alpha_cutoff = 0.5;
+                }
+            }
         }
 
         // specular map
@@ -352,6 +371,9 @@ load_texture_from_material :: (
 
             if data {
                 spec := DEFAULT_TEXTURE_SPEC;
+                spec.min_filter = .NEAREST;
+                spec.mag_filter = .NEAREST;
+                spec.generate_mipmaps = false;
                 spec.srgb = srgb;
                 texture := texture_create_from_data(width, height, data, spec);
 
@@ -384,6 +406,9 @@ load_texture_from_material :: (
             full_path_str := tprint("%%", folder, texture_relative_path);
 
             spec := DEFAULT_TEXTURE_SPEC;
+            spec.min_filter = .NEAREST;
+            spec.mag_filter = .NEAREST;
+            spec.generate_mipmaps = false;
             spec.srgb = srgb;
 
             return asset_manager_load_texture(full_path_str, spec, false);

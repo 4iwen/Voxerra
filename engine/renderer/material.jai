@@ -47,6 +47,9 @@ material_destroy :: (material: *Material) {
 }
 
 material_use :: (material: *Material) {
+    assert(material != null, "material_use: material is null");
+    assert(material.shader != null, "material_use: material.shader is null");
+
     // diffuse
     if material.diffuse_map {
         texture_bind(material.diffuse_map, 0);
@@ -65,4 +68,7 @@ material_use :: (material: *Material) {
 
     // shininess
     shader_set_float(material.shader, "u_material.shininess", material.shininess);
+    shader_set_float(material.shader, "u_material.alpha", material.alpha);
+    shader_set_float(material.shader, "u_material.alpha_cutoff", material.alpha_cutoff);
+    shader_set_int(material.shader, "u_material.blend_mode", cast(s32) material.blend_mode);
 }

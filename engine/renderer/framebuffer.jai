@@ -13,7 +13,7 @@ Framebuffer :: struct {
     height: float;
     aspect: float;
     color_texture: u32;
-    depth_buffer: u32;
+    depth_texture: u32;
 }
 
 framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
@@ -57,22 +57,33 @@ framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
         0
     );
 
-    // create depth buffer
-    glGenRenderbuffers(1, *framebuffer.depth_buffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.depth_buffer);
+    // create depth texture
+    glGenTextures(1, *framebuffer.depth_texture);
+    glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
 
-    glRenderbufferStorage(
-        GL_RENDERBUFFER,
-        GL_DEPTH24_STENCIL8,
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT24,
         cast(u32) width,
-        cast(u32) height
+        cast(u32) height,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_UNSIGNED_INT,
+        null
     );
 
-    glFramebufferRenderbuffer(
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glFramebufferTexture2D(
         GL_FRAMEBUFFER,
-        GL_DEPTH_STENCIL_ATTACHMENT,
-        GL_RENDERBUFFER,
-        framebuffer.depth_buffer
+        GL_DEPTH_ATTACHMENT,
+        GL_TEXTURE_2D,
+        framebuffer.depth_texture,
+        0
     );
 
     // check completeness
@@ -89,7 +100,7 @@ framebuffer_destroy :: (framebuffer: *Framebuffer) {
     assert(framebuffer != null, "framebuffer_destroy: framebuffer is null");
 
     glDeleteTextures(1, *framebuffer.color_texture);
-    glDeleteRenderbuffers(1, *framebuffer.depth_buffer);
+    glDeleteTextures(1, *framebuffer.depth_texture);
     glDeleteFramebuffers(1, *framebuffer.id);
     free(framebuffer);
 }
@@ -132,12 +143,17 @@ framebuffer_resize :: (framebuffer: *Framebuffer, width: s32, height: s32) {
         null
     );
 
-    glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.depth_buffer);
-    glRenderbufferStorage(
-        GL_RENDERBUFFER,
-        GL_DEPTH24_STENCIL8,
+    glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT24,
         cast(u32) width,
-        cast(u32) height
+        cast(u32) height,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_UNSIGNED_INT,
+        null
     );
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);

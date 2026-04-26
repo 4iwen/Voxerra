@@ -57,7 +57,7 @@ render_queue_submit :: (
     item.material = material;
     item.world_matrix = world_matrix;
     item.world_position = world_position;
-    item.is_transparent = material.blend_mode != .OPAQUE;
+    item.is_transparent = material.blend_mode == .ALPHA_BLEND;
 
     if item.is_transparent {
         array_add(*queue.transparent, item);
@@ -74,7 +74,7 @@ render_queue_submit :: (
     assert(scene != null, "render_queue_submit: scene is null");
     assert(scene.root != null, "render_queue_submit: scene.root is null");
 
-    queue.light_system.ambient_color = .{0, 0, 0};
+    queue.light_system.ambient_color = scene.ambient_color;
 
     submit_node(scene.root, queue);
 }
@@ -160,6 +160,10 @@ render_item_draw :: (
     using engine_state;
 
     shader := item.material.shader;
+    is_alpha_blend := item.material.blend_mode == .ALPHA_BLEND;
+
+    renderer_set_blending(is_alpha_blend);
+    renderer_set_depth_write(!is_alpha_blend);
 
     // bind shader
     shader_use(shader);
@@ -193,4 +197,7 @@ render_item_draw :: (
     
     // draw
     mesh_draw(item.mesh);
+
+    renderer_set_depth_write(true);
+    renderer_set_blending(true);
 }

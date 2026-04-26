@@ -21,6 +21,7 @@ Texture :: struct {
     id: u32;
     width: s32;
     height: s32;
+    has_transparency: bool;
 }
 
 Texture_Spec :: struct {
@@ -101,6 +102,7 @@ texture_create_from_file :: (
 
     texture.width = width;
     texture.height = height;
+    texture.has_transparency = texture_data_has_transparency(data, width * height);
 
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -167,6 +169,7 @@ texture_create_from_data :: (
     texture := New(Texture);
     texture.width = width;
     texture.height = height;
+    texture.has_transparency = texture_data_has_transparency(data, width * height);
 
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -349,4 +352,17 @@ is_mipmapped_filter :: (filter: Texture_Filter) -> bool {
            filter == .LINEAR_MIPMAP_NEAREST ||
            filter == .NEAREST_MIPMAP_LINEAR ||
            filter == .LINEAR_MIPMAP_LINEAR;
+}
+
+texture_data_has_transparency :: (data: *u8, pixel_count: s32) -> bool {
+    if !data || pixel_count <= 0 then return false;
+
+    for i: 0..pixel_count - 1 {
+        alpha := data[i * 4 + 3];
+        if alpha < 250 {
+            return true;
+        }
+    }
+
+    return false;
 }

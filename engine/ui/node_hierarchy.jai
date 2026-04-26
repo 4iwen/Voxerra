@@ -7,6 +7,14 @@
 
 selected_node: *Node;
 
+editor_select_node :: (node: *Node) {
+    selected_node = node;
+
+    if node {
+        ui_reset_rotation_state(node.local.rotation);
+    }
+}
+
 node_hierarchy_draw :: () {
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
     if Begin("Node Hierarchy") {
@@ -38,8 +46,7 @@ draw_node :: (node: *Node) {
     is_open := TreeNodeEx(temp_c_string(node.name), flags);
 
     if IsItemClicked() && !IsItemToggledOpen() {
-        selected_node = node;
-        ui_reset_rotation_state(node.local.rotation);
+        editor_select_node(node);
     }
 
     if is_open && node.children.count > 0 {

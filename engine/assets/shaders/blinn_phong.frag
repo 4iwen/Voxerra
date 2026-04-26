@@ -4,6 +4,9 @@ struct Material {
     sampler2D diffuse;
     sampler2D specular;
     float shininess;
+    float alpha;
+    float alpha_cutoff;
+    int blend_mode;
 };
 
 struct DirectionalLight {
@@ -156,8 +159,14 @@ void main() {
     vec3 view_direction = normalize(u_view_position - v_position);
     
     // sample textures
-    vec3 albedo_map = vec3(texture(u_material.diffuse, v_uv));
+    vec4 diffuse_sample = texture(u_material.diffuse, v_uv);
+    vec3 albedo_map = diffuse_sample.rgb;
     vec3 specular_map = vec3(texture(u_material.specular, v_uv));
+    float alpha = diffuse_sample.a * u_material.alpha;
+
+    if (u_material.blend_mode == 1 && alpha < u_material.alpha_cutoff) {
+        discard;
+    }
 
     // global ambient
     vec3 result = u_global_ambient * albedo_map;
@@ -178,5 +187,5 @@ void main() {
     }
     
     // final
-    color = vec4(result, 1.0);
+    color = vec4(result, alpha);
 }

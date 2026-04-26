@@ -24,6 +24,7 @@
 #load "renderer/model.jai";
 #load "renderer/light.jai";
 #load "renderer/framebuffer.jai";
+#load "renderer/postfx.jai";
 #load "renderer/scene.jai";
 #load "renderer/skybox.jai";
 #load "renderer/cubemap.jai";
@@ -36,7 +37,9 @@
 #load "ecs/components.jai";
 
 // editor
-#load "editor/camera_controller.jai";
+#if BUILD_MODE == .EDITOR {
+    #load "editor/picking.jai";
+}
 
 // ui
 #if BUILD_MODE == .EDITOR {
@@ -46,6 +49,7 @@
     #load "ui/node_hierarchy.jai";
     #load "ui/node_properties.jai";
     #load "ui/main_menu.jai";
+    #load "ui/postfx.jai";
     #load "ui/viewport.jai";
     #load "ui/log.jai";
 }

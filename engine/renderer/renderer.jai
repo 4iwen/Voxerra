@@ -6,7 +6,14 @@
 
 #scope_export
 
+Renderer_State :: struct {
+    wireframe_enabled: bool;
+}
+
+renderer_state: Renderer_State;
+
 renderer_init :: () {
+    renderer_state = .{};
     gl_load(*gl, glfwGetProcAddress.(*void));
     
     // enable features
@@ -83,4 +90,14 @@ renderer_set_depth_test :: (enabled: bool) {
     } else {
         glDisable(GL_DEPTH_TEST);
     }
+}
+
+renderer_set_wireframe :: (enabled: bool) {
+    renderer_state.wireframe_enabled = enabled;
+    polygon_mode: u32 = ifx enabled then cast(u32) GL_LINE else cast(u32) GL_FILL;
+    glPolygonMode(GL_FRONT_AND_BACK, polygon_mode);
+}
+
+renderer_get_wireframe :: () -> bool {
+    return renderer_state.wireframe_enabled;
 }

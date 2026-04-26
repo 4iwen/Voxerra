@@ -11,9 +11,14 @@
 UI_State :: struct {
 	imgui_context: *ImGuiContext;
 	draw_demo: bool;
+	show_postfx_window: bool = true;
 	rotation_state: Rotation_Edit_State;
 	viewport_hovered: bool;
 	viewport_focused: bool;
+    viewport_image_visible: bool;
+    viewport_screen_min: ImVec2;
+    viewport_screen_max: ImVec2;
+    viewport_size: ImVec2;
 }
 
 ui_state: UI_State;
@@ -84,6 +89,13 @@ ui_draw :: () {
 
 ui_end_frame :: () {
     Render();
+
+    framebuffer_unbind();
+    renderer_set_viewport_size(
+        engine_state.window.framebuffer_width,
+        engine_state.window.framebuffer_height
+    );
+    renderer_clear(.{0.08, 0.08, 0.09, 1.0});
     
     io := GetIO();
     if io.ConfigFlags_ & .ViewportsEnable {
