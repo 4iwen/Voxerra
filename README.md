@@ -8,14 +8,16 @@
 
 ## Building
 
-`jai first.jai`
+- `jai first.jai` builds editor and game module
+- `jai first.jai - -editor` builds only the editor
+- `jai first.jai - -game` builds only the game module
+- `jai first.jai - -export` builds the standalone game executable
 
 ## TODO
 - Add shadows
-- Fix transparency
 - Add a way to set up environment (skybox, ambient lighting, etc.)
-- Add gizmos
 - Add components
-- Add scene descriptor file, saving and loading scenes
 - Add cubemap and their hot reloading
-- use Iprof/Tracy when implementing profiling
+- Use Iprof/Tracy when implementing profiling
+- Add prepocessor for shaders for deduplicating code
+- Transition to bounding box picking?

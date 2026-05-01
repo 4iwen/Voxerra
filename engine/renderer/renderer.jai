@@ -8,6 +8,14 @@
 
 Renderer_State :: struct {
     wireframe_enabled: bool;
+    view_mode: Render_View_Mode;
+}
+
+Render_View_Mode :: enum u32 {
+    LIT;
+    UNLIT;
+    LIGHTING_ONLY;
+    ALBEDO;
 }
 
 renderer_state: Renderer_State;
@@ -31,6 +39,7 @@ renderer_init :: () {
 }
 
 renderer_shutdown :: () {
+    sprite_system_shutdown();
     texture_shutdown();
     log("Shutdown renderer");
 }
@@ -100,4 +109,12 @@ renderer_set_wireframe :: (enabled: bool) {
 
 renderer_get_wireframe :: () -> bool {
     return renderer_state.wireframe_enabled;
+}
+
+renderer_set_view_mode :: (mode: Render_View_Mode) {
+    renderer_state.view_mode = mode;
+}
+
+renderer_get_view_mode :: () -> Render_View_Mode {
+    return renderer_state.view_mode;
 }

@@ -11,12 +11,3 @@ Game_Module :: struct {
     game_update:       Game_Update_Proc;
     game_shutdown:     Game_Shutdown_Proc;
 }
-
-game_module_get_api :: () -> Game_Module {
-    module: Game_Module;
-    module.game_init =         game_init;
-    module.game_fixed_update = game_fixed_update;
-    module.game_update =       game_update;
-    module.game_shutdown =     game_shutdown;
-    return module;
-}

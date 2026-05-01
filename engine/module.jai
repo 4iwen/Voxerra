@@ -21,6 +21,7 @@
 #load "renderer/texture.jai";
 #load "renderer/render_queue.jai";
 #load "renderer/material.jai";
+#load "renderer/sprite_system.jai";
 #load "renderer/model.jai";
 #load "renderer/light.jai";
 #load "renderer/framebuffer.jai";
@@ -36,9 +37,15 @@
 #load "ecs/entity.jai";
 #load "ecs/components.jai";
 
+// scene io
+#load "scene/scene_loader.jai";
+
 // editor
 #if BUILD_MODE == .EDITOR {
+    #load "editor/editor_context.jai";
+    #load "editor/editor_camera.jai";
     #load "editor/picking.jai";
+    #load "editor/gizmos.jai";
 }
 
 // ui
@@ -51,8 +58,11 @@
     #load "ui/main_menu.jai";
     #load "ui/postfx.jai";
     #load "ui/viewport.jai";
+    #load "ui/scene_tabs.jai";
+    #load "ui/asset_browser.jai";
     #load "ui/log.jai";
 }
 
 #load "runtime/game_module.jai";
+#load "runtime/project.jai";
 #load "runtime/app.jai";

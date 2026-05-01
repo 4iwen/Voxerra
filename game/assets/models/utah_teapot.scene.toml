@@ -1,0 +1,25 @@
+version = 1
+name = "Utah Teapot"
+
+[environment]
+clear_color = [0.08, 0.08, 0.09, 1]
+ambient_color = [0.16, 0.18, 0.22]
+skybox_enabled = true
+postfx_enabled = false
+fog_enabled = false
+fog_color = [0.72, 0.78, 0.86, 1]
+fog_near = 10
+fog_far = 34
+
+[[nodes]]
+id = "mesh"
+name = "Mesh"
+parent = "root"
+position = [0, 0, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "mesh_instance"
+mesh = "game/assets/models/utah_teapot.obj"
+mesh_guid = "cbdad06a5e941e20"

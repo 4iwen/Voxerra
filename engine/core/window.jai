@@ -107,6 +107,11 @@ window_get_vsync :: (window: *Window) -> bool {
     return window.vsync_enabled;
 }
 
+window_is_focused :: (window: *Window) -> bool {
+    if !window || !window.handle then return false;
+    return glfwGetWindowAttrib(window.handle, GLFW_FOCUSED) == GLFW_TRUE;
+}
+
 window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {
     assert(window != null, "window_set_cursor_mode: window is null");
     

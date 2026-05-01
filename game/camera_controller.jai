@@ -23,11 +23,20 @@ Game_Camera_Controller :: struct {
     previous_mode: Game_Camera_Mode = .FREE;
 
     free_node: *Node;
+    free_node_runtime_id: u64;
+    static_1_node_runtime_id: u64;
+    static_2_node_runtime_id: u64;
     free_camera: *Camera_Component;
     static_1_camera: *Camera_Component;
     static_2_camera: *Camera_Component;
 
     free_controller: Game_Free_Camera_Controller;
+}
+
+Game_Camera_Controller_Ids :: struct {
+    free_node_runtime_id: u64;
+    static_1_node_runtime_id: u64;
+    static_2_node_runtime_id: u64;
 }
 
 game_camera_controller_init :: (
@@ -49,6 +58,7 @@ game_camera_controller_init :: (
         -12.0
     );
     controller.free_node = controller.free_camera.node;
+    controller.free_node_runtime_id = controller.free_node.runtime_id;
     controller.free_controller = .{};
 
     controller.static_1_camera = game_create_camera_node(
@@ -65,8 +75,33 @@ game_camera_controller_init :: (
         -149.0,
         -24.0
     );
+    controller.static_1_node_runtime_id = controller.static_1_camera.node.runtime_id;
+    controller.static_2_node_runtime_id = controller.static_2_camera.node.runtime_id;
 
     scene_set_active_camera(scene, controller.free_camera);
+}
+
+game_camera_controller_get_ids :: (
+    controller: *Game_Camera_Controller
+) -> Game_Camera_Controller_Ids {
+    if !controller then return .{};
+
+    return .{
+        free_node_runtime_id = controller.free_node_runtime_id,
+        static_1_node_runtime_id = controller.static_1_node_runtime_id,
+        static_2_node_runtime_id = controller.static_2_node_runtime_id
+    };
+}
+
+game_camera_controller_set_ids :: (
+    controller: *Game_Camera_Controller,
+    ids: Game_Camera_Controller_Ids
+) {
+    if !controller then return;
+
+    controller.free_node_runtime_id = ids.free_node_runtime_id;
+    controller.static_1_node_runtime_id = ids.static_1_node_runtime_id;
+    controller.static_2_node_runtime_id = ids.static_2_node_runtime_id;
 }
 
 game_camera_controller_update :: (
@@ -118,6 +153,41 @@ game_camera_controller_set_mode :: (
 game_camera_controller_get_mode :: (controller: *Game_Camera_Controller) -> Game_Camera_Mode {
     if !controller then return .FREE;
     return controller.active_mode;
+}
+
+game_camera_controller_rebind :: (
+    controller: *Game_Camera_Controller,
+    scene: *Scene
+) {
+    if !controller || !scene then return;
+
+    active_mode := controller.active_mode;
+    previous_mode := controller.previous_mode;
+    free_controller := controller.free_controller;
+
+    free_node := node_find_by_runtime_id(scene.root, controller.free_node_runtime_id);
+    static_1_node := node_find_by_runtime_id(scene.root, controller.static_1_node_runtime_id);
+    static_2_node := node_find_by_runtime_id(scene.root, controller.static_2_node_runtime_id);
+
+    if !free_node     then free_node     = node_find_by_scene_id(scene.root, "free_camera");
+    if !static_1_node then static_1_node = node_find_by_scene_id(scene.root, "static_camera_1");
+    if !static_2_node then static_2_node = node_find_by_scene_id(scene.root, "static_camera_2");
+
+    controller.free_node = free_node;
+    controller.free_camera = node_get_component(free_node, Camera_Component);
+    controller.static_1_camera = node_get_component(static_1_node, Camera_Component);
+    controller.static_2_camera = node_get_component(static_2_node, Camera_Component);
+    if free_node     then controller.free_node_runtime_id = free_node.runtime_id;
+    if static_1_node then controller.static_1_node_runtime_id = static_1_node.runtime_id;
+    if static_2_node then controller.static_2_node_runtime_id = static_2_node.runtime_id;
+    controller.active_mode = active_mode;
+    controller.previous_mode = previous_mode;
+    controller.free_controller = free_controller;
+
+    active_camera := game_camera_controller_get_active_camera(controller);
+    if active_camera {
+        scene_set_active_camera(scene, active_camera);
+    }
 }
 
 #scope_file
@@ -253,9 +323,17 @@ game_free_camera_controller_update :: (
         controller.skip_next_mouse_delta = false;
     }
 
+    if controller.active && !input_mouse_down(.RIGHT) {
+        window_set_cursor_mode(window, .NORMAL);
+        controller.active = false;
+        controller.skip_next_mouse_delta = false;
+    }
+
     if controller.active {
         game_free_camera_process_keyboard(controller, camera, delta_time);
         game_free_camera_process_mouse(controller, camera);
+        game_clamp_camera_position(*camera.position);
+        camera_update_vectors(camera);
     }
 }
 

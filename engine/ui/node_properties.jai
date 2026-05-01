@@ -17,46 +17,57 @@ properties_shutdown :: () {
     deinit(*ui_cache);
 }
 
+node_name_edit_runtime_id: u64;
+node_name_edit_buffer: [256] u8;
+
 properties_draw :: () {
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
 
     if Begin("Node Properties") {
         if selected_node != null {
+            draw_node_identity(selected_node);
+            Separator();
             draw_transform_component(selected_node);
 
-            removed_component: *Component = null;
-            for component: selected_node.components {
-                if ui_draw_component(component) {
-                    removed_component = component;
-                }
-            }
-
-            if removed_component != null {
-                node_remove_component(selected_node, removed_component);
-            }
-
-            Separator();
-            Dummy(ImVec2.{0, 10});
-
-            if Button("Add Component", ImVec2.{-1, 24}) {
-                OpenPopup("AddComponentPopup");
-            }
-
-            if BeginPopup("AddComponentPopup") {
-                #insert -> string {
-                    builder: String_Builder;
-                    for component: ui_available_components {
-                        name := component;
-                        display_name := ui_format_label(name);
-                        print_to_builder(*builder, "if node_get_component(selected_node, %) == null {\n", component);
-                        print_to_builder(*builder, "    if Selectable(\"%\") {\n", display_name);
-                        print_to_builder(*builder, "        node_add_component(selected_node, %);\n", component);
-                        print_to_builder(*builder, "    }\n");
-                        print_to_builder(*builder, "}\n");
+            if selected_node.instance_path {
+                draw_scene_instance_properties(selected_node);
+            } else {
+                removed_component: *Component = null;
+                for component: selected_node.components {
+                    if ui_draw_component(component) {
+                        removed_component = component;
                     }
-                    return builder_to_string(*builder);
-                };
-                EndPopup();
+                }
+
+                if removed_component != null {
+                    node_remove_component(selected_node, removed_component);
+                    editor_mark_current_scene_dirty();
+                }
+
+                Separator();
+                Dummy(ImVec2.{0, 10});
+
+                if Button("Add Component", ImVec2.{-1, 24}) {
+                    OpenPopup("AddComponentPopup");
+                }
+
+                if BeginPopup("AddComponentPopup") {
+                    #insert -> string {
+                        builder: String_Builder;
+                        for component: ui_available_components {
+                            name := component;
+                            display_name := ui_format_label(name);
+                            print_to_builder(*builder, "if node_get_component(selected_node, %) == null {\n", component);
+                            print_to_builder(*builder, "    if Selectable(\"%\") {\n", display_name);
+                            print_to_builder(*builder, "        node_add_component(selected_node, %);\n", component);
+                            print_to_builder(*builder, "        editor_mark_current_scene_dirty();\n");
+                            print_to_builder(*builder, "    }\n");
+                            print_to_builder(*builder, "}\n");
+                        }
+                        return builder_to_string(*builder);
+                    };
+                    EndPopup();
+                }
             }
         } else {
             TextDisabled("No node selected");
@@ -66,8 +77,50 @@ properties_draw :: () {
     End();
 } @UI_Window
 
+draw_node_identity :: (node: *Node) {
+    if !node then return;
+
+    if node_name_edit_runtime_id != node.runtime_id {
+        node_name_edit_runtime_id = node.runtime_id;
+        ui_copy_string_to_buffer(node.name, node_name_edit_buffer.data, node_name_edit_buffer.count);
+    }
+
+    if BeginTable("node_identity_table", 2, TABLE_FLAGS, ImVec2.{0, 0}) {
+        TableSetupColumn("Name", .WidthFixed, 0.0);
+        TableSetupColumn("Value", .WidthStretch, 0.0);
+
+        TableNextRow();
+        TableNextColumn();
+        AlignTextToFramePadding();
+        Text("Name");
+
+        TableNextColumn();
+        PushItemWidth(-1);
+        if InputText("##node_name", node_name_edit_buffer.data, node_name_edit_buffer.count) {
+            editor_rename_node(node, to_string(node_name_edit_buffer.data));
+        }
+        PopItemWidth();
+
+        EndTable();
+    }
+}
+
+draw_scene_instance_properties :: (node: *Node) {
+    if !node || !node.instance_path then return;
+
+    if CollapsingHeader("Scene Instance", COLLAPSING_HEADER_FLAGS) {
+        TextDisabled("Source Scene");
+        TextWrapped("%", node.instance_path);
+
+        if Button("Open Source Scene", ImVec2.{-1, 24}) {
+            editor_open_scene(node.instance_path);
+        }
+    }
+}
+
 ui_draw_component :: (component: *Component) -> bool {
     if !component then return false;
+    if component.type == Static_Mesh_Component then return false;
 
     information := cast(*Type_Info) component.type;
     if information.type != .STRUCT then return false;
@@ -86,6 +139,10 @@ ui_draw_component :: (component: *Component) -> bool {
             EndTable();
         }
 
+        if component.type == Model_Component {
+            draw_model_component_materials(cast(*Model_Component) component);
+        }
+
         PopID();
     }
 
@@ -101,7 +158,32 @@ should_skip_field :: (struct_info: *Type_Info_Struct, member: Type_Info_Struct_M
         if member.name == "outer_cos" && light.type != .Spot         then return true;
     }
     if struct_info.name == "Scene" {
-        if member.name == "camera" || member.name == "lights" then return true;
+        if member.name == "camera" || member.name == "lights" || member.name == "source_path" then return true;
+    }
+    if struct_info.name == "Camera" {
+        if member.name == "position" then return true;
+        if member.name == "front" then return true;
+        if member.name == "up" then return true;
+        if member.name == "right" then return true;
+        if member.name == "world_up" then return true;
+    }
+    if struct_info.name == "Model_Component" {
+        if member.name == "base" then return true;
+        if member.name == "model_resource" then return true;
+        if member.name == "model_local_matrix" then return true;
+        if member.name == "material_overrides" then return true;
+    }
+    if struct_info.name == "Sprite_Component" {
+        if member.name == "component" then return true;
+        if member.name == "texture" then return true;
+        if member.name == "shader" then return true;
+        if member.name == "uv_transform" then return true;
+        if member.name == "render_matrix" then return true;
+    }
+    if struct_info.name == "Animated_Sprite_Component" {
+        if member.name == "base" then return true;
+        if member.name == "current_frame" then return true;
+        if member.name == "frame_accumulator" then return true;
     }
     return false;
 }
@@ -133,6 +215,152 @@ draw_field_bool :: (member: *Type_Info_Struct_Member, field_pointer: *void, hidd
 
 draw_field_string :: (member: *Type_Info_Struct_Member, field_pointer: *void) {
     TextDisabled(tprint("%", (cast(*string) field_pointer).*));
+}
+
+draw_model_component_model_field :: (model_component: *Model_Component) {
+    label := ifx model_component.model_path then model_component.model_path else "Drop model here";
+    Selectable(temp_c_string(tprint("%##model_component_model_drop", label)), false, .None, ImVec2.{0, 0});
+
+    dropped_path := editor_accept_model_asset_drop();
+    if dropped_path {
+        if scene_set_model_component_model(model_component, dropped_path) {
+            editor_mark_current_scene_dirty();
+        }
+    }
+}
+
+draw_model_component_materials :: (model_component: *Model_Component) {
+    if !model_component || !model_component.model_resource then return;
+
+    if !CollapsingHeader("Materials", COLLAPSING_HEADER_FLAGS) {
+        return;
+    }
+
+    model := model_component.model_resource;
+    if model.materials.count == 0 {
+        TextDisabled("No imported materials");
+        return;
+    }
+
+    for material: model.materials {
+        material_index := cast(s32) it_index;
+        material_name := ifx material.name.count > 0 then material.name else tprint("Material %", material_index);
+        override := model_component_find_material_override(model_component, material_index);
+        has_override := override != null;
+
+        PushID(material_index);
+        if BeginTable("model_material_table", 2, TABLE_FLAGS, ImVec2.{0, 0}) {
+            TableSetupColumn("Name", .WidthFixed, 0.0);
+            TableSetupColumn("Value", .WidthStretch, 0.0);
+
+            TableNextRow();
+            TableNextColumn();
+            AlignTextToFramePadding();
+            TextUnformatted(material_name);
+            TableNextColumn();
+            if Checkbox("Override##material_override", *has_override) {
+                if has_override {
+                    model_component_ensure_material_override(model_component, material_index, material);
+                } else {
+                    model_component_remove_material_override(model_component, material_index);
+                }
+                editor_mark_current_scene_dirty();
+            }
+
+            override = model_component_find_material_override(model_component, material_index);
+            if override {
+                draw_model_material_override_fields(override, material);
+            }
+
+            EndTable();
+        }
+        PopID();
+    }
+}
+
+draw_model_material_override_fields :: (
+    override: *Model_Material_Override,
+    source_material: *Material
+) {
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Tint");
+    TableNextColumn();
+    PushItemWidth(-1);
+    if ColorEdit3("##override_tint", cast(*[3] float) *override.tint_color.x) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Alpha");
+    TableNextColumn();
+    PushItemWidth(-1);
+    if DragFloat("##override_alpha", *override.alpha, 0.01, 0.0, 1.0) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Blend Mode");
+    TableNextColumn();
+    PushItemWidth(-1);
+    if draw_blend_mode_combo("##override_blend_mode", *override.blend_mode) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    if override.blend_mode == .ALPHA_CLIP {
+        TableNextRow();
+        TableNextColumn();
+        AlignTextToFramePadding();
+        Text("Alpha Cutoff");
+        TableNextColumn();
+        PushItemWidth(-1);
+        if DragFloat("##override_alpha_cutoff", *override.alpha_cutoff, 0.01, 0.0, 1.0) {
+            editor_mark_current_scene_dirty();
+        }
+        PopItemWidth();
+    }
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Double Sided");
+    TableNextColumn();
+    if Checkbox("##override_double_sided", *override.double_sided) {
+        editor_mark_current_scene_dirty();
+    }
+
+    if source_material {
+        TableNextRow();
+        TableNextColumn();
+        TableNextColumn();
+        if Button("Reset From Source", ImVec2.{-1, 22}) {
+            override.* = model_material_override_from_material(override.material_index, source_material);
+            editor_mark_current_scene_dirty();
+        }
+    }
+}
+
+draw_blend_mode_combo :: (hidden_label: *u8, value: *Blend_Mode) -> bool {
+    names := NewArray(3, *u8,, temp);
+    names[0] = "Opaque\0".data;
+    names[1] = "Alpha Clip\0".data;
+    names[2] = "Alpha Blend\0".data;
+
+    current_index := cast(s32) value.*;
+    changed := Combo(hidden_label, *current_index, names.data, cast(s32) names.count);
+    if changed {
+        value.* = cast(Blend_Mode) current_index;
+    }
+
+    return changed;
 }
 
 // asset combo item
@@ -281,7 +509,15 @@ draw_field_struct :: (member: *Type_Info_Struct_Member, meta: UI_Field_Metadata,
 ui_draw_struct_fields :: (data: *void, struct_info: *Type_Info_Struct, is_top_level: bool = false) {
     for member: struct_info.members {
         if is_top_level {
-            if member.name == "base" || member.name == "type" || member.name == "node" then continue;
+            if member.name == "type" || member.name == "node" then continue;
+            if member.name == "base" {
+                if struct_info.name == "Animated_Sprite_Component" && member.type.type == .STRUCT {
+                    s_info := cast(*Type_Info_Struct) member.type;
+                    field_pointer := data + member.offset_in_bytes;
+                    ui_draw_struct_fields(field_pointer, s_info, false);
+                }
+                continue;
+            }
         }
 
         cache_key := tprint("%_%", struct_info.name, member.name);
@@ -345,15 +581,23 @@ ui_draw_struct_fields :: (data: *void, struct_info: *Type_Info_Struct, is_top_le
         TableNextColumn();
         PushItemWidth(-1);
 
-        if member.type.type == {
-            case .INTEGER; draw_field_integer(*member, meta, field_pointer, hidden_label);
-            case .FLOAT;   draw_field_float(*member, meta, field_pointer, hidden_label);
-            case .BOOL;    draw_field_bool(*member, field_pointer, hidden_label);
-            case .STRING;  draw_field_string(*member, field_pointer);
-            case .POINTER; draw_field_pointer(*member, field_pointer, hidden_label);
-            case .ENUM;    draw_field_enum(*member, field_pointer, hidden_label);
-            case .STRUCT;  draw_field_struct(*member, meta, field_pointer, hidden_label, open);
-            case;          TextDisabled(tprint("(unimplemented edit for field %)", member.type.type));
+        if struct_info.name == "Model_Component" && member.name == "model_path" {
+            draw_model_component_model_field(cast(*Model_Component) data);
+        } else {
+            if member.type.type == {
+                case .INTEGER; draw_field_integer(*member, meta, field_pointer, hidden_label);
+                case .FLOAT;   draw_field_float(*member, meta, field_pointer, hidden_label);
+                case .BOOL;    draw_field_bool(*member, field_pointer, hidden_label);
+                case .STRING;  draw_field_string(*member, field_pointer);
+                case .POINTER; draw_field_pointer(*member, field_pointer, hidden_label);
+                case .ENUM;    draw_field_enum(*member, field_pointer, hidden_label);
+                case .STRUCT;  draw_field_struct(*member, meta, field_pointer, hidden_label, open);
+                case;          TextDisabled(tprint("(unimplemented edit for field %)", member.type.type));
+            }
+        }
+
+        if IsItemEdited() {
+            editor_mark_current_scene_dirty();
         }
 
         PopItemWidth();
@@ -419,6 +663,20 @@ parse_ui_notes :: (notes: [] string) -> UI_Field_Metadata {
         }
     }
     return meta;
+}
+
+ui_copy_string_to_buffer :: (value: string, buffer: *u8, buffer_count: s64) {
+    if !buffer || buffer_count <= 0 then return;
+
+    for i: 0..buffer_count-1 {
+        buffer[i] = 0;
+    }
+
+    if !value then return;
+    copy_count := min(value.count, buffer_count - 1);
+    for i: 0..copy_count-1 {
+        buffer[i] = value[i];
+    }
 }
 
 ui_format_label :: (s: string) -> string {

@@ -103,3 +103,12 @@ postfx_get_enabled :: () -> bool {
 postfx_get_state :: () -> *PostFX_State {
     return *postfx_state;
 }
+
+postfx_apply_fog_uniforms :: (shader: *Shader) {
+    assert(shader != null, "postfx_apply_fog_uniforms: shader is null");
+
+    shader_set_int(shader, "u_fog_enabled", cast(s32) postfx_state.fog_enabled);
+    shader_set_vec4(shader, "u_fog_color", postfx_state.fog_color);
+    shader_set_float(shader, "u_fog_near", postfx_state.fog_near);
+    shader_set_float(shader, "u_fog_far", postfx_state.fog_far);
+}

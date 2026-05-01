@@ -5,37 +5,72 @@
 
 #scope_export
 
-selected_node: *Node;
-
-editor_select_node :: (node: *Node) {
-    selected_node = node;
-
-    if node {
-        ui_reset_rotation_state(node.local.rotation);
-    }
-}
-
 node_hierarchy_draw :: () {
+    editor_validate_selection();
+
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
     if Begin("Node Hierarchy") {
         if engine_state.current_scene && engine_state.current_scene.root != null {
+            if Button("Add Node", ImVec2.{-1, 24}) {
+                parent := ifx selected_node && !selected_node.instance_path then selected_node else engine_state.current_scene.root;
+                editor_add_child_node(parent);
+            }
+            Separator();
             draw_node(engine_state.current_scene.root);
         } else {
             TextDisabled("No scene loaded");
         }
     }
     End();
+
+    hierarchy_apply_pending_operation();
 } @UI_Window
 
 #scope_file
 
+EDITOR_NODE_PAYLOAD :: "ENGINE_NODE";
+
+Node_Drop_Mode :: enum {
+    CHILD;
+    BEFORE;
+    AFTER;
+}
+
+Hierarchy_Pending_Operation_Kind :: enum {
+    NONE;
+    ADD_CHILD;
+    DELETE;
+    MOVE_OFFSET;
+    DROP_NODE;
+    DROP_MODEL;
+    OPEN_SCENE;
+}
+
+Hierarchy_Pending_Operation :: struct {
+    kind: Hierarchy_Pending_Operation_Kind;
+    source_runtime_id: u64;
+    target_runtime_id: u64;
+    offset: s32;
+    drop_mode: Node_Drop_Mode;
+    path: string;
+}
+
+hierarchy_pending_operation: Hierarchy_Pending_Operation;
+
 draw_node :: (node: *Node) {
+    if node.inherited_from_instance {
+        return;
+    }
+
     PushID(node);
     defer PopID();
 
     flags: TreeNodeFlags = .OpenOnArrow | .SpanAvailWidth | .DrawLinesToNodes | .DefaultOpen;
+    is_scene_instance := node.instance_path.count > 0;
+    had_children := node.children.count > 0;
+    pushed_tree := had_children && !is_scene_instance;
 
-    if node.children.count == 0 {
+    if !pushed_tree {
         flags |= .Leaf | .NoTreePushOnOpen;
     }
 
@@ -49,20 +84,301 @@ draw_node :: (node: *Node) {
         editor_select_node(node);
     }
 
-    if is_open && node.children.count > 0 {
-        for node.children {
-            draw_node(it);
+    draw_node_drag_source(node);
+    draw_node_drop_target(node);
+
+    if is_open && pushed_tree {
+        child_index: s64 = 0;
+        while child_index < node.children.count {
+            child := node.children[child_index];
+            draw_node(child);
+
+            if child_index < node.children.count && node.children[child_index] == child {
+                child_index += 1;
+            }
         }
         TreePop();
     }
 
     if BeginPopupContextItem("node_context") {
-        if MenuItem("Add new child node") {
-            node_add_node(node);
+        if node.instance_path {
+            if MenuItem("Open Source Scene") {
+                hierarchy_queue_open_scene(node.instance_path);
+            }
+        } else {
+            if MenuItem("Add Child Node") {
+                hierarchy_queue_target_operation(.ADD_CHILD, node);
+            }
+            if MenuItem("Move Up", enabled = node.parent != null) {
+                hierarchy_queue_move_offset(node, -1);
+            }
+            if MenuItem("Move Down", enabled = node.parent != null) {
+                hierarchy_queue_move_offset(node, 1);
+            }
         }
-        if MenuItem("Destroy") {
-            //node_destroy(node);
+        if MenuItem("Delete", enabled = node.parent != null) {
+            hierarchy_queue_target_operation(.DELETE, node);
         }
         EndPopup();
     }
+}
+
+draw_node_drag_source :: (node: *Node) {
+    if !node || !node.parent || node.inherited_from_instance then return;
+
+    if BeginDragDropSource() {
+        runtime_id := node.runtime_id;
+        SetDragDropPayload(
+            temp_c_string(EDITOR_NODE_PAYLOAD),
+            *runtime_id,
+            size_of(u64)
+        );
+        Text("Move Node");
+        TextUnformatted(node.name);
+        EndDragDropSource();
+    }
+}
+
+draw_node_drop_target :: (node: *Node) {
+    if !node then return;
+
+    row_min := GetItemRectMin();
+    row_max := GetItemRectMax();
+    drop_mode := node_drop_mode_from_row(node, row_min, row_max);
+
+    if BeginDragDropTarget() {
+        flags := DragDropFlags.AcceptBeforeDelivery | .AcceptNoDrawDefaultRect;
+
+        model_payload := AcceptDragDropPayload(temp_c_string(EDITOR_MODEL_ASSET_PAYLOAD), flags);
+        if model_payload && model_payload.Preview {
+            draw_node_drop_preview(row_min, row_max, drop_mode);
+        }
+        if model_payload && model_payload.Delivery {
+            dropped_model_path := editor_model_asset_payload_to_string(model_payload);
+            if dropped_model_path {
+                drop_model_asset_on_node(node, drop_mode, dropped_model_path);
+            }
+        }
+
+        node_payload := AcceptDragDropPayload(temp_c_string(EDITOR_NODE_PAYLOAD), flags);
+        if node_payload && node_payload.Preview {
+            draw_node_drop_preview(row_min, row_max, drop_mode);
+        }
+        if node_payload && node_payload.Delivery && node_payload.DataSize == size_of(u64) {
+            runtime_id := (cast(*u64) node_payload.Data).*;
+            scene := editor_get_active_scene();
+            dropped_node := ifx scene && scene.root then node_find_by_runtime_id(scene.root, runtime_id) else null;
+            if dropped_node {
+                drop_node_on_node(dropped_node, node, drop_mode);
+            }
+        }
+
+        EndDragDropTarget();
+    }
+}
+
+node_drop_mode_from_row :: (node: *Node, row_min: ImVec2, row_max: ImVec2) -> Node_Drop_Mode {
+    if !node || !node.parent then return .CHILD;
+
+    mouse := GetMousePos();
+    row_height := max(row_max.y - row_min.y, 1.0);
+    sibling_zone := min(row_height * 0.25, 6.0);
+
+    if mouse.y <= row_min.y + sibling_zone then return .BEFORE;
+    if mouse.y >= row_max.y - sibling_zone then return .AFTER;
+    return .CHILD;
+}
+
+draw_node_drop_preview :: (row_min: ImVec2, row_max: ImVec2, mode: Node_Drop_Mode) {
+    draw_list := GetWindowDrawList();
+    color := GetColorU32(Col.DragDropTarget);
+
+    if mode == .CHILD {
+        ImDrawList.AddRect(draw_list, row_min, row_max, color, 0.0, .None, 1.5);
+        return;
+    }
+
+    y := ifx mode == .BEFORE then row_min.y else row_max.y;
+    ImDrawList.AddLine(
+        draw_list,
+        .{row_min.x, y},
+        .{row_max.x, y},
+        color,
+        2.0
+    );
+}
+
+drop_model_asset_on_node :: (target: *Node, mode: Node_Drop_Mode, model_path: string) -> bool {
+    if !target || !model_path then return false;
+
+    hierarchy_queue_model_drop(target, mode, model_path);
+    return true;
+}
+
+drop_node_on_node :: (dropped_node: *Node, target: *Node, mode: Node_Drop_Mode) -> bool {
+    if !dropped_node || !target then return false;
+    if dropped_node == target then return false;
+
+    hierarchy_queue_node_drop(dropped_node, target, mode);
+    return true;
+}
+
+node_index_in_parent :: (node: *Node) -> s64 {
+    if !node || !node.parent then return -1;
+
+    for child: node.parent.children {
+        if child == node then return cast(s64) it_index;
+    }
+
+    return -1;
+}
+
+hierarchy_queue_target_operation :: (
+    kind: Hierarchy_Pending_Operation_Kind,
+    target: *Node
+) {
+    if !target then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = kind;
+    hierarchy_pending_operation.target_runtime_id = target.runtime_id;
+}
+
+hierarchy_queue_move_offset :: (node: *Node, offset: s32) {
+    if !node then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = .MOVE_OFFSET;
+    hierarchy_pending_operation.target_runtime_id = node.runtime_id;
+    hierarchy_pending_operation.offset = offset;
+}
+
+hierarchy_queue_node_drop :: (
+    source: *Node,
+    target: *Node,
+    mode: Node_Drop_Mode
+) {
+    if !source || !target then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = .DROP_NODE;
+    hierarchy_pending_operation.source_runtime_id = source.runtime_id;
+    hierarchy_pending_operation.target_runtime_id = target.runtime_id;
+    hierarchy_pending_operation.drop_mode = mode;
+}
+
+hierarchy_queue_model_drop :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    model_path: string
+) {
+    if !target || !model_path then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = .DROP_MODEL;
+    hierarchy_pending_operation.target_runtime_id = target.runtime_id;
+    hierarchy_pending_operation.drop_mode = mode;
+    hierarchy_pending_operation.path = copy_string(model_path);
+}
+
+hierarchy_queue_open_scene :: (path: string) {
+    if !path then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = .OPEN_SCENE;
+    hierarchy_pending_operation.path = copy_string(path);
+}
+
+hierarchy_apply_pending_operation :: () {
+    if hierarchy_pending_operation.kind == .NONE then return;
+
+    operation := hierarchy_pending_operation;
+    hierarchy_pending_operation = .{};
+    defer hierarchy_operation_destroy(*operation);
+
+    if operation.kind == .OPEN_SCENE {
+        editor_open_scene(operation.path);
+        return;
+    }
+
+    scene := editor_get_active_scene();
+    if !scene || !scene.root then return;
+
+    target := node_find_by_runtime_id(scene.root, operation.target_runtime_id);
+
+    if operation.kind == .ADD_CHILD {
+        if target then editor_add_child_node(target);
+        return;
+    }
+
+    if operation.kind == .DELETE {
+        if target then editor_delete_node(target);
+        return;
+    }
+
+    if operation.kind == .MOVE_OFFSET {
+        if target then editor_move_node_in_parent(target, operation.offset);
+        return;
+    }
+
+    if operation.kind == .DROP_MODEL {
+        hierarchy_apply_model_drop(target, operation.drop_mode, operation.path);
+        return;
+    }
+
+    if operation.kind == .DROP_NODE {
+        source := node_find_by_runtime_id(scene.root, operation.source_runtime_id);
+        hierarchy_apply_node_drop(source, target, operation.drop_mode);
+        return;
+    }
+}
+
+hierarchy_apply_model_drop :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    model_path: string
+) -> bool {
+    if !target || !model_path then return false;
+
+    if mode == .CHILD || !target.parent {
+        return editor_create_model_node_from_asset(target, model_path) != null;
+    }
+
+    index := node_index_in_parent(target);
+    if index < 0 then return false;
+    if mode == .AFTER then index += 1;
+
+    new_node := editor_create_model_node_from_asset(target.parent, model_path);
+    if !new_node then return false;
+    return editor_move_node_to_parent_index(new_node, target.parent, index);
+}
+
+hierarchy_apply_node_drop :: (
+    source: *Node,
+    target: *Node,
+    mode: Node_Drop_Mode
+) -> bool {
+    if !source || !target then return false;
+    if source == target then return false;
+
+    if mode == .CHILD || !target.parent {
+        return editor_reparent_node(source, target);
+    }
+
+    index := node_index_in_parent(target);
+    if index < 0 then return false;
+    if mode == .AFTER then index += 1;
+
+    return editor_move_node_to_parent_index(source, target.parent, index);
+}
+
+hierarchy_clear_pending_operation :: () {
+    hierarchy_operation_destroy(*hierarchy_pending_operation);
+    hierarchy_pending_operation = .{};
+}
+
+hierarchy_operation_destroy :: (operation: *Hierarchy_Pending_Operation) {
+    if !operation then return;
+    free(operation.path);
+    operation.path = "";
 }

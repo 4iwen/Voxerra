@@ -166,3 +166,31 @@ framebuffer_resize :: (framebuffer: *Framebuffer, width: s32, height: s32) {
 framebuffer_unbind :: () {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+framebuffer_blit_depth :: (
+    source: *Framebuffer,
+    destination: *Framebuffer,
+    width: s32,
+    height: s32
+) {
+    assert(source != null, "framebuffer_blit_depth: source is null");
+    assert(width > 0, "framebuffer_blit_depth: width must be positive");
+    assert(height > 0, "framebuffer_blit_depth: height must be positive");
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, source.id);
+    if destination {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination.id);
+    } else {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    }
+
+    glBlitFramebuffer(
+        0, 0, width, height,
+        0, 0, width, height,
+        GL_DEPTH_BUFFER_BIT,
+        GL_NEAREST
+    );
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}

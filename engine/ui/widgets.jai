@@ -152,7 +152,9 @@ draw_transform_component :: (node: *Node) {
             }
             TableNextColumn();
             PushItemWidth(-1);
-            Checkbox("##Active", *node.active);
+            if Checkbox("##Active", *node.active) {
+                editor_mark_current_scene_dirty();
+            }
             PopItemWidth();
 
             t_info := cast(*Type_Info_Struct) type_info(Transform);

@@ -116,7 +116,7 @@ message_loop :: () {
 
     while true {
         message := compiler_wait_for_message();
-        
+
         if message.kind == {
             case .TYPECHECKED;
                 typechecked := cast(*Message_Typechecked) message;
@@ -138,8 +138,8 @@ message_loop :: () {
 }
 
 process_typechecked_message :: (
-    message: *Message_Typechecked, 
-    ui_window_procedures: *[..] *Code_Procedure_Header, 
+    message: *Message_Typechecked,
+    ui_window_procedures: *[..] *Code_Procedure_Header,
     ui_components: *[..] string
 ) {
     for item: message.procedure_headers {
@@ -150,11 +150,11 @@ process_typechecked_message :: (
             }
         }
     }
-    
+
     for item: message.declarations {
         declaration := item.expression;
         is_struct := declaration.expression && declaration.expression.kind == .STRUCT;
-        
+
         if is_struct && declaration.name && has_note(declaration, "Component") {
             if !array_find(ui_components.*, declaration.name) {
                 array_add(ui_components, declaration.name);
@@ -164,8 +164,8 @@ process_typechecked_message :: (
 }
 
 generate_ui_definitions :: (
-    workspace: Workspace, 
-    ui_window_procedures: [..] *Code_Procedure_Header, 
+    workspace: Workspace,
+    ui_window_procedures: [..] *Code_Procedure_Header,
     ui_components: [..] string
 ) {
     builder: String_Builder;
@@ -173,7 +173,7 @@ generate_ui_definitions :: (
     print_to_builder(*builder, "ui_window_procedures: [%] string : .[", ui_window_procedures.count);
     for ui_window_procedures print_to_builder(*builder, "\"%\",", it.name);
     print_to_builder(*builder, "];\n");
-    
+
     print_to_builder(*builder, "ui_available_components: [%] string : .[", ui_components.count);
     for ui_components print_to_builder(*builder, "\"%\",", it);
     print_to_builder(*builder, "];\n");

@@ -29,7 +29,7 @@ editor_picking_state: Editor_Picking_State;
 editor_picking_init :: () {
     editor_picking_state = .{};
     editor_picking_state.shader = asset_manager_load_shader(
-        "engine/assets/shaders/blinn_phong.vert",
+        "engine/assets/shaders/picking.vert",
         "engine/assets/shaders/picking.frag",
         true
     );
@@ -116,6 +116,50 @@ editor_pick_node_at_viewport_pixel :: (pixel_x: s32, pixel_y: s32) -> *Node {
     if picked_id >= cast(u32) editor_picking_state.id_to_node.count then return null;
 
     return editor_picking_state.id_to_node[picked_id];
+}
+
+editor_handle_viewport_selection :: () {
+    if !ui_state.viewport_image_visible || !input_viewport_mouse_allowed() then return;
+    if input_state.cursor_disabled then return;
+    if editor_gizmo_is_over_or_using() then return;
+    if !input_mouse_pressed(.LEFT) then return;
+
+    mouse_x, mouse_y := input_mouse_position();
+    if mouse_x < cast(float64) ui_state.viewport_screen_min.x ||
+       mouse_x > cast(float64) ui_state.viewport_screen_max.x ||
+       mouse_y < cast(float64) ui_state.viewport_screen_min.y ||
+       mouse_y > cast(float64) ui_state.viewport_screen_max.y {
+        return;
+    }
+
+    framebuffer := editor_picking_state.framebuffer;
+    if !framebuffer || ui_state.viewport_size.x <= 0 || ui_state.viewport_size.y <= 0 {
+        return;
+    }
+
+    rel_x := (mouse_x - cast(float64) ui_state.viewport_screen_min.x) /
+        cast(float64) ui_state.viewport_size.x;
+    rel_y := (mouse_y - cast(float64) ui_state.viewport_screen_min.y) /
+        cast(float64) ui_state.viewport_size.y;
+
+    pixel_x := cast(s32) floor(rel_x * framebuffer.pixel_width);
+    pixel_y := cast(s32) floor((1.0 - rel_y) * framebuffer.pixel_height);
+    pixel_x = clamp(pixel_x, 0, framebuffer.pixel_width - 1);
+    pixel_y = clamp(pixel_y, 0, framebuffer.pixel_height - 1);
+
+    picked_node := editor_pick_node_at_viewport_pixel(pixel_x, pixel_y);
+    if !picked_node {
+        if selected_node {
+            editor_gizmo_suppress_until_lmb_release();
+            editor_select_node(null);
+        }
+        return;
+    }
+
+    if picked_node != selected_node {
+        editor_gizmo_suppress_until_lmb_release();
+    }
+    editor_select_node(picked_node);
 }
 
 #scope_file
@@ -263,11 +307,48 @@ editor_picking_submit_node :: (
     mesh_component := node_get_component(node, Static_Mesh_Component);
     if mesh_component && mesh_component.mesh && mesh_component.material {
         object_id := cast(s32) editor_picking_state.id_to_node.count;
-        array_add(*editor_picking_state.id_to_node, node);
+        array_add(*editor_picking_state.id_to_node, editor_picking_get_selectable_node(node));
         editor_picking_draw_mesh(
             mesh_component.mesh,
             mesh_component.material,
             node.world_matrix,
+            shader,
+            view,
+            projection,
+            object_id
+        );
+    }
+
+    model_component := node_get_component(node, Model_Component);
+    if model_component && model_component.model_resource {
+        object_id := cast(s32) editor_picking_state.id_to_node.count;
+        array_add(*editor_picking_state.id_to_node, editor_picking_get_selectable_node(node));
+        mesh_world_matrix := node.world_matrix * model_component.model_local_matrix;
+
+        for submesh: model_component.model_resource.submeshes {
+            if submesh.mesh && submesh.material {
+                material_override := model_component_find_material_override(model_component, submesh.material_index);
+                editor_picking_draw_mesh(
+                    submesh.mesh,
+                    submesh.material,
+                    mesh_world_matrix,
+                    shader,
+                    view,
+                    projection,
+                    object_id,
+                    model_component.double_sided,
+                    material_override
+                );
+            }
+        }
+    }
+
+    sprite_component := node_get_sprite_component(node);
+    if sprite_component {
+        object_id := cast(s32) editor_picking_state.id_to_node.count;
+        array_add(*editor_picking_state.id_to_node, editor_picking_get_selectable_node(node));
+        editor_picking_draw_sprite(
+            sprite_component,
             shader,
             view,
             projection,
@@ -280,6 +361,17 @@ editor_picking_submit_node :: (
     }
 }
 
+editor_picking_get_selectable_node :: (node: *Node) -> *Node {
+    if !node then return null;
+
+    current := node;
+    while current.inherited_from_instance && current.parent {
+        current = current.parent;
+    }
+
+    return current;
+}
+
 editor_picking_draw_mesh :: (
     mesh: *Mesh,
     material: *Material,
@@ -287,7 +379,9 @@ editor_picking_draw_mesh :: (
     shader: *Shader,
     view: Matrix4,
     projection: Matrix4,
-    object_id: s32
+    object_id: s32,
+    double_sided := false,
+    material_override: *Model_Material_Override = null
 ) {
     shader_use(shader);
     shader_set_mat4(shader, "u_model", world_matrix);
@@ -296,10 +390,13 @@ editor_picking_draw_mesh :: (
     shader_set_int(shader, "u_object_id", object_id);
 
     use_alpha_test := false;
-    alpha_cutoff := material.alpha_cutoff;
-    if material.blend_mode == .ALPHA_CLIP {
+    blend_mode := picking_effective_blend_mode(material, material_override);
+    alpha_cutoff := picking_effective_alpha_cutoff(material, material_override);
+    material_alpha := picking_effective_alpha(material, material_override);
+
+    if blend_mode == .ALPHA_CLIP {
         use_alpha_test = true;
-    } else if material.blend_mode == .ALPHA_BLEND {
+    } else if blend_mode == .ALPHA_BLEND {
         use_alpha_test = true;
         alpha_cutoff = max(alpha_cutoff, 0.1);
     }
@@ -313,7 +410,84 @@ editor_picking_draw_mesh :: (
     shader_set_int(shader, "u_diffuse", 0);
     shader_set_int(shader, "u_use_alpha_test", cast(s32) use_alpha_test);
     shader_set_float(shader, "u_alpha_cutoff", alpha_cutoff);
-    shader_set_float(shader, "u_material_alpha", material.alpha);
+    shader_set_float(shader, "u_material_alpha", material_alpha);
+    shader_set_mat3(shader, "u_uv_transform", material.uv_transform);
 
+    renderer_set_culling(!(double_sided || picking_effective_double_sided(material, material_override)));
     mesh_draw(mesh);
+    renderer_set_culling(true);
+}
+
+picking_effective_blend_mode :: (
+    material: *Material,
+    override: *Model_Material_Override
+) -> Blend_Mode {
+    if override && override.enabled {
+        return override.blend_mode;
+    }
+    return material.blend_mode;
+}
+
+picking_effective_alpha :: (
+    material: *Material,
+    override: *Model_Material_Override
+) -> float {
+    if override && override.enabled {
+        return override.alpha;
+    }
+    return material.alpha;
+}
+
+picking_effective_alpha_cutoff :: (
+    material: *Material,
+    override: *Model_Material_Override
+) -> float {
+    if override && override.enabled {
+        return override.alpha_cutoff;
+    }
+    return material.alpha_cutoff;
+}
+
+picking_effective_double_sided :: (
+    material: *Material,
+    override: *Model_Material_Override
+) -> bool {
+    if override && override.enabled {
+        return override.double_sided;
+    }
+    return material.double_sided;
+}
+
+editor_picking_draw_sprite :: (
+    sprite: *Sprite_Component,
+    shader: *Shader,
+    view: Matrix4,
+    projection: Matrix4,
+    object_id: s32
+) {
+    assert(sprite != null, "editor_picking_draw_sprite: sprite is null");
+
+    shader_use(shader);
+    shader_set_mat4(shader, "u_model", sprite.render_matrix);
+    shader_set_mat4(shader, "u_view", view);
+    shader_set_mat4(shader, "u_projection", projection);
+    shader_set_int(shader, "u_object_id", object_id);
+
+    texture_bind(sprite_system_resolve_texture(sprite), 0);
+
+    use_alpha_test := sprite.blend_mode != .OPAQUE;
+    alpha_cutoff := sprite.alpha_cutoff;
+    if sprite.blend_mode == .ALPHA_BLEND {
+        alpha_cutoff = max(alpha_cutoff, 0.1);
+    }
+
+    shader_set_int(shader, "u_diffuse", 0);
+    shader_set_int(shader, "u_use_alpha_test", cast(s32) use_alpha_test);
+    shader_set_float(shader, "u_alpha_cutoff", alpha_cutoff);
+    shader_set_float(shader, "u_material_alpha", sprite.alpha);
+    shader_set_mat3(shader, "u_uv_transform", sprite.uv_transform);
+
+    renderer_set_culling(false);
+    mesh_draw(sprite_system_get_quad_mesh());
+    renderer_set_culling(true);
 }

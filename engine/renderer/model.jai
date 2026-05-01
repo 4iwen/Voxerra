@@ -16,6 +16,7 @@ Model :: struct {
 Sub_Mesh :: struct {
     mesh: *Mesh;
     material: *Material;
+    material_index: s32 = -1;
 }
 
 Model_Load_Options :: struct {
@@ -49,6 +50,7 @@ model_create_from_file :: (
         submesh.mesh = mesh;
 
         material_index := material_indices[index];
+        submesh.material_index = cast(s32) material_index;
         if material_index < materials.count {
             submesh.material = materials[material_index];
         }
@@ -116,6 +118,7 @@ model_reload_from_file :: (
         submesh := New(Sub_Mesh);
         submesh.mesh = mesh;
         material_index := material_indices[index];
+        submesh.material_index = cast(s32) material_index;
         if material_index < materials.count {
             submesh.material = materials[material_index];
         }
@@ -142,6 +145,19 @@ try_load_float :: (material: *aiMaterial, key: string) -> bool, float {
         return true, value;
     }
     return false, 0.0;
+}
+
+try_load_int :: (material: *aiMaterial, key: string) -> bool, s32 {
+    value: s32;
+    value_count: u32 = 1;
+
+    key_c_str := to_c_string(key);
+    defer free(key_c_str);
+
+    if aiGetMaterialIntegerArray(material, key_c_str, 0, 0, *value, *value_count) == .SUCCESS {
+        return true, value;
+    }
+    return false, 0;
 }
 
 try_load_color :: (material: *aiMaterial, key: string) -> bool, Vector3 {
@@ -241,6 +257,14 @@ assimp_load_meshes :: (
         {
             ok, value := try_load_float(ai_material, "$mat.shininess");
             if ok && value > 0 then material.shininess = value;
+        }
+
+        // two sided?
+        {
+            ok, value := try_load_int(ai_material, "$mat.twosided");
+            if ok {
+                material.double_sided = value != 0;
+            }
         }
 
         // alpha

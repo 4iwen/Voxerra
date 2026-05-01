@@ -9,19 +9,23 @@
 #scope_module
 
 UI_State :: struct {
-	imgui_context: *ImGuiContext;
-	draw_demo: bool;
-	show_postfx_window: bool = true;
-	rotation_state: Rotation_Edit_State;
-	viewport_hovered: bool;
-	viewport_focused: bool;
+    imgui_context: *ImGuiContext;
+    draw_demo: bool;
+    rotation_state: Rotation_Edit_State;
+    viewport_hovered: bool;
     viewport_image_visible: bool;
     viewport_screen_min: ImVec2;
     viewport_screen_max: ImVec2;
     viewport_size: ImVec2;
+    viewport_pixel_width: s32;
+    viewport_pixel_height: s32;
 }
 
+#scope_export
+
 ui_state: UI_State;
+
+#scope_module
 
 COLLAPSING_HEADER_FLAGS: TreeNodeFlags : .DefaultOpen | .Framed | .SpanAvailWidth;
 TABLE_FLAGS: TableFlags : .BordersInnerV | .SizingStretchProp | .NoBordersInBody;
@@ -49,9 +53,11 @@ ui_init :: (window: *Window) {
     ImplOpenGL3_Init("#version 330");
 
     properties_init();
+    asset_browser_init();
 }
 
 ui_shutdown :: () {
+    asset_browser_shutdown();
     properties_shutdown();
 	
     ImplOpenGL3_Shutdown();
@@ -88,6 +94,16 @@ ui_draw :: () {
 }
 
 ui_end_frame :: () {
+    io := GetIO();
+    input_set_capture_policy(
+        io.WantCaptureMouse,
+        io.WantCaptureKeyboard,
+        io.WantTextInput,
+        IsAnyItemActive(),
+        IsPopupOpen(null, .AnyPopup),
+        ui_state.viewport_hovered
+    );
+
     Render();
 
     framebuffer_unbind();
@@ -97,7 +113,6 @@ ui_end_frame :: () {
     );
     renderer_clear(.{0.08, 0.08, 0.09, 1.0});
     
-    io := GetIO();
     if io.ConfigFlags_ & .ViewportsEnable {
         backup_current_context := glfwGetCurrentContext();
         UpdatePlatformWindows();

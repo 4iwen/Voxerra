@@ -18,3 +18,7 @@
 	path = modules/toml-jai
 	url = https://github.com/4iwen/toml-jai
 	branch = main
+[submodule "modules/jai-imguizmo"]
+	path = modules/jai-imguizmo
+	url = https://github.com/4iwen/jai-imguizmo
+	branch = main

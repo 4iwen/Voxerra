@@ -4,21 +4,56 @@
 #import "jai-imgui";
 
 postfx_draw :: () {
-    if !ui_state.show_postfx_window then return;
-
     SetNextWindowSize(ImVec2.{320, 0}, Cond.FirstUseEver);
-    if Begin("PostFX", *ui_state.show_postfx_window) {
-        postfx_state := postfx_get_state();
+    if Begin("PostFX") {
+        scene := engine_state.current_scene;
+        if !scene {
+            TextDisabled("No scene loaded");
+            End();
+            return;
+        }
 
-        Checkbox("Enabled", *postfx_state.enabled);
-        Checkbox("Fog", *postfx_state.fog_enabled);
+        env := *scene.environment;
+
+        TextUnformatted("Environment");
+        if ColorEdit4("Clear Color", cast(*[4] float) *env.clear_color.x) {
+            editor_mark_current_scene_dirty();
+        }
+        if ColorEdit3("Ambient", cast(*[3] float) *env.ambient_color.x) {
+            scene_apply_environment_settings(scene);
+            editor_mark_current_scene_dirty();
+        }
+        if Checkbox("Skybox", *env.skybox_enabled) {
+            editor_mark_current_scene_dirty();
+        }
+
+        Separator();
+        TextUnformatted("PostFX");
+
+        if Checkbox("Enabled", *env.postfx_enabled) {
+            scene_apply_environment_settings(scene);
+            editor_mark_current_scene_dirty();
+        }
+        if Checkbox("Fog", *env.fog_enabled) {
+            scene_apply_environment_settings(scene);
+            editor_mark_current_scene_dirty();
+        }
 
         Separator();
 
-        BeginDisabled(!postfx_state.enabled);
-        ColorEdit4("Fog Color", cast(*[4] float) *postfx_state.fog_color.x);
-        DragFloat("Fog Near", *postfx_state.fog_near, 0.1, 0.0, 1000.0);
-        DragFloat("Fog Far", *postfx_state.fog_far, 0.1, 0.0, 1000.0);
+        BeginDisabled(!env.postfx_enabled);
+        if ColorEdit4("Fog Color", cast(*[4] float) *env.fog_color.x) {
+            scene_apply_environment_settings(scene);
+            editor_mark_current_scene_dirty();
+        }
+        if DragFloat("Fog Near", *env.fog_near, 0.1, 0.0, 1000.0) {
+            scene_apply_environment_settings(scene);
+            editor_mark_current_scene_dirty();
+        }
+        if DragFloat("Fog Far", *env.fog_far, 0.1, 0.0, 1000.0) {
+            scene_apply_environment_settings(scene);
+            editor_mark_current_scene_dirty();
+        }
         EndDisabled();
     }
     End();
