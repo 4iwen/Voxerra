@@ -21,7 +21,5 @@
 - Use Iprof/Tracy when implementing profiling
 - Add prepocessor for shaders for deduplicating code
 - Transition to bounding box picking?
-- Remove stretch spacing and the assets home button in asset browser
 - Improve the add component modal, improve the open scene modal
-- Add scene as button and modal
-- Adjust size of icons
+- Add scene save as button and modal
