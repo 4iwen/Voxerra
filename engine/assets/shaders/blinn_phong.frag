@@ -3,6 +3,8 @@
 struct Material {
     sampler2D diffuse;
     sampler2D specular;
+    vec3 diffuse_color;
+    vec3 specular_color;
     vec3 tint;
     float shininess;
     float alpha;
@@ -169,8 +171,8 @@ void main() {
     // sample textures
     vec2 uv = (u_material.uv_transform * vec3(v_uv, 1.0)).xy;
     vec4 diffuse_sample = texture(u_material.diffuse, uv);
-    vec3 albedo_map = diffuse_sample.rgb * u_material.tint;
-    vec3 specular_map = vec3(texture(u_material.specular, uv));
+    vec3 albedo_map = diffuse_sample.rgb * u_material.diffuse_color * u_material.tint;
+    vec3 specular_map = vec3(texture(u_material.specular, uv)) * u_material.specular_color;
     float alpha = diffuse_sample.a * u_material.alpha;
 
     if (u_material.blend_mode == 1 && alpha < u_material.alpha_cutoff) {

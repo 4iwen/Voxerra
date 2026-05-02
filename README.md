@@ -15,9 +15,13 @@
 
 ## TODO
 - Add shadows
-- Add a way to set up environment (skybox, ambient lighting, etc.)
-- Add components
+- Improve the way to set up environment (skybox, ambient lighting, etc.)
+- Add more components
 - Add cubemap and their hot reloading
 - Use Iprof/Tracy when implementing profiling
 - Add prepocessor for shaders for deduplicating code
 - Transition to bounding box picking?
+- Remove stretch spacing and the assets home button in asset browser
+- Improve the add component modal, improve the open scene modal
+- Add scene as button and modal
+- Adjust size of icons

@@ -12,7 +12,7 @@ Game_Camera_Mode :: enum u8 {
 
 Game_Free_Camera_Controller :: struct {
     active: bool = false;
-    block_reactivate_until_rmb_release: bool = false;
+    capture_blocked_until_click: bool = false;
     skip_next_mouse_delta: bool = false;
     movement_speed: float = 3.0;
     mouse_sensitivity: float = 0.2;
@@ -247,14 +247,14 @@ game_camera_controller_apply_mode_transition :: (
         if source_camera && controller.free_camera {
             controller.free_camera.camera = source_camera.camera;
             controller.free_controller.active = false;
-            controller.free_controller.block_reactivate_until_rmb_release = true;
+            controller.free_controller.capture_blocked_until_click = false;
             controller.free_controller.skip_next_mouse_delta = true;
             game_sync_camera_node_from_component(controller.free_node, controller.free_camera);
         }
     } else {
         controller.free_controller.active = false;
         controller.free_controller.skip_next_mouse_delta = false;
-        controller.free_controller.block_reactivate_until_rmb_release = false;
+        controller.free_controller.capture_blocked_until_click = false;
     }
 
     if window {
@@ -305,28 +305,25 @@ game_free_camera_controller_update :: (
 
     camera_update_vectors(camera);
 
-    if controller.block_reactivate_until_rmb_release && !input_mouse_down(.RIGHT) {
-        controller.block_reactivate_until_rmb_release = false;
+    if controller.active && (!window_is_focused(window) || input_key_pressed(.ESCAPE)) {
+        window_set_cursor_mode(window, .NORMAL);
+        controller.active = false;
+        controller.capture_blocked_until_click = true;
+        controller.skip_next_mouse_delta = false;
     }
 
-    if input_mouse_pressed(.RIGHT) &&
-       viewport_hovered &&
-       !controller.block_reactivate_until_rmb_release {
+    if controller.capture_blocked_until_click {
+        if viewport_hovered && input_mouse_pressed(.LEFT) {
+            controller.capture_blocked_until_click = false;
+        } else {
+            return;
+        }
+    }
+
+    if !controller.active && viewport_hovered && window_is_focused(window) {
         window_set_cursor_mode(window, .DISABLED);
         controller.active = true;
         controller.skip_next_mouse_delta = true;
-    }
-    if input_key_pressed(.ESCAPE) {
-        window_set_cursor_mode(window, .NORMAL);
-        controller.active = false;
-        controller.block_reactivate_until_rmb_release = true;
-        controller.skip_next_mouse_delta = false;
-    }
-
-    if controller.active && !input_mouse_down(.RIGHT) {
-        window_set_cursor_mode(window, .NORMAL);
-        controller.active = false;
-        controller.skip_next_mouse_delta = false;
     }
 
     if controller.active {

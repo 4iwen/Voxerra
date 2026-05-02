@@ -2,6 +2,7 @@
 
 #import "Basic";
 #import "Math";
+#import "String";
 
 #scope_export
 
@@ -73,6 +74,12 @@ game_rebind_default_scene_runtime :: (scene: *Scene) {
     game_scene_runtime.suzanne_node = node_find_by_runtime_id(scene.root, game_scene_runtime.suzanne_node_runtime_id);
     if !game_scene_runtime.suzanne_node {
         game_scene_runtime.suzanne_node = node_find_by_scene_id(scene.root, "suzanne");
+    }
+    if !game_scene_runtime.suzanne_node {
+        game_scene_runtime.suzanne_node = game_find_suzanne_model_node(scene.root);
+    }
+    if !game_scene_runtime.suzanne_node {
+        game_scene_runtime.suzanne_node = game_create_runtime_suzanne(scene);
     }
     if game_scene_runtime.suzanne_node {
         game_scene_runtime.suzanne_node_runtime_id = game_scene_runtime.suzanne_node.runtime_id;
@@ -282,9 +289,9 @@ game_add_model_component :: (
     mesh_node.local.scale = scale_value;
 
     model_component := node_add_component(mesh_node, Model_Component);
-    model_component.model_path = copy_string(path);
-    model_component.model_resource = asset_ref_acquire_model(*model_component.model_ref, path);
-    model_component.model_local_matrix = Matrix4_Identity;
+    if !scene_set_model_component_model(model_component, path) {
+        log_warning("Failed to attach model component asset: %", path);
+    }
 
     return mesh_node;
 }
@@ -298,8 +305,9 @@ game_update_scene_runtime :: (time: float64, camera: *Camera = null) {
         if game_scene_runtime.suzanne_animation_enabled {
             game_scene_runtime.suzanne_node.local.position = suzanne_position;
             yaw := atan2(suzanne_forward.x, suzanne_forward.z);
+            spin := cast(float) time * 2.0;
             game_scene_runtime.suzanne_node.local.rotation = quaternion_from_euler_xyz(
-                .{0.0, yaw + PI, 0.0}
+                .{0.0, yaw + PI + spin, 0.0}
             );
         }
     }
@@ -318,14 +326,17 @@ game_update_scene_runtime :: (time: float64, camera: *Camera = null) {
     }
 
     if game_scene_runtime.fire_light {
-        base_intensity := 3.1;
-        flicker_a := cast(float) (0.9 * sin(time * 7.7));
-        flicker_b := cast(float) (0.45 * sin(time * 13.3 + 0.7));
-        game_scene_runtime.fire_light.light.intensity = base_intensity + flicker_a + flicker_b;
+        flicker_a := cast(float) (0.5 + 0.5 * sin(time * 7.7));
+        flicker_b := cast(float) (0.5 + 0.5 * sin(time * 13.3 + 0.7));
+        flicker := clamp(0.65 * flicker_a + 0.35 * flicker_b, 0.0, 1.0);
 
-        base_range := 10.0;
-        range_flicker := cast(float) (1.25 * sin(time * 6.1 + 0.4) + 0.65 * sin(time * 11.4));
-        game_scene_runtime.fire_light.light.range = base_range + range_flicker;
+        game_scene_runtime.fire_light.light.intensity = 1.2 + 2.4 * flicker;
+        game_scene_runtime.fire_light.light.range = 6.5 + 4.5 * flicker;
+        game_scene_runtime.fire_light.light.color = .{
+            1.0,
+            0.28 + 0.22 * flicker,
+            0.04
+        };
     }
 }
 
@@ -404,6 +415,42 @@ game_collect_teapot_materials_recursive :: (node: *Node) {
     for node.children {
         game_collect_teapot_materials_recursive(it);
     }
+}
+
+game_create_runtime_suzanne :: (scene: *Scene) -> *Node {
+    if !scene || !scene.root then return null;
+
+    suzanne_node := game_add_model_component(
+        scene.root,
+        "Suzanne",
+        "game/assets/models/suzanne.obj",
+        SUZANNE_PATH_CONTROL_POINTS[0],
+        .{0.0, 0.0, 0.0},
+        .{1.55, 1.55, 1.55}
+    );
+    if suzanne_node {
+        node_set_scene_id(suzanne_node, "suzanne");
+    }
+
+    return suzanne_node;
+}
+
+game_find_suzanne_model_node :: (node: *Node) -> *Node {
+    if !node then return null;
+
+    model_component := node_get_component(node, Model_Component);
+    if model_component && model_component.model_path {
+        if contains(path_filename(model_component.model_path), "suzanne") {
+            return node;
+        }
+    }
+
+    for node.children {
+        found := game_find_suzanne_model_node(it);
+        if found then return found;
+    }
+
+    return null;
 }
 
 game_sample_suzanne_path :: (time: float64) -> Vector3, Vector3 {

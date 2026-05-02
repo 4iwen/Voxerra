@@ -511,7 +511,6 @@ scene_write_component :: (builder: *String_Builder, component: *Component) {
             scene_write_string(builder, model_guid);
             print_to_builder(builder, "\n");
         }
-        print_to_builder(builder, "double_sided = %\n", model_component.double_sided);
         scene_write_model_material_overrides(builder, model_component);
         return;
     }
@@ -645,7 +644,10 @@ scene_write_model_material_overrides :: (
         print_to_builder(builder, "\n[[nodes.components.materials]]\n");
         print_to_builder(builder, "index = %\n", override.material_index);
         print_to_builder(builder, "enabled = %\n", override.enabled);
+        scene_write_vec3_assignment(builder, "diffuse_color", override.diffuse_color);
+        scene_write_vec3_assignment(builder, "specular_color", override.specular_color);
         scene_write_vec3_assignment(builder, "tint_color", override.tint_color);
+        print_to_builder(builder, "shininess = %\n", override.shininess);
         print_to_builder(builder, "alpha = %\n", override.alpha);
         print_to_builder(builder, "alpha_cutoff = %\n", override.alpha_cutoff);
         print_to_builder(builder, "blend_mode = ");
@@ -746,9 +748,12 @@ scene_load_component :: (scene: *Scene, node: *Node, component_value: Toml.Value
             guid = scene_toml_get_string(component_value, "mesh_guid", "");
         }
         model_component := node_add_component(node, Model_Component);
-        model_component.double_sided = scene_toml_get_bool(component_value, "double_sided", false);
+        legacy_double_sided := scene_toml_get_bool(component_value, "double_sided", false);
         ok := scene_set_model_component_model(model_component, path, guid);
         if ok {
+            if legacy_double_sided {
+                scene_apply_legacy_model_double_sided(model_component);
+            }
             scene_load_model_material_overrides(model_component, component_value);
         }
         return ok;
@@ -835,7 +840,10 @@ scene_load_model_material_overrides :: (
         if !override then continue;
 
         override.enabled = scene_toml_get_bool(material_value, "enabled", override.enabled);
+        override.diffuse_color = scene_toml_get_vec3(material_value, "diffuse_color", override.diffuse_color);
+        override.specular_color = scene_toml_get_vec3(material_value, "specular_color", override.specular_color);
         override.tint_color = scene_toml_get_vec3(material_value, "tint_color", override.tint_color);
+        override.shininess = scene_toml_get_float(material_value, "shininess", override.shininess);
         override.alpha = scene_toml_get_float(material_value, "alpha", override.alpha);
         override.alpha_cutoff = scene_toml_get_float(material_value, "alpha_cutoff", override.alpha_cutoff);
         override.blend_mode = scene_parse_blend_mode(scene_toml_get_string(
@@ -844,6 +852,37 @@ scene_load_model_material_overrides :: (
             scene_blend_mode_to_string(override.blend_mode)
         ));
         override.double_sided = scene_toml_get_bool(material_value, "double_sided", override.double_sided);
+    }
+}
+
+scene_apply_legacy_model_double_sided :: (model_component: *Model_Component) {
+    if !model_component || !model_component.model_resource then return;
+
+    applied := false;
+    for material: model_component.model_resource.materials {
+        override := model_component_ensure_material_override(
+            model_component,
+            cast(s32) it_index,
+            material
+        );
+        if override {
+            override.double_sided = true;
+            applied = true;
+        }
+    }
+
+    if applied then return;
+
+    for submesh: model_component.model_resource.submeshes {
+        if submesh.material_index < 0 then continue;
+        override := model_component_ensure_material_override(
+            model_component,
+            submesh.material_index,
+            submesh.material
+        );
+        if override {
+            override.double_sided = true;
+        }
     }
 }
 

@@ -31,7 +31,7 @@ draw_vec3_control :: (
     );
     if value.* != reset_value {
         SameLine();
-        if SmallButton("Reset") {
+        if SmallButton(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset")) {
             value.* = reset_value;
             changed = true;
         }
@@ -120,7 +120,7 @@ draw_rotation_control :: (
     // reset button if value changed
     if !quaternion_equal_rotation(value.*, reset_quat) {
         SameLine();
-        if SmallButton("Reset") {
+        if SmallButton(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset")) {
             value.* = reset_quat;
             euler_radians = reset_value;
             last_quaternion = value.*;

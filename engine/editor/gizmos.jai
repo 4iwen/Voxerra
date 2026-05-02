@@ -132,31 +132,31 @@ editor_gizmo_draw :: () {
 
 editor_gizmo_draw_viewport_menu_bar :: () {
     if editor_is_playing() {
-        if MenuItem("Stop") {
+        if MenuItem(UI_Icon_Label(ICON_FA_STOP, "Stop")) {
             editor_stop();
         }
-    } else if MenuItem("Play") {
+    } else if MenuItem(UI_Icon_Label(ICON_FA_PLAY, "Play")) {
         editor_play();
     }
 
     Separator();
 
-    if MenuItem("Move", "G", selected = editor_gizmo_state.operation == .TRANSLATE) {
+    if MenuItem(UI_Icon_Label(ICON_FA_UP_DOWN_LEFT_RIGHT, "Move"), "G", selected = editor_gizmo_state.operation == .TRANSLATE) {
         editor_gizmo_state.operation = .TRANSLATE;
     }
-    if MenuItem("Rotate", "R", selected = editor_gizmo_state.operation == .ROTATE) {
+    if MenuItem(UI_Icon_Label(ICON_FA_ROTATE, "Rotate"), "R", selected = editor_gizmo_state.operation == .ROTATE) {
         editor_gizmo_state.operation = .ROTATE;
     }
-    if MenuItem("Scale", "S", selected = editor_gizmo_state.operation == .SCALE) {
+    if MenuItem(UI_Icon_Label(ICON_FA_UP_RIGHT_AND_DOWN_LEFT_FROM_CENTER, "Scale"), "S", selected = editor_gizmo_state.operation == .SCALE) {
         editor_gizmo_state.operation = .SCALE;
     }
 
     Separator();
 
-    if MenuItem("Local", selected = editor_gizmo_state.space == .LOCAL) {
+    if MenuItem(UI_Icon_Label(ICON_FA_OBJECT_GROUP, "Local"), "", selected = editor_gizmo_state.space == .LOCAL) {
         editor_gizmo_state.space = .LOCAL;
     }
-    if MenuItem("World", selected = editor_gizmo_state.space == .WORLD) {
+    if MenuItem(UI_Icon_Label(ICON_FA_GLOBE, "World"), "", selected = editor_gizmo_state.space == .WORLD) {
         editor_gizmo_state.space = .WORLD;
     }
 
@@ -166,8 +166,8 @@ editor_gizmo_draw_viewport_menu_bar :: () {
     if editor_gizmo_state.snap_enabled {
         snap_label = "Snap On";
     }
-    if BeginMenu(temp_c_string(snap_label)) {
-        MenuItem("Enabled", "", *editor_gizmo_state.snap_enabled);
+    if BeginMenu(temp_c_string(tprint("% %", ICON_FA_MAGNET, snap_label))) {
+        Checkbox("Enabled", *editor_gizmo_state.snap_enabled);
         Separator();
 
         BeginDisabled(!editor_gizmo_state.snap_enabled);
@@ -184,22 +184,22 @@ editor_gizmo_draw_viewport_menu_bar :: () {
 
     Separator();
 
-    render_mode_label := tprint("Render Mode: %", editor_render_mode_label());
+    render_mode_label := tprint("% Render Mode: %", ICON_FA_EYE, editor_render_mode_label());
     BeginDisabled(editor_is_playing());
     if BeginMenu(temp_c_string(render_mode_label)) {
-        if MenuItem("Lit", "", selected = editor_context.render_mode == .LIT) {
+        if MenuItem(UI_Icon_Label(ICON_FA_SUN, "Lit"), "", selected = editor_context.render_mode == .LIT) {
             editor_context.render_mode = .LIT;
         }
-        if MenuItem("Unlit", "", selected = editor_context.render_mode == .UNLIT) {
+        if MenuItem(UI_Icon_Label(ICON_FA_MOON, "Unlit"), "", selected = editor_context.render_mode == .UNLIT) {
             editor_context.render_mode = .UNLIT;
         }
-        if MenuItem("Wireframe", "", selected = editor_context.render_mode == .WIREFRAME) {
+        if MenuItem(UI_Icon_Label(ICON_FA_CUBE, "Wireframe"), "", selected = editor_context.render_mode == .WIREFRAME) {
             editor_context.render_mode = .WIREFRAME;
         }
-        if MenuItem("Lighting Only", "", selected = editor_context.render_mode == .LIGHTING_ONLY) {
+        if MenuItem(UI_Icon_Label(ICON_FA_LIGHTBULB, "Lighting Only"), "", selected = editor_context.render_mode == .LIGHTING_ONLY) {
             editor_context.render_mode = .LIGHTING_ONLY;
         }
-        if MenuItem("Albedo", "", selected = editor_context.render_mode == .ALBEDO) {
+        if MenuItem(UI_Icon_Label(ICON_FA_PALETTE, "Albedo"), "", selected = editor_context.render_mode == .ALBEDO) {
             editor_context.render_mode = .ALBEDO;
         }
         EndMenu();

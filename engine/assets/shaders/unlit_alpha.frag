@@ -3,6 +3,8 @@
 struct Material {
     sampler2D diffuse;
     sampler2D specular;
+    vec3 diffuse_color;
+    vec3 specular_color;
     vec3 tint;
     float shininess;
     float alpha;
@@ -36,7 +38,7 @@ void main() {
         discard;
     }
 
-    vec3 rgb = sample_color.rgb * u_material.tint;
+    vec3 rgb = sample_color.rgb * u_material.diffuse_color * u_material.tint;
     if (u_render_mode == RENDER_MODE_ALBEDO) {
         rgb = sample_color.rgb;
     } else if (u_render_mode == RENDER_MODE_LIGHTING_ONLY) {

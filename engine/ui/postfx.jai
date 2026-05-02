@@ -5,7 +5,7 @@
 
 postfx_draw :: () {
     SetNextWindowSize(ImVec2.{320, 0}, Cond.FirstUseEver);
-    if Begin("PostFX") {
+    if Begin(UI_Icon_Window_Title(ICON_FA_WAND_MAGIC_SPARKLES, "PostFX", "PostFX")) {
         scene := engine_state.current_scene;
         if !scene {
             TextDisabled("No scene loaded");

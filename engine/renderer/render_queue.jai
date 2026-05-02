@@ -16,7 +16,6 @@ Render_Item :: struct {
     world_position: Vector3;
     is_transparent: bool;
     blend_mode: Blend_Mode;
-    double_sided: bool;
     distance_squared_to_camera: float; // used for sorting
 }
 
@@ -57,7 +56,6 @@ render_queue_submit :: (
     material: *Material,
     world_matrix: Matrix4,
     world_position: Vector3,
-    double_sided := false,
     material_override: *Model_Material_Override = null
 ) {
     assert(queue != null, "render_queue_submit: queue is null");
@@ -72,9 +70,9 @@ render_queue_submit :: (
     item.sprite = null;
     item.world_matrix = world_matrix;
     item.world_position = world_position;
-    item.blend_mode = render_material_effective_blend_mode(material, material_override);
+    resolved := material_resolve(material, material_override);
+    item.blend_mode = resolved.blend_mode;
     item.is_transparent = item.blend_mode == .ALPHA_BLEND;
-    item.double_sided = double_sided || render_material_effective_double_sided(material, material_override);
 
     if item.is_transparent {
         array_add(*queue.transparent, item);
@@ -159,7 +157,6 @@ submit_node :: (node: *Node, queue: *Render_Queue, include_lights: bool) {
                     submesh.material,
                     mesh_world_matrix,
                     node.world_position,
-                    model_component.double_sided,
                     material_override
                 );
             }
@@ -209,9 +206,10 @@ render_item_draw :: (
         return;
     }
 
-    shader := item.material.shader;
-    is_alpha_blend := item.blend_mode == .ALPHA_BLEND;
-    disable_culling := is_alpha_blend || item.double_sided;
+    material := material_resolve(item.material, item.material_override);
+    shader := material.shader;
+    is_alpha_blend := material_is_alpha_blend(material);
+    disable_culling := is_alpha_blend || material.double_sided;
 
     renderer_set_blending(is_alpha_blend);
     renderer_set_depth_write(!is_alpha_blend);
@@ -227,8 +225,7 @@ render_item_draw :: (
     // set item properties
     shader_set_mat4(shader, "u_model", item.world_matrix);
     
-    material_use(item.material);
-    render_material_override_apply(shader, item.material_override);
+    material_use_resolved(material);
 
     shader_set_vec3(shader, "u_view_position", camera.position);
     shader_set_int(shader, "u_render_mode", cast(s32) renderer_get_view_mode());
@@ -250,38 +247,6 @@ render_item_draw :: (
     renderer_set_culling(true);
     renderer_set_depth_write(true);
     renderer_set_blending(true);
-}
-
-render_material_effective_blend_mode :: (
-    material: *Material,
-    override: *Model_Material_Override
-) -> Blend_Mode {
-    if override && override.enabled {
-        return override.blend_mode;
-    }
-    return material.blend_mode;
-}
-
-render_material_effective_double_sided :: (
-    material: *Material,
-    override: *Model_Material_Override
-) -> bool {
-    if override && override.enabled {
-        return override.double_sided;
-    }
-    return material.double_sided;
-}
-
-render_material_override_apply :: (
-    shader: *Shader,
-    override: *Model_Material_Override
-) {
-    if !shader || !override || !override.enabled then return;
-
-    shader_set_vec3(shader, "u_material.tint", override.tint_color);
-    shader_set_float(shader, "u_material.alpha", override.alpha);
-    shader_set_float(shader, "u_material.alpha_cutoff", override.alpha_cutoff);
-    shader_set_int(shader, "u_material.blend_mode", cast(s32) override.blend_mode);
 }
 
 render_sprite_item :: (
@@ -313,6 +278,8 @@ render_sprite_item :: (
 
     shader_set_int(shader, "u_material.diffuse", 0);
     shader_set_int(shader, "u_material.specular", 1);
+    shader_set_vec3(shader, "u_material.diffuse_color", .{1.0, 1.0, 1.0});
+    shader_set_vec3(shader, "u_material.specular_color", .{1.0, 1.0, 1.0});
     shader_set_vec3(shader, "u_material.tint", sprite.tint_color);
     shader_set_float(shader, "u_material.shininess", 1.0);
     shader_set_float(shader, "u_material.alpha", sprite.alpha);

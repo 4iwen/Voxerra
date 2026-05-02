@@ -18,9 +18,13 @@ Static_Mesh_Component :: struct {
 Model_Material_Override :: struct {
     material_index: s32;
     enabled: bool = true;
+    diffuse_color: Vector3 = .{1.0, 1.0, 1.0}; @Color
+    specular_color: Vector3 = .{1.0, 1.0, 1.0}; @Color
     tint_color: Vector3 = .{1.0, 1.0, 1.0}; @Color
+    shininess: float = 32.0; @"Speed(1)"
     alpha: float = 1.0; @"Range(0, 1)" @"Speed(0.01)"
     alpha_cutoff: float = 0.5; @"Range(0, 1)" @"Speed(0.01)"
+    uv_transform: Matrix3;
     blend_mode: Blend_Mode = .OPAQUE;
     double_sided: bool;
 }
@@ -31,7 +35,6 @@ Model_Component :: struct @Component {
 
     model_path: string; @"Tooltip(\"Source model asset path\")"
     model_guid: string; @Hidden
-    double_sided: bool; @"Tooltip(\"Render this model with back-face culling disabled\")"
 
     model_ref: Asset_Ref; @Hidden
     model_resource: *Model; @Hidden
@@ -45,11 +48,17 @@ model_material_override_from_material :: (material_index: s32, material: *Materi
     override.enabled = true;
 
     if material {
+        override.diffuse_color = material.diffuse_color;
+        override.specular_color = material.specular_color;
         override.tint_color = material.tint_color;
+        override.shininess = material.shininess;
         override.alpha = material.alpha;
         override.alpha_cutoff = material.alpha_cutoff;
+        override.uv_transform = material.uv_transform;
         override.blend_mode = material.blend_mode;
         override.double_sided = material.double_sided;
+    } else {
+        override.uv_transform = Matrix3_Identity;
     }
 
     return override;
@@ -190,7 +199,6 @@ component_clone :: (
         clone := node_add_component(node, Model_Component);
         clone.model_path = copy_string(source.model_path);
         clone.model_guid = copy_string(source.model_guid);
-        clone.double_sided = source.double_sided;
         asset_ref_clone(*source.model_ref, *clone.model_ref);
         clone.model_resource = source.model_resource;
         clone.model_local_matrix = source.model_local_matrix;

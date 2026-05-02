@@ -1,0 +1,200 @@
+version = 1
+name = "Main"
+
+[environment]
+clear_color = [0.08, 0.08, 0.09, 1]
+ambient_color = [0, 0, 0]
+skybox_enabled = true
+postfx_enabled = false
+fog_enabled = false
+fog_color = [0.86, 0.72, 0.72, 1]
+fog_near = 16.5
+fog_far = 34
+
+[[nodes]]
+id = "free_camera"
+name = "Free Camera"
+parent = "root"
+position = [0, 5, 16]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "camera"
+active = true
+yaw = -90
+pitch = -12
+near = 0.1
+far = 1000
+fov = 75.400002
+
+[[nodes]]
+id = "static_camera_1"
+name = "Static View 1"
+parent = "root"
+position = [0, 8.2, 20.5]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "camera"
+active = false
+yaw = -90
+pitch = -17.5
+near = 0.1
+far = 1000
+fov = 45
+
+[[nodes]]
+id = "static_camera_2"
+name = "Static View 2"
+parent = "root"
+position = [16, 11.5, 12]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "camera"
+active = false
+yaw = -149
+pitch = -24
+near = 0.1
+far = 1000
+fov = 45
+
+[[nodes]]
+id = "sun"
+name = "Sun"
+parent = "root"
+position = [0, 0, 0]
+rotation = [-1.570799, -0.174533, -0.174533]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "light"
+kind = "directional"
+color = [1, 0.95, 0.9]
+intensity = 1.6
+
+[[nodes]]
+id = "teapot"
+name = "Utah Teapot"
+parent = "root"
+position = [5.497947, 1.036363, 0.469907]
+rotation = [0, -0.265346, 0.976475]
+scale = [1, 1, 1]
+instance = "game/assets/scenes/utah_teapot.scene.toml"
+
+[[nodes]]
+id = "suzanne.obj_2"
+name = "suzaneeeeee"
+parent = "root"
+position = [1.507196, -2.077908, 4.385827]
+rotation = [2.500082, -0.46666, 1.82296]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/suzanne.obj"
+model_guid = "f1febe02eb322904"
+
+[[nodes]]
+id = "fire"
+name = "Fire"
+parent = "root"
+position = [-0.472001, -3.960696, -0.111391]
+rotation = [0, 0, 0]
+scale = [4.02, 4.02, 4.02]
+
+[[nodes.components]]
+type = "animated_sprite"
+texture = "game/assets/textures/fire_animated.png"
+texture_guid = "60e8a623f397e8f2"
+texture_filter = "nearest"
+tint_color = [1, 0.95, 0.9]
+alpha = 1
+alpha_cutoff = 0.05
+size = [0.75, 1.4]
+pivot = "bottom_center"
+billboard_mode = "y_axis"
+blend_mode = "alpha_blend"
+columns = 8
+rows = 1
+frame_count = 8
+fps = 10
+playing = true
+loop = true
+
+[[nodes]]
+id = "fire_light"
+name = "Fire Light"
+parent = "fire"
+position = [0, 0.55, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "light"
+kind = "point"
+color = [1, 0.42, 0.08]
+intensity = 3.2
+range = 108.5
+
+[[nodes]]
+id = "utah_teapot.obj"
+name = "Utah Teapot"
+parent = "root"
+position = [-5.593863, 0.999811, -0.590142]
+rotation = [0.323756, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/utah_teapot.obj"
+model_guid = "cbdad06a5e941e20"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [1, 0, 0]
+specular_color = [0.813725, 0.813725, 0.813725]
+tint_color = [0.357843, 0.357843, 0.357843]
+shininess = 1
+alpha = 1
+alpha_cutoff = 0.5
+blend_mode = "alpha_blend"
+double_sided = false
+
+[[nodes]]
+id = "utah_teapot.obj_2"
+name = "SuzaneFromTheModelingApplicationBlender"
+parent = "root"
+position = [0, 0, -4.16247]
+rotation = [-3.141592, -0.781971, -3.141592]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/utah_teapot.obj"
+model_guid = "cbdad06a5e941e20"
+
+[[nodes]]
+id = "Node"
+name = "Node"
+parent = "root"
+position = [0, -4.7, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes]]
+id = "suzanne.obj"
+name = "nested suzanne"
+parent = "Node"
+position = [-3.601665, -0.038987, 2.19109]
+rotation = [0, 0, 0]
+scale = [2, 2, 2]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/suzanne.obj"
+model_guid = "f1febe02eb322904"

@@ -5,8 +5,24 @@
 #import "glfw";
 #import "jai-imgui";
 #load "../../modules/jai-imgui/backends/glfw_opengl3.jai";
+#load "../assets/fonts/fontawesome/IconsFontAwesome7.jai";
 
 #scope_module
+
+UI_ICON_FONT_PATH :: "engine/assets/fonts/fontawesome/fa-solid-900.ttf";
+UI_ICON_RANGES: [3] ImWchar : .[
+    cast(ImWchar) ICON_MIN_FA,
+    cast(ImWchar) ICON_MAX_FA,
+    0,
+];
+
+UI_Icon_Label :: (icon: string, label: string) -> *u8 #expand {
+	return temp_c_string(tprint("% %", icon, label));
+}
+
+UI_Icon_Window_Title :: (icon: string, label: string, id: string) -> *u8 #expand {
+    return temp_c_string(tprint("% %###%", icon, label, id));
+}
 
 UI_State :: struct {
     imgui_context: *ImGuiContext;
@@ -47,7 +63,37 @@ ui_init :: (window: *Window) {
     }
 
     io.ConfigDpiScaleFonts = true;
-	ImFontAtlas.AddFontDefaultVector(io.Fonts);
+
+	base_font_size := 13.0;
+	icon_font_size := 11.0;
+
+	// main font config
+	base_config: ImFontConfig;
+	ImFontConfig.Constructor(*base_config);
+	base_config.SizePixels = base_font_size;
+
+	// main UI font
+	ImFontAtlas.AddFontDefaultVector(io.Fonts, *base_config);
+
+	// merge FontAwesome into previous font
+	icons_config: ImFontConfig;
+	ImFontConfig.Constructor(*icons_config);
+	icons_config.MergeMode = true;
+	icons_config.PixelSnapH = true;
+	icons_config.GlyphMinAdvanceX = icon_font_size;
+	icons_config.GlyphMaxAdvanceX = icon_font_size;
+	icons_config.RasterizerDensity = 1.0;
+
+	icon_font := ImFontAtlas.AddFontFromFileTTF(
+        io.Fonts,
+        UI_ICON_FONT_PATH,
+        icon_font_size,
+        *icons_config,
+        UI_ICON_RANGES.data
+    );
+    if !icon_font {
+        log_warning("Failed to load editor icon font: %", UI_ICON_FONT_PATH);
+    }
 
     ImplGlfw_InitForOpenGL(window.handle, true);
     ImplOpenGL3_Init("#version 330");

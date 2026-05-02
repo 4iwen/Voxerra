@@ -336,7 +336,6 @@ editor_picking_submit_node :: (
                     view,
                     projection,
                     object_id,
-                    model_component.double_sided,
                     material_override
                 );
             }
@@ -380,7 +379,6 @@ editor_picking_draw_mesh :: (
     view: Matrix4,
     projection: Matrix4,
     object_id: s32,
-    double_sided := false,
     material_override: *Model_Material_Override = null
 ) {
     shader_use(shader);
@@ -389,20 +387,21 @@ editor_picking_draw_mesh :: (
     shader_set_mat4(shader, "u_projection", projection);
     shader_set_int(shader, "u_object_id", object_id);
 
+    material_resolved := material_resolve(material, material_override);
     use_alpha_test := false;
-    blend_mode := picking_effective_blend_mode(material, material_override);
-    alpha_cutoff := picking_effective_alpha_cutoff(material, material_override);
-    material_alpha := picking_effective_alpha(material, material_override);
+    alpha_cutoff := material_resolved.alpha_cutoff;
+    material_alpha := material_resolved.alpha;
 
-    if blend_mode == .ALPHA_CLIP {
+    if material_resolved.blend_mode == .ALPHA_CLIP {
         use_alpha_test = true;
-    } else if blend_mode == .ALPHA_BLEND {
+    } else if material_resolved.blend_mode == .ALPHA_BLEND {
         use_alpha_test = true;
-        alpha_cutoff = max(alpha_cutoff, 0.1);
+        alpha_cutoff = 0.01;
+        material_alpha = 1.0;
     }
 
-    if material.diffuse_map {
-        texture_bind(material.diffuse_map, 0);
+    if material_resolved.diffuse_map {
+        texture_bind(material_resolved.diffuse_map, 0);
     } else {
         texture_bind(asset_manager_get_default_texture(), 0);
     }
@@ -411,51 +410,11 @@ editor_picking_draw_mesh :: (
     shader_set_int(shader, "u_use_alpha_test", cast(s32) use_alpha_test);
     shader_set_float(shader, "u_alpha_cutoff", alpha_cutoff);
     shader_set_float(shader, "u_material_alpha", material_alpha);
-    shader_set_mat3(shader, "u_uv_transform", material.uv_transform);
+    shader_set_mat3(shader, "u_uv_transform", material_resolved.uv_transform);
 
-    renderer_set_culling(!(double_sided || picking_effective_double_sided(material, material_override)));
+    renderer_set_culling(!material_resolved.double_sided);
     mesh_draw(mesh);
     renderer_set_culling(true);
-}
-
-picking_effective_blend_mode :: (
-    material: *Material,
-    override: *Model_Material_Override
-) -> Blend_Mode {
-    if override && override.enabled {
-        return override.blend_mode;
-    }
-    return material.blend_mode;
-}
-
-picking_effective_alpha :: (
-    material: *Material,
-    override: *Model_Material_Override
-) -> float {
-    if override && override.enabled {
-        return override.alpha;
-    }
-    return material.alpha;
-}
-
-picking_effective_alpha_cutoff :: (
-    material: *Material,
-    override: *Model_Material_Override
-) -> float {
-    if override && override.enabled {
-        return override.alpha_cutoff;
-    }
-    return material.alpha_cutoff;
-}
-
-picking_effective_double_sided :: (
-    material: *Material,
-    override: *Model_Material_Override
-) -> bool {
-    if override && override.enabled {
-        return override.double_sided;
-    }
-    return material.double_sided;
 }
 
 editor_picking_draw_sprite :: (
@@ -477,14 +436,16 @@ editor_picking_draw_sprite :: (
 
     use_alpha_test := sprite.blend_mode != .OPAQUE;
     alpha_cutoff := sprite.alpha_cutoff;
+    material_alpha := sprite.alpha;
     if sprite.blend_mode == .ALPHA_BLEND {
-        alpha_cutoff = max(alpha_cutoff, 0.1);
+        alpha_cutoff = 0.01;
+        material_alpha = 1.0;
     }
 
     shader_set_int(shader, "u_diffuse", 0);
     shader_set_int(shader, "u_use_alpha_test", cast(s32) use_alpha_test);
     shader_set_float(shader, "u_alpha_cutoff", alpha_cutoff);
-    shader_set_float(shader, "u_material_alpha", sprite.alpha);
+    shader_set_float(shader, "u_material_alpha", material_alpha);
     shader_set_mat3(shader, "u_uv_transform", sprite.uv_transform);
 
     renderer_set_culling(false);

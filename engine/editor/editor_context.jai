@@ -584,6 +584,28 @@ editor_can_parent_under :: (node: *Node) -> bool {
     return true;
 }
 
+#scope_export
+
+editor_node_can_add_child :: (node: *Node) -> bool {
+    return editor_can_parent_under(node);
+}
+
+editor_node_can_delete :: (node: *Node) -> bool {
+    return editor_can_edit_node(node, allow_root = false);
+}
+
+editor_node_can_move :: (node: *Node) -> bool {
+    return editor_can_edit_node(node, allow_root = false);
+}
+
+editor_node_can_edit_components :: (node: *Node) -> bool {
+    if !editor_can_edit_node(node, allow_root = true) then return false;
+    if node.instance_path then return false;
+    return true;
+}
+
+#scope_file
+
 editor_make_unique_scene_id :: (scene: *Scene, base: string) -> string {
     id_base := base;
     if !id_base || id_base.count == 0 {

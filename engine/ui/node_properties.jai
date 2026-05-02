@@ -19,11 +19,16 @@ properties_shutdown :: () {
 
 node_name_edit_runtime_id: u64;
 node_name_edit_buffer: [256] u8;
+add_component_modal_requested: bool;
+
+properties_request_add_component_modal :: () {
+    add_component_modal_requested = true;
+}
 
 properties_draw :: () {
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
 
-    if Begin("Node Properties") {
+    if Begin(UI_Icon_Window_Title(ICON_FA_SLIDERS, "Node Properties", "Node Properties")) {
         if selected_node != null {
             draw_node_identity(selected_node);
             Separator();
@@ -47,26 +52,8 @@ properties_draw :: () {
                 Separator();
                 Dummy(ImVec2.{0, 10});
 
-                if Button("Add Component", ImVec2.{-1, 24}) {
-                    OpenPopup("AddComponentPopup");
-                }
-
-                if BeginPopup("AddComponentPopup") {
-                    #insert -> string {
-                        builder: String_Builder;
-                        for component: ui_available_components {
-                            name := component;
-                            display_name := ui_format_label(name);
-                            print_to_builder(*builder, "if node_get_component(selected_node, %) == null {\n", component);
-                            print_to_builder(*builder, "    if Selectable(\"%\") {\n", display_name);
-                            print_to_builder(*builder, "        node_add_component(selected_node, %);\n", component);
-                            print_to_builder(*builder, "        editor_mark_current_scene_dirty();\n");
-                            print_to_builder(*builder, "    }\n");
-                            print_to_builder(*builder, "}\n");
-                        }
-                        return builder_to_string(*builder);
-                    };
-                    EndPopup();
+                if Button(UI_Icon_Label(ICON_FA_CUBES, "Add Component"), ImVec2.{-1, 24}) {
+                    properties_request_add_component_modal();
                 }
             }
         } else {
@@ -75,7 +62,54 @@ properties_draw :: () {
     }
 
     End();
+
+    properties_draw_add_component_modal();
 } @UI_Window
+
+properties_draw_add_component_modal :: () {
+    if add_component_modal_requested {
+        OpenPopup(UI_Icon_Window_Title(ICON_FA_CUBES, "Add Component", "Add Component"));
+        add_component_modal_requested = false;
+    }
+
+    if BeginPopupModal(UI_Icon_Window_Title(ICON_FA_CUBES, "Add Component", "Add Component"), null, .AlwaysAutoResize) {
+        if !editor_node_can_edit_components(selected_node) {
+            TextDisabled("No editable node selected");
+        } else {
+            Text("Add component to %", selected_node.name);
+            Separator();
+
+            available_count := 0;
+            #insert -> string {
+                builder: String_Builder;
+                for component: ui_available_components {
+                    name := component;
+                    display_name := ui_format_label(name);
+                    print_to_builder(*builder, "if node_get_component(selected_node, %) == null {\n", component);
+                    print_to_builder(*builder, "    available_count += 1;\n");
+                    print_to_builder(*builder, "    if Selectable(UI_Icon_Label(ICON_FA_CUBE, \"%\")) {\n", display_name);
+                    print_to_builder(*builder, "        node_add_component(selected_node, %);\n", component);
+                    print_to_builder(*builder, "        editor_mark_current_scene_dirty();\n");
+                    print_to_builder(*builder, "        CloseCurrentPopup();\n");
+                    print_to_builder(*builder, "    }\n");
+                    print_to_builder(*builder, "}\n");
+                }
+                return builder_to_string(*builder);
+            };
+
+            if available_count == 0 {
+                TextDisabled("All available components are already present");
+            }
+        }
+
+        Separator();
+        if Button(UI_Icon_Label(ICON_FA_XMARK, "Close"), ImVec2.{100, 0}) {
+            CloseCurrentPopup();
+        }
+
+        EndPopup();
+    }
+}
 
 draw_node_identity :: (node: *Node) {
     if !node then return;
@@ -112,7 +146,7 @@ draw_scene_instance_properties :: (node: *Node) {
         TextDisabled("Source Scene");
         TextWrapped("%", node.instance_path);
 
-        if Button("Open Source Scene", ImVec2.{-1, 24}) {
+        if Button(UI_Icon_Label(ICON_FA_FOLDER_OPEN, "Open Source Scene"), ImVec2.{-1, 24}) {
             editor_open_scene(node.instance_path);
         }
     }
@@ -219,7 +253,7 @@ draw_field_string :: (member: *Type_Info_Struct_Member, field_pointer: *void) {
 
 draw_model_component_model_field :: (model_component: *Model_Component) {
     label := ifx model_component.model_path then model_component.model_path else "Drop model here";
-    Selectable(temp_c_string(tprint("%##model_component_model_drop", label)), false, .None, ImVec2.{0, 0});
+    Selectable(temp_c_string(tprint("% %##model_component_model_drop", ICON_FA_CUBE, label)), false, .None, ImVec2.{0, 0});
 
     dropped_path := editor_accept_model_asset_drop();
     if dropped_path {
@@ -285,10 +319,43 @@ draw_model_material_override_fields :: (
     TableNextRow();
     TableNextColumn();
     AlignTextToFramePadding();
+    Text("Diffuse");
+    TableNextColumn();
+    PushItemWidth(-1);
+    if ColorEdit3("##override_diffuse", cast(*[3] float) *override.diffuse_color.x) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Specular");
+    TableNextColumn();
+    PushItemWidth(-1);
+    if ColorEdit3("##override_specular", cast(*[3] float) *override.specular_color.x) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
     Text("Tint");
     TableNextColumn();
     PushItemWidth(-1);
     if ColorEdit3("##override_tint", cast(*[3] float) *override.tint_color.x) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Shininess");
+    TableNextColumn();
+    PushItemWidth(-1);
+    if DragFloat("##override_shininess", *override.shininess, 1.0, 1.0, 512.0) {
         editor_mark_current_scene_dirty();
     }
     PopItemWidth();
@@ -341,7 +408,7 @@ draw_model_material_override_fields :: (
         TableNextRow();
         TableNextColumn();
         TableNextColumn();
-        if Button("Reset From Source", ImVec2.{-1, 22}) {
+        if Button(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset From Source"), ImVec2.{-1, 22}) {
             override.* = model_material_override_from_material(override.material_index, source_material);
             editor_mark_current_scene_dirty();
         }

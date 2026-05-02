@@ -8,7 +8,7 @@
 viewport_draw :: () {
     using engine_state;
 
-    Begin("Viewport");
+    Begin(UI_Icon_Window_Title(ICON_FA_DISPLAY, "Viewport", "Viewport"));
 
     ui_state.viewport_hovered = false;
     ui_state.viewport_image_visible = false;

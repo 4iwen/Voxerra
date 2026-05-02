@@ -9,12 +9,17 @@ node_hierarchy_draw :: () {
     editor_validate_selection();
 
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
-    if Begin("Node Hierarchy") {
+    if Begin(UI_Icon_Window_Title(ICON_FA_SITEMAP, "Node Hierarchy", "Node Hierarchy")) {
         if engine_state.current_scene && engine_state.current_scene.root != null {
-            if Button("Add Node", ImVec2.{-1, 24}) {
-                parent := ifx selected_node && !selected_node.instance_path then selected_node else engine_state.current_scene.root;
+            parent := selected_node;
+            if !editor_node_can_add_child(parent) {
+                parent = engine_state.current_scene.root;
+            }
+            BeginDisabled(!editor_node_can_add_child(parent));
+            if Button(UI_Icon_Label(ICON_FA_CIRCLE_PLUS, "Add Node"), ImVec2.{-1, 24}) {
                 editor_add_child_node(parent);
             }
+            EndDisabled();
             Separator();
             draw_node(engine_state.current_scene.root);
         } else {
@@ -58,7 +63,7 @@ Hierarchy_Pending_Operation :: struct {
 hierarchy_pending_operation: Hierarchy_Pending_Operation;
 
 draw_node :: (node: *Node) {
-    if node.inherited_from_instance {
+    if node.inherited_from_instance && !editor_is_playing() {
         return;
     }
 
@@ -84,6 +89,28 @@ draw_node :: (node: *Node) {
         editor_select_node(node);
     }
 
+    if BeginPopupContextItem("node_context") {
+        if node.instance_path {
+            if MenuItem(UI_Icon_Label(ICON_FA_FOLDER_OPEN, "Open Source Scene")) {
+                hierarchy_queue_open_scene(node.instance_path);
+            }
+        }
+
+        if MenuItem(UI_Icon_Label(ICON_FA_CIRCLE_PLUS, "Add Child Node"), enabled = editor_node_can_add_child(node)) {
+            hierarchy_queue_target_operation(.ADD_CHILD, node);
+        }
+        if MenuItem(UI_Icon_Label(ICON_FA_ARROW_UP, "Move Up"), enabled = editor_node_can_move(node)) {
+            hierarchy_queue_move_offset(node, -1);
+        }
+        if MenuItem(UI_Icon_Label(ICON_FA_ARROW_DOWN, "Move Down"), enabled = editor_node_can_move(node)) {
+            hierarchy_queue_move_offset(node, 1);
+        }
+        if MenuItem(UI_Icon_Label(ICON_FA_TRASH, "Delete"), enabled = editor_node_can_delete(node)) {
+            hierarchy_queue_target_operation(.DELETE, node);
+        }
+        EndPopup();
+    }
+
     draw_node_drag_source(node);
     draw_node_drop_target(node);
 
@@ -98,28 +125,6 @@ draw_node :: (node: *Node) {
             }
         }
         TreePop();
-    }
-
-    if BeginPopupContextItem("node_context") {
-        if node.instance_path {
-            if MenuItem("Open Source Scene") {
-                hierarchy_queue_open_scene(node.instance_path);
-            }
-        } else {
-            if MenuItem("Add Child Node") {
-                hierarchy_queue_target_operation(.ADD_CHILD, node);
-            }
-            if MenuItem("Move Up", enabled = node.parent != null) {
-                hierarchy_queue_move_offset(node, -1);
-            }
-            if MenuItem("Move Down", enabled = node.parent != null) {
-                hierarchy_queue_move_offset(node, 1);
-            }
-        }
-        if MenuItem("Delete", enabled = node.parent != null) {
-            hierarchy_queue_target_operation(.DELETE, node);
-        }
-        EndPopup();
     }
 }
 
