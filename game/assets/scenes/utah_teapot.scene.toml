@@ -3,9 +3,9 @@ name = "Utah Teapot"
 
 [environment]
 clear_color = [0.08, 0.08, 0.09, 1]
-ambient_color = [0.16, 0.18, 0.22]
+ambient_color = [0.504902, 0.504902, 0.504902]
 skybox_enabled = true
-postfx_enabled = false
+fog_resolve_enabled = false
 fog_enabled = false
 fog_color = [0.72, 0.78, 0.86, 1]
 fog_near = 10
@@ -13,7 +13,7 @@ fog_far = 34
 
 [[nodes]]
 id = "mesh"
-name = "Mesh"
+name = "Teapot"
 parent = "root"
 position = [0, 0, 0]
 rotation = [0, 0, 0]
@@ -26,7 +26,7 @@ model_guid = "cbdad06a5e941e20"
 
 [[nodes]]
 id = "Node"
-name = "Node"
+name = "Sprite"
 parent = "root"
 position = [5, 0, 0]
 rotation = [0, 0, 0]
@@ -42,4 +42,4 @@ alpha_cutoff = 0.1
 size = [1, 1]
 pivot = "bottom_center"
 billboard_mode = "none"
-blend_mode = "alpha_blend"
+transparency = "alpha_blend"

@@ -252,7 +252,7 @@ game_create_fire_billboard :: (scene: *Scene) {
     fire_animation.size = .{0.75, 1.4};
     fire_animation.pivot = .BOTTOM_CENTER;
     fire_animation.billboard_mode = .Y_AXIS;
-    fire_animation.blend_mode = .ALPHA_BLEND;
+    fire_animation.transparency = .ALPHA_BLEND;
     fire_animation.columns = 8;
     fire_animation.rows = 1;
     fire_animation.frame_count = 8;

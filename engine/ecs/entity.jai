@@ -1,6 +1,9 @@
-#scope_export
+#scope_file
+
 #import "Basic";
 #import "Math";
+
+#scope_export
 
 Node :: struct {
     runtime_id: u64;
@@ -32,6 +35,8 @@ node_allocate_runtime_id :: () -> u64 {
 }
 
 node_add_node :: (parent: *Node, name: string = "New Node") -> *Node {
+    assert(parent != null, "node_add_node: parent is null");
+
     node := New(Node);
     node.runtime_id = node_allocate_runtime_id();
     node.name       = copy_string(name);

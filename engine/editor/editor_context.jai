@@ -3,6 +3,7 @@
 #import "Basic";
 #import "String";
 #import "Math";
+#import "File";
 
 #scope_export
 
@@ -75,6 +76,57 @@ editor_context_shutdown :: () {
     editor_context.pending_close_tab_index = -1;
     selected_node = null;
     engine_state.current_scene = null;
+}
+
+editor_create_scene_tab :: (path: string) -> bool {
+    if !path {
+        log_warning("Cannot create scene tab: empty path");
+        return false;
+    }
+    if editor_is_playing() {
+        log_warning("Cannot create scene tab while play mode is running");
+        return false;
+    }
+
+    for * tab, index: editor_context.tabs {
+        if tab.path == path {
+            log_warning("Cannot create scene tab: tab already open");
+            return false;
+        }
+    }
+
+    if file_exists(path) {
+        log_warning("Cannot create scene tab: file already exists");
+        return false;
+    }
+
+    scene := scene_create(path_filename(path));
+    scene.source_path = copy_string(path);
+
+    ok := scene_save_toml(scene, path);
+    if !ok {
+        log_error("Failed to save new scene to disk: %", path);
+        scene_destroy(scene);
+        return false;
+    }
+
+    metadata := asset_manager_ensure_metadata(path, .SCENE);
+
+    tab: Editor_Scene_Tab;
+    tab.scene = scene;
+    tab.path = copy_string(path);
+    tab.title = copy_string(path_filename(path));
+    tab.view_camera = editor_view_camera_create();
+
+    asset_ref: Asset_Ref;
+    asset_ref_acquire_scene(*asset_ref, path, metadata.guid);
+    asset_ref_release(*asset_ref);
+
+    array_add(*editor_context.tabs, tab);
+    new_index := cast(s32) editor_context.tabs.count - 1;
+    editor_set_active_scene_tab(new_index);
+    editor_propagate_scene_changes_from_tab(new_index);
+    return true;
 }
 
 editor_open_scene_tab :: (path: string) -> bool {
@@ -187,6 +239,10 @@ editor_create_model_node_from_asset :: (
     }
 
     target_parent := ifx parent then parent else scene.root;
+    if !editor_can_parent_under(target_parent) {
+        log_warning("Cannot add child under this node");
+        return null;
+    }
 
     node := editor_add_child_node(target_parent, path_filename(model_path));
     if !node then return null;
@@ -202,6 +258,231 @@ editor_create_model_node_from_asset :: (
     editor_select_node(node);
     editor_mark_current_scene_dirty();
     return node;
+}
+
+editor_create_scene_instance_from_asset :: (
+    parent: *Node,
+    scene_path: string,
+    local_position: Vector3 = .{0.0, 0.0, 0.0}
+) -> *Node {
+    if editor_is_playing() {
+        log_warning("Cannot add scene instance while play mode is running");
+        return null;
+    }
+    if !scene_path {
+        log_warning("Cannot add scene instance: empty asset path");
+        return null;
+    }
+
+    scene := editor_get_active_scene();
+    if !scene || !scene.root {
+        log_warning("Cannot add scene instance: no active scene");
+        return null;
+    }
+
+    // prevent recursion
+    if scene.source_path {
+        if scene.source_path == scene_path {
+            log_warning("Cannot instantiate a scene into itself.");
+            return null;
+        }
+
+        empty_stack: [0] string;
+        target_scene, ok := scene_load_toml_internal(scene_path, .{apply_scene_settings = false, instance_stack = empty_stack});
+        if ok {
+            has_cycle := scene_has_instance_path(target_scene, scene.source_path);
+            scene_destroy(target_scene);
+
+            if has_cycle {
+                log_warning("Cannot instantiate scene because it would create a cyclic dependency.");
+                return null;
+            }
+        }
+    }
+
+    target_parent := ifx parent then parent else scene.root;
+    if !editor_can_parent_under(target_parent) {
+        log_warning("Cannot add child under this node");
+        return null;
+    }
+
+    node := editor_add_child_node(target_parent, path_filename(scene_path));
+    if !node then return null;
+    node.local.position = local_position;
+    node.instance_path = copy_string(scene_path);
+
+    scene_refresh_instances_from_path(scene, scene_path);
+
+    scene_update_transforms(scene);
+    editor_select_node(node);
+    editor_mark_current_scene_dirty();
+    return node;
+}
+
+editor_create_sprite_node_from_asset :: (
+    parent: *Node,
+    texture_path: string,
+    local_position: Vector3 = .{0.0, 0.0, 0.0}
+) -> *Node {
+    if editor_is_playing() {
+        log_warning("Cannot add sprite while play mode is running");
+        return null;
+    }
+    if !texture_path {
+        log_warning("Cannot add sprite: empty asset path");
+        return null;
+    }
+    if asset_type_from_path(texture_path) != .TEXTURE {
+        log_warning("Cannot add sprite from non-texture asset: %", texture_path);
+        return null;
+    }
+
+    scene := editor_get_active_scene();
+    if !scene || !scene.root {
+        log_warning("Cannot add sprite: no active scene");
+        return null;
+    }
+
+    target_parent := ifx parent then parent else scene.root;
+    if !editor_can_parent_under(target_parent) {
+        log_warning("Cannot add child under this node");
+        return null;
+    }
+
+    node := editor_add_child_node(target_parent, path_filename(texture_path));
+    if !node then return null;
+    node.local.position = local_position;
+
+    sprite := node_add_component(node, Sprite_Component);
+    if !editor_set_sprite_texture(sprite, texture_path) {
+        editor_delete_node(node);
+        return null;
+    }
+
+    if sprite.texture && sprite.texture.height > 0 {
+        sprite.size = .{cast(float) sprite.texture.width / cast(float) sprite.texture.height, 1.0};
+    }
+
+    scene_update_transforms(scene);
+    editor_select_node(node);
+    editor_mark_current_scene_dirty();
+    return node;
+}
+
+editor_set_sprite_texture :: (
+    sprite: *Sprite_Component,
+    texture_path: string,
+    texture_filter: string = "linear"
+) -> bool {
+    if !sprite || !texture_path then return false;
+    if asset_type_from_path(texture_path) != .TEXTURE {
+        log_warning("Rejected non-texture asset for sprite: %", texture_path);
+        return false;
+    }
+
+    spec := editor_texture_spec_from_filter(texture_filter, srgb = true);
+    metadata := asset_manager_ensure_metadata(texture_path, .TEXTURE);
+    texture := asset_ref_acquire_texture(
+        *sprite.texture_ref,
+        metadata.path,
+        metadata.guid,
+        spec,
+        false
+    );
+    if !texture {
+        log_warning("Failed to assign sprite texture: %", texture_path);
+        return false;
+    }
+
+    free(sprite.texture_path);
+    free(sprite.texture_guid);
+    free(sprite.texture_filter);
+    sprite.texture_path = copy_string(metadata.path);
+    sprite.texture_guid = copy_string(metadata.guid);
+    sprite.texture_filter = copy_string(texture_filter);
+    sprite.texture = texture;
+    sprite.uv_transform = Matrix3_Identity;
+    return true;
+}
+
+editor_set_material_override_diffuse_texture :: (
+    override: *Model_Material_Override,
+    texture_path: string
+) -> bool {
+    return editor_set_material_override_texture(override, texture_path, diffuse = true);
+}
+
+editor_set_material_override_specular_texture :: (
+    override: *Model_Material_Override,
+    texture_path: string
+) -> bool {
+    return editor_set_material_override_texture(override, texture_path, diffuse = false);
+}
+
+editor_set_material_override_texture :: (
+    override: *Model_Material_Override,
+    texture_path: string,
+    diffuse: bool
+) -> bool {
+    if !override || !texture_path then return false;
+    if asset_type_from_path(texture_path) != .TEXTURE {
+        log_warning("Rejected non-texture asset for material override: %", texture_path);
+        return false;
+    }
+
+    spec := editor_texture_spec_from_filter("linear", srgb = diffuse);
+    metadata := asset_manager_ensure_metadata(texture_path, .TEXTURE);
+
+    if diffuse {
+        texture := asset_ref_acquire_texture(
+            *override.diffuse_texture_ref,
+            metadata.path,
+            metadata.guid,
+            spec,
+            false
+        );
+        if !texture then return false;
+
+        free(override.diffuse_texture_path);
+        free(override.diffuse_texture_guid);
+        override.diffuse_texture_path = copy_string(metadata.path);
+        override.diffuse_texture_guid = copy_string(metadata.guid);
+        override.diffuse_map = texture;
+        return true;
+    }
+
+    texture := asset_ref_acquire_texture(
+        *override.specular_texture_ref,
+        metadata.path,
+        metadata.guid,
+        spec,
+        false
+    );
+    if !texture then return false;
+
+    free(override.specular_texture_path);
+    free(override.specular_texture_guid);
+    override.specular_texture_path = copy_string(metadata.path);
+    override.specular_texture_guid = copy_string(metadata.guid);
+    override.specular_map = texture;
+    return true;
+}
+
+editor_texture_spec_from_filter :: (filter: string, srgb: bool) -> Texture_Spec {
+    spec := UI_TEXTURE_SPEC;
+    spec.srgb = srgb;
+
+    if filter == "nearest" {
+        spec.min_filter = .NEAREST;
+        spec.mag_filter = .NEAREST;
+        spec.generate_mipmaps = false;
+        return spec;
+    }
+
+    spec.min_filter = .LINEAR;
+    spec.mag_filter = .LINEAR;
+    spec.generate_mipmaps = false;
+    return spec;
 }
 
 editor_viewport_drop_position :: () -> Vector3 {
@@ -647,7 +928,7 @@ editor_render_mode_apply_environment :: (environment: Scene_Environment) -> Scen
 
     if editor_context.render_mode != .LIT {
         result.skybox_enabled = false;
-        result.postfx_enabled = false;
+        result.fog_resolve_enabled = false;
         result.fog_enabled = false;
     }
 

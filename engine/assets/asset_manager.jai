@@ -316,8 +316,8 @@ asset_manager_ensure_metadata :: (
     type: Asset_Type,
     guid_hint: string = ""
 ) -> Asset_Metadata {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute asset path: %", path);
+    absolute_path, success := asset_manager_validate_path(path, "asset metadata");
+    if !success return .{};
 
     found, metadata := table_find(*manager.metadata_by_path, absolute_path);
     if found {
@@ -356,8 +356,8 @@ asset_manager_load_texture :: (
     spec := DEFAULT_TEXTURE_SPEC,
     hot_reload := false
 ) -> *Texture {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for texture: %", path);
+    absolute_path, success := asset_manager_validate_path(path, "texture");
+    if !success return null;
 
     key := asset_manager_texture_key(absolute_path, spec);
 
@@ -369,9 +369,7 @@ asset_manager_load_texture :: (
 
     // load new
     texture := texture_create_from_file(absolute_path, spec);
-    if !texture {   
-        return manager.default_texture;
-    }
+    if !texture then return null;
     
     asset: Texture_Asset;
     asset.texture = texture;
@@ -401,8 +399,8 @@ asset_manager_unload_texture :: (
     path: string,
     spec := DEFAULT_TEXTURE_SPEC
 ) {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for texture: %", path);
+    absolute_path, success := asset_manager_validate_path(path, "texture");
+    if !success return;
 
     key := asset_manager_texture_key(absolute_path, spec);
     found, asset := table_find(*manager.textures, key);
@@ -424,18 +422,10 @@ asset_manager_load_shader :: (
     fragment_path: string,
     hot_reload := false
 ) -> *Shader {
-    vertex_absolute, vert_success := get_absolute_path(vertex_path);
-    assert(
-        vert_success,
-        "Failed to get absolute path for vertex shader: %",
-        vertex_path
-    );
-    fragment_absolute, frag_success := get_absolute_path(fragment_path);
-    assert(
-        frag_success,
-        "Failed to get absolute path for fragment shader: %",
-        fragment_path
-    );
+    vertex_absolute, vert_success := asset_manager_validate_path(vertex_path, "vertex shader");
+    assert(vert_success, "Failed to get absolute path for vertex shader: %", vertex_path);
+    fragment_absolute, frag_success := asset_manager_validate_path(fragment_path, "fragment shader");
+    assert(frag_success, "Failed to get absolute path for fragment shader: %", fragment_path);
     
     key := tprint("%|%", vertex_absolute, fragment_absolute);
 
@@ -480,18 +470,10 @@ asset_manager_load_shader :: (
 }
 
 asset_manager_unload_shader :: (vertex_path: string, fragment_path: string) {
-    vertex_absolute, vert_success := get_absolute_path(vertex_path);
-    assert(
-        vert_success,
-        "Failed to get absolute path for vertex shader: %",
-        vertex_path
-    );
-    fragment_absolute, frag_success := get_absolute_path(fragment_path);
-    assert(
-        frag_success,
-        "Failed to get absolute path for fragment shader: %",
-        fragment_path
-    );
+    vertex_absolute, vert_success := asset_manager_validate_path(vertex_path, "vertex shader");
+    assert(vert_success, "Failed to get absolute path for vertex shader: %", vertex_path);
+    fragment_absolute, frag_success := asset_manager_validate_path(fragment_path, "fragment shader");
+    assert(frag_success, "Failed to get absolute path for fragment shader: %", fragment_path);
 
     key := tprint("%|%", vertex_absolute, fragment_absolute);
     
@@ -515,8 +497,8 @@ asset_manager_load_model :: (
     options: Model_Load_Options = DEFAULT_MODEL_LOAD_OPTIONS,
     hot_reload := false
 ) -> *Model {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for model: %", path);
+    absolute_path, success := asset_manager_validate_path(path, "model");
+    if !success return null;
 
     found, existing_asset := table_find(*manager.models, absolute_path);
     if found {
@@ -556,8 +538,8 @@ asset_manager_load_model :: (
 }
 
 asset_manager_unload_model :: (path: string) {
-    absolute_path, success := get_absolute_path(path);
-    assert(success, "Failed to get absolute path for model: %", path);
+    absolute_path, success := asset_manager_validate_path(path, "model");
+    if !success return;
 
     found, asset := table_find(*manager.models, absolute_path);
     if !found {
@@ -866,6 +848,15 @@ create_white_1x1_texture :: () -> *Texture {
     );
 
     return texture;
+}
+
+asset_manager_validate_path :: (path: string, type: string) -> string, bool {
+    absolute_path, success := get_absolute_path(path);
+    if !success {
+        log_error("Failed to get absolute path for %: %", type, path);
+        return "", false;
+    }
+    return absolute_path, true;
 }
 
 create_checker_texture :: () -> *Texture {

@@ -3,11 +3,11 @@ name = "Main"
 
 [environment]
 clear_color = [0.08, 0.08, 0.09, 1]
-ambient_color = [0, 0, 0]
+ambient_color = [0.403922, 0.501961, 0.501961]
 skybox_enabled = true
-postfx_enabled = false
-fog_enabled = false
-fog_color = [0.86, 0.72, 0.72, 1]
+fog_resolve_enabled = true
+fog_enabled = true
+fog_color = [0.039985, 0.627451, 0.368275, 1]
 fog_near = 16.5
 fog_far = 34
 
@@ -49,15 +49,15 @@ fov = 45
 id = "static_camera_2"
 name = "Static View 2"
 parent = "root"
-position = [16, 11.5, 12]
+position = [-11.146868, 0.033711, 8.770386]
 rotation = [0, 0, 0]
 scale = [1, 1, 1]
 
 [[nodes.components]]
 type = "camera"
 active = false
-yaw = -149
-pitch = -24
+yaw = -40
+pitch = 10
 near = 0.1
 far = 1000
 fov = 45
@@ -102,7 +102,7 @@ model_guid = "f1febe02eb322904"
 id = "fire"
 name = "Fire"
 parent = "root"
-position = [-0.472001, -3.960696, -0.111391]
+position = [-0.472001, 1.022968, -0.111391]
 rotation = [0, 0, 0]
 scale = [4.02, 4.02, 4.02]
 
@@ -115,9 +115,9 @@ tint_color = [1, 0.95, 0.9]
 alpha = 1
 alpha_cutoff = 0.05
 size = [0.75, 1.4]
-pivot = "bottom_center"
+pivot = "center"
 billboard_mode = "y_axis"
-blend_mode = "alpha_blend"
+transparency = "alpha_blend"
 columns = 8
 rows = 1
 frame_count = 8
@@ -129,7 +129,7 @@ loop = true
 id = "fire_light"
 name = "Fire Light"
 parent = "fire"
-position = [0, 0.55, 0]
+position = [0, -0.54, 0]
 rotation = [0, 0, 0]
 scale = [1, 1, 1]
 
@@ -156,13 +156,13 @@ model_guid = "cbdad06a5e941e20"
 [[nodes.components.materials]]
 index = 0
 enabled = true
-diffuse_color = [1, 0, 0]
-specular_color = [0.813725, 0.813725, 0.813725]
-tint_color = [0.357843, 0.357843, 0.357843]
-shininess = 1
-alpha = 1
+diffuse_color = [0.651961, 0.332372, 0.332372]
+specular_color = [0, 0, 0]
+tint_color = [1, 1, 1]
+shininess = 32
+alpha = 0.17
 alpha_cutoff = 0.5
-blend_mode = "alpha_blend"
+transparency = "alpha_blend"
 double_sided = false
 
 [[nodes]]
@@ -198,3 +198,24 @@ scale = [2, 2, 2]
 type = "model"
 model = "game/assets/models/suzanne.obj"
 model_guid = "f1febe02eb322904"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [0.6, 0.6, 0.6]
+specular_color = [0, 0, 0]
+tint_color = [1, 1, 1]
+shininess = 32
+alpha = 0.23
+alpha_cutoff = 0.5
+transparency = "alpha_blend"
+double_sided = false
+
+[[nodes]]
+id = "new_scene.toml"
+name = "Ship scene"
+parent = "root"
+position = [12.28636, 0, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+instance = "game/assets/scenes/new_scene.toml"

@@ -10,16 +10,8 @@ Picking_Result :: struct {
     node: *Node;
 }
 
-Picking_Framebuffer :: struct {
-    id: u32;
-    pixel_width: s32;
-    pixel_height: s32;
-    color_texture: u32;
-    depth_texture: u32;
-}
-
 Editor_Picking_State :: struct {
-    framebuffer: *Picking_Framebuffer;
+    framebuffer: *Framebuffer;
     shader: *Shader;
     id_to_node: [..] *Node;
 }
@@ -37,7 +29,7 @@ editor_picking_init :: () {
 
 editor_picking_shutdown :: () {
     if editor_picking_state.framebuffer {
-        picking_framebuffer_destroy(editor_picking_state.framebuffer);
+        framebuffer_destroy(editor_picking_state.framebuffer);
     }
     array_free(editor_picking_state.id_to_node);
     editor_picking_state = .{};
@@ -47,11 +39,17 @@ editor_picking_resize :: (width: s32, height: s32) {
     if width <= 0 || height <= 0 then return;
 
     if !editor_picking_state.framebuffer {
-        editor_picking_state.framebuffer = picking_framebuffer_create(width, height);
+        editor_picking_state.framebuffer = framebuffer_create_with_color_format(
+            width,
+            height,
+            GL_R32UI,
+            GL_RED_INTEGER,
+            GL_UNSIGNED_INT
+        );
         return;
     }
 
-    picking_framebuffer_resize(editor_picking_state.framebuffer, width, height);
+    framebuffer_resize(editor_picking_state.framebuffer, width, height);
 }
 
 editor_picking_render :: (
@@ -67,7 +65,7 @@ editor_picking_render :: (
     framebuffer := editor_picking_state.framebuffer;
     if !framebuffer then return;
 
-    picking_framebuffer_bind(framebuffer);
+    framebuffer_bind(framebuffer);
 
     clear_id: [1] u32 = .[0];
     glClearBufferuiv(GL_COLOR, 0, clear_id.data);
@@ -164,138 +162,6 @@ editor_handle_viewport_selection :: () {
 
 #scope_file
 
-picking_framebuffer_create :: (width: s32, height: s32) -> *Picking_Framebuffer {
-    framebuffer := New(Picking_Framebuffer);
-    framebuffer.pixel_width = width;
-    framebuffer.pixel_height = height;
-
-    glGenFramebuffers(1, *framebuffer.id);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);
-
-    glGenTextures(1, *framebuffer.color_texture);
-    glBindTexture(GL_TEXTURE_2D, framebuffer.color_texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_R32UI,
-        cast(u32) width,
-        cast(u32) height,
-        0,
-        GL_RED_INTEGER,
-        GL_UNSIGNED_INT,
-        null
-    );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER,
-        GL_COLOR_ATTACHMENT0,
-        GL_TEXTURE_2D,
-        framebuffer.color_texture,
-        0
-    );
-
-    glGenTextures(1, *framebuffer.depth_texture);
-    glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_DEPTH_COMPONENT24,
-        cast(u32) width,
-        cast(u32) height,
-        0,
-        GL_DEPTH_COMPONENT,
-        GL_UNSIGNED_INT,
-        null
-    );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(
-        GL_FRAMEBUFFER,
-        GL_DEPTH_ATTACHMENT,
-        GL_TEXTURE_2D,
-        framebuffer.depth_texture,
-        0
-    );
-
-    attachments: [1] u32 = .[GL_COLOR_ATTACHMENT0];
-    glDrawBuffers(attachments.count, attachments.data);
-
-    if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
-        log_error("Picking framebuffer is not complete");
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return framebuffer;
-}
-
-picking_framebuffer_destroy :: (framebuffer: *Picking_Framebuffer) {
-    if !framebuffer then return;
-
-    glDeleteTextures(1, *framebuffer.color_texture);
-    glDeleteTextures(1, *framebuffer.depth_texture);
-    glDeleteFramebuffers(1, *framebuffer.id);
-    free(framebuffer);
-}
-
-picking_framebuffer_resize :: (
-    framebuffer: *Picking_Framebuffer,
-    width: s32,
-    height: s32
-) {
-    assert(framebuffer != null, "picking_framebuffer_resize: framebuffer is null");
-
-    if framebuffer.pixel_width == width && framebuffer.pixel_height == height {
-        return;
-    }
-
-    framebuffer.pixel_width = width;
-    framebuffer.pixel_height = height;
-
-    glBindTexture(GL_TEXTURE_2D, framebuffer.color_texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_R32UI,
-        cast(u32) width,
-        cast(u32) height,
-        0,
-        GL_RED_INTEGER,
-        GL_UNSIGNED_INT,
-        null
-    );
-
-    glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_DEPTH_COMPONENT24,
-        cast(u32) width,
-        cast(u32) height,
-        0,
-        GL_DEPTH_COMPONENT,
-        GL_UNSIGNED_INT,
-        null
-    );
-
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);
-    if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
-        log_error("Picking framebuffer is not complete after resize");
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-picking_framebuffer_bind :: (framebuffer: *Picking_Framebuffer) {
-    assert(framebuffer != null, "picking_framebuffer_bind: framebuffer is null");
-
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);
-    glViewport(0, 0, cast(u32) framebuffer.pixel_width, cast(u32) framebuffer.pixel_height);
-}
-
 editor_picking_submit_node :: (
     node: *Node,
     shader: *Shader,
@@ -388,17 +254,9 @@ editor_picking_draw_mesh :: (
     shader_set_int(shader, "u_object_id", object_id);
 
     material_resolved := material_resolve(material, material_override);
-    use_alpha_test := false;
-    alpha_cutoff := material_resolved.alpha_cutoff;
-    material_alpha := material_resolved.alpha;
-
-    if material_resolved.blend_mode == .ALPHA_CLIP {
-        use_alpha_test = true;
-    } else if material_resolved.blend_mode == .ALPHA_BLEND {
-        use_alpha_test = true;
-        alpha_cutoff = 0.01;
-        material_alpha = 1.0;
-    }
+    use_alpha_test := material_uses_alpha_test(material_resolved);
+    alpha_cutoff := material_pick_alpha_cutoff(material_resolved);
+    material_alpha := material_pick_alpha(material_resolved);
 
     if material_resolved.diffuse_map {
         texture_bind(material_resolved.diffuse_map, 0);
@@ -434,13 +292,9 @@ editor_picking_draw_sprite :: (
 
     texture_bind(sprite_system_resolve_texture(sprite), 0);
 
-    use_alpha_test := sprite.blend_mode != .OPAQUE;
-    alpha_cutoff := sprite.alpha_cutoff;
-    material_alpha := sprite.alpha;
-    if sprite.blend_mode == .ALPHA_BLEND {
-        alpha_cutoff = 0.01;
-        material_alpha = 1.0;
-    }
+    use_alpha_test := sprite_uses_alpha_test(sprite);
+    alpha_cutoff := sprite_pick_alpha_cutoff(sprite);
+    material_alpha := sprite_pick_alpha(sprite);
 
     shader_set_int(shader, "u_diffuse", 0);
     shader_set_int(shader, "u_use_alpha_test", cast(s32) use_alpha_test);

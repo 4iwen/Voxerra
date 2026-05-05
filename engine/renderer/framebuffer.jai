@@ -14,33 +14,53 @@ Framebuffer :: struct {
     aspect: float;
     color_texture: u32;
     depth_texture: u32;
+    color_internal_format: GLint;
+    color_format: GLenum;
+    color_type: GLenum;
 }
 
 framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
+    return framebuffer_create_with_color_format(
+        width,
+        height,
+        GL_RGBA8,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE
+    );
+}
+
+framebuffer_create_with_color_format :: (
+    width: s32,
+    height: s32,
+    color_internal_format: GLint,
+    color_format: GLenum,
+    color_type: GLenum
+) -> *Framebuffer {
     framebuffer := New(Framebuffer);
     framebuffer.pixel_width = width;
     framebuffer.pixel_height = height;
     framebuffer.width = cast(float) width;
     framebuffer.height = cast(float) height;
     framebuffer.aspect = cast(float) width / cast(float) height;
+    framebuffer.color_internal_format = color_internal_format;
+    framebuffer.color_format = color_format;
+    framebuffer.color_type = color_type;
 
-    // create framebuffer
     glGenFramebuffers(1, *framebuffer.id);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);
 
-    // create color attachment
     glGenTextures(1, *framebuffer.color_texture);
     glBindTexture(GL_TEXTURE_2D, framebuffer.color_texture);
 
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8, 
+        framebuffer.color_internal_format,
         cast(u32) width,
         cast(u32) height,
         0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
+        framebuffer.color_format,
+        framebuffer.color_type,
         null
     );
 
@@ -57,7 +77,9 @@ framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
         0
     );
 
-    // create depth texture
+    attachments: [1] u32 = .[GL_COLOR_ATTACHMENT0];
+    glDrawBuffers(attachments.count, attachments.data);
+
     glGenTextures(1, *framebuffer.depth_texture);
     glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
 
@@ -86,7 +108,6 @@ framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
         0
     );
 
-    // check completeness
     if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
         log_error("Framebuffer % is not complete", framebuffer.id);
     }
@@ -134,12 +155,12 @@ framebuffer_resize :: (framebuffer: *Framebuffer, width: s32, height: s32) {
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8, 
+        framebuffer.color_internal_format,
         cast(u32) width,
         cast(u32) height,
         0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
+        framebuffer.color_format,
+        framebuffer.color_type,
         null
     );
 

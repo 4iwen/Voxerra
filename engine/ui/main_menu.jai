@@ -10,13 +10,14 @@ main_menu_draw :: () {
 
     if BeginMainMenuBar() {
         if BeginMenu("File") {
-            if MenuItem(UI_Icon_Label(ICON_FA_FILE_CIRCLE_PLUS, "New Scene"), "Ctrl+N", enabled = false) {
+            if MenuItem(UI_Icon_Label(ICON_FA_FILE_CIRCLE_PLUS, "New Scene"), "Ctrl+N", enabled = !editor_is_playing()) {
+                main_menu_request_new_scene_modal();
             }
             if MenuItem(UI_Icon_Label(ICON_FA_FOLDER_OPEN, "Open Scene..."), "Ctrl+O", enabled = !editor_is_playing()) {
                 main_menu_request_open_scene_modal();
             }
             can_save_scene := cast(bool) engine_state.current_scene && !editor_is_playing();
-            if MenuItem(UI_Icon_Label(ICON_FA_FLOPPY_DISK, "Save Scene"), "Ctrl/Cmd+S", enabled = can_save_scene) {
+            if MenuItem(UI_Icon_Label(ICON_FA_FLOPPY_DISK, "Save Scene"), "Ctrl+S", enabled = can_save_scene) {
                 editor_save_active_scene();
             }
             can_close_scene := editor_context.active_tab_index >= 0 && !editor_is_playing();
@@ -81,6 +82,7 @@ main_menu_draw :: () {
     }
 
     main_menu_draw_open_scene_modal();
+    main_menu_draw_new_scene_modal();
 } @UI_Window
 
 #scope_file
@@ -88,8 +90,16 @@ main_menu_draw :: () {
 main_menu_open_scene_requested: bool;
 main_menu_open_scene_buffer: [512] u8;
 
+main_menu_new_scene_requested: bool;
+main_menu_new_scene_buffer: [512] u8;
+
 main_menu_handle_shortcuts :: () {
     if input_editor_shortcuts_blocked() then return;
+
+    if input_primary_modifier_down() && input_key_pressed(.N) && !editor_is_playing() {
+        main_menu_request_new_scene_modal();
+        return;
+    }
 
     if input_primary_modifier_down() && input_key_pressed(.O) && !editor_is_playing() {
         main_menu_request_open_scene_modal();
@@ -108,6 +118,46 @@ main_menu_handle_shortcuts :: () {
     if input_key_pressed(.DELETE) && editor_node_can_delete(selected_node) {
         editor_delete_node(selected_node);
         return;
+    }
+}
+
+main_menu_request_new_scene_modal :: () {
+    if editor_is_playing() then return;
+
+    path := "game/scenes/new_scene.toml";
+    ui_copy_string_to_buffer(path, main_menu_new_scene_buffer.data, main_menu_new_scene_buffer.count);
+    main_menu_new_scene_requested = true;
+}
+
+main_menu_draw_new_scene_modal :: () {
+    if main_menu_new_scene_requested {
+        OpenPopup(UI_Icon_Window_Title(ICON_FA_FILE_CIRCLE_PLUS, "New Scene", "New Scene"));
+        main_menu_new_scene_requested = false;
+    }
+
+    if BeginPopupModal(UI_Icon_Window_Title(ICON_FA_FILE_CIRCLE_PLUS, "New Scene", "New Scene"), null, .AlwaysAutoResize) {
+        TextUnformatted("Scene path");
+        SetNextItemWidth(420.0);
+        InputText("##new_scene_path", main_menu_new_scene_buffer.data, main_menu_new_scene_buffer.count);
+
+        Separator();
+
+        path := to_string(main_menu_new_scene_buffer.data);
+        can_create := path.count > 0 && !editor_is_playing();
+        BeginDisabled(!can_create);
+        if Button(UI_Icon_Label(ICON_FA_FILE_CIRCLE_PLUS, "Create"), ImVec2.{100, 0}) {
+            if editor_create_scene(path) {
+                CloseCurrentPopup();
+            }
+        }
+        EndDisabled();
+
+        SameLine();
+        if Button(UI_Icon_Label(ICON_FA_XMARK, "Cancel"), ImVec2.{100, 0}) {
+            CloseCurrentPopup();
+        }
+
+        EndPopup();
     }
 }
 

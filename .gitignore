@@ -8,3 +8,4 @@ imgui.ini
 ~$*.xlsx
 requirements.csv
 *.dSYM*
+AGENTS.md

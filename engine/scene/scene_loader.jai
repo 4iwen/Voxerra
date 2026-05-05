@@ -51,11 +51,6 @@ scene_load_toml_internal :: (path: string, options: Scene_Load_Options) -> *Scen
             scene_load_environment(scene, environment_value);
         }
 
-        found_postfx, postfx_value := scene_toml_find(root, "postfx");
-        if found_postfx {
-            scene_load_legacy_postfx(scene, postfx_value);
-        }
-
         scene_apply_environment_settings(scene);
     }
 
@@ -232,13 +227,7 @@ scene_set_model_component_model :: (
     }
 
     metadata := asset_manager_ensure_metadata(path, .MODEL, guid);
-    model := asset_manager_load_model(metadata.path);
-    if !model {
-        log_error("Failed to load scene model: %", metadata.path);
-        return false;
-    }
-
-    model = asset_ref_acquire_model(
+    model := asset_ref_acquire_model(
         *model_component.model_ref,
         metadata.path,
         metadata.guid
@@ -575,8 +564,8 @@ scene_write_sprite_base :: (builder: *String_Builder, sprite: *Sprite_Component,
     print_to_builder(builder, "billboard_mode = ");
     scene_write_string(builder, scene_billboard_mode_to_string(sprite.billboard_mode));
     print_to_builder(builder, "\n");
-    print_to_builder(builder, "blend_mode = ");
-    scene_write_string(builder, scene_blend_mode_to_string(sprite.blend_mode));
+    print_to_builder(builder, "transparency = ");
+    scene_write_string(builder, scene_transparency_to_string(sprite.transparency));
     print_to_builder(builder, "\n");
 }
 
@@ -589,7 +578,6 @@ scene_component_camera_is_active :: (camera_component: *Camera_Component) -> boo
 }
 
 scene_find_owner :: (node: *Node) -> *Scene {
-    // Scene ownership is not stored on nodes yet. Walk to root and compare against the current scene.
     root := node;
     while root && root.parent {
         root = root.parent;
@@ -645,13 +633,33 @@ scene_write_model_material_overrides :: (
         print_to_builder(builder, "index = %\n", override.material_index);
         print_to_builder(builder, "enabled = %\n", override.enabled);
         scene_write_vec3_assignment(builder, "diffuse_color", override.diffuse_color);
+        if override.diffuse_texture_path {
+            print_to_builder(builder, "diffuse_texture = ");
+            scene_write_string(builder, override.diffuse_texture_path);
+            print_to_builder(builder, "\n");
+            if override.diffuse_texture_guid {
+                print_to_builder(builder, "diffuse_texture_guid = ");
+                scene_write_string(builder, override.diffuse_texture_guid);
+                print_to_builder(builder, "\n");
+            }
+        }
         scene_write_vec3_assignment(builder, "specular_color", override.specular_color);
+        if override.specular_texture_path {
+            print_to_builder(builder, "specular_texture = ");
+            scene_write_string(builder, override.specular_texture_path);
+            print_to_builder(builder, "\n");
+            if override.specular_texture_guid {
+                print_to_builder(builder, "specular_texture_guid = ");
+                scene_write_string(builder, override.specular_texture_guid);
+                print_to_builder(builder, "\n");
+            }
+        }
         scene_write_vec3_assignment(builder, "tint_color", override.tint_color);
         print_to_builder(builder, "shininess = %\n", override.shininess);
         print_to_builder(builder, "alpha = %\n", override.alpha);
         print_to_builder(builder, "alpha_cutoff = %\n", override.alpha_cutoff);
-        print_to_builder(builder, "blend_mode = ");
-        scene_write_string(builder, scene_blend_mode_to_string(override.blend_mode));
+        print_to_builder(builder, "transparency = ");
+        scene_write_string(builder, scene_transparency_to_string(override.transparency));
         print_to_builder(builder, "\n");
         print_to_builder(builder, "double_sided = %\n", override.double_sided);
     }
@@ -675,9 +683,9 @@ scene_billboard_mode_to_string :: (value: Sprite_Billboard_Mode) -> string {
     return "y_axis";
 }
 
-scene_blend_mode_to_string :: (value: Blend_Mode) -> string {
-    if value == .OPAQUE then return "opaque";
-    if value == .ALPHA_CLIP then return "alpha_clip";
+scene_transparency_to_string :: (value: Transparency_Mode) -> string {
+    if value == .DISABLED then return "disabled";
+    if value == .ALPHA_SCISSOR then return "alpha_scissor";
     return "alpha_blend";
 }
 
@@ -729,31 +737,14 @@ scene_load_component :: (scene: *Scene, node: *Node, component_value: Toml.Value
         return true;
     }
 
-    if component_type == "model" ||
-       component_type == "model_component" ||
-       component_type == "mesh_instance" ||
-       component_type == "static_model" ||
-       component_type == "model_instance" {
+    if component_type == "model" {
         path := scene_toml_get_string(component_value, "model", "");
-        if !path {
-            path = scene_toml_get_string(component_value, "mesh", "");
-        }
-        if !path {
-            path = scene_toml_get_string(component_value, "path", "");
-        }
         if !path then return false;
 
         guid := scene_toml_get_string(component_value, "model_guid", "");
-        if !guid {
-            guid = scene_toml_get_string(component_value, "mesh_guid", "");
-        }
         model_component := node_add_component(node, Model_Component);
-        legacy_double_sided := scene_toml_get_bool(component_value, "double_sided", false);
         ok := scene_set_model_component_model(model_component, path, guid);
         if ok {
-            if legacy_double_sided {
-                scene_apply_legacy_model_double_sided(model_component);
-            }
             scene_load_model_material_overrides(model_component, component_value);
         }
         return ok;
@@ -791,7 +782,10 @@ scene_load_sprite_base :: (sprite_component: *Sprite_Component, component_value:
     sprite_component.size = scene_toml_get_vec2(component_value, "size", .{1.0, 1.0});
     sprite_component.pivot = scene_parse_sprite_pivot(scene_toml_get_string(component_value, "pivot", "bottom_center"));
     sprite_component.billboard_mode = scene_parse_billboard_mode(scene_toml_get_string(component_value, "billboard_mode", "y_axis"));
-    sprite_component.blend_mode = scene_parse_blend_mode(scene_toml_get_string(component_value, "blend_mode", "alpha_blend"));
+    sprite_component.transparency = scene_toml_get_transparency(
+        component_value,
+        sprite_component.transparency
+    );
 }
 
 scene_resolve_model_component :: (model_component: *Model_Component) -> bool {
@@ -811,9 +805,6 @@ scene_load_model_material_overrides :: (
     if !model_component then return;
 
     found, materials_value := scene_toml_find(component_value, "materials");
-    if !found {
-        found, materials_value = scene_toml_find(component_value, "material_overrides");
-    }
     if !found || materials_value.kind != .ARRAY then return;
 
     for material_value: materials_value.array {
@@ -823,9 +814,6 @@ scene_load_model_material_overrides :: (
         }
 
         material_index := scene_toml_get_int(material_value, "index", -1);
-        if material_index < 0 {
-            material_index = scene_toml_get_int(material_value, "material_index", -1);
-        }
         if material_index < 0 {
             log_warning("Skipping model material override without index");
             continue;
@@ -841,48 +829,79 @@ scene_load_model_material_overrides :: (
 
         override.enabled = scene_toml_get_bool(material_value, "enabled", override.enabled);
         override.diffuse_color = scene_toml_get_vec3(material_value, "diffuse_color", override.diffuse_color);
+        scene_load_material_override_texture(
+            override,
+            material_value,
+            "diffuse_texture",
+            "diffuse_texture_guid",
+            true
+        );
         override.specular_color = scene_toml_get_vec3(material_value, "specular_color", override.specular_color);
+        scene_load_material_override_texture(
+            override,
+            material_value,
+            "specular_texture",
+            "specular_texture_guid",
+            false
+        );
         override.tint_color = scene_toml_get_vec3(material_value, "tint_color", override.tint_color);
         override.shininess = scene_toml_get_float(material_value, "shininess", override.shininess);
         override.alpha = scene_toml_get_float(material_value, "alpha", override.alpha);
         override.alpha_cutoff = scene_toml_get_float(material_value, "alpha_cutoff", override.alpha_cutoff);
-        override.blend_mode = scene_parse_blend_mode(scene_toml_get_string(
+        override.transparency = scene_toml_get_transparency(
             material_value,
-            "blend_mode",
-            scene_blend_mode_to_string(override.blend_mode)
-        ));
+            override.transparency
+        );
         override.double_sided = scene_toml_get_bool(material_value, "double_sided", override.double_sided);
     }
 }
 
-scene_apply_legacy_model_double_sided :: (model_component: *Model_Component) {
-    if !model_component || !model_component.model_resource then return;
+scene_load_material_override_texture :: (
+    override: *Model_Material_Override,
+    material_value: Toml.Value,
+    path_key: string,
+    guid_key: string,
+    srgb: bool
+) {
+    if !override then return;
 
-    applied := false;
-    for material: model_component.model_resource.materials {
-        override := model_component_ensure_material_override(
-            model_component,
-            cast(s32) it_index,
-            material
+    texture_path := scene_toml_get_string(material_value, path_key, "");
+    if !texture_path then return;
+
+    texture_guid := scene_toml_get_string(material_value, guid_key, "");
+    spec := DEFAULT_TEXTURE_SPEC;
+    spec.srgb = srgb;
+
+    if srgb {
+        texture := asset_ref_acquire_texture(
+            *override.diffuse_texture_ref,
+            texture_path,
+            texture_guid,
+            spec,
+            false
         );
-        if override {
-            override.double_sided = true;
-            applied = true;
-        }
-    }
+        if !texture then return;
 
-    if applied then return;
-
-    for submesh: model_component.model_resource.submeshes {
-        if submesh.material_index < 0 then continue;
-        override := model_component_ensure_material_override(
-            model_component,
-            submesh.material_index,
-            submesh.material
+        free(override.diffuse_texture_path);
+        free(override.diffuse_texture_guid);
+        override.diffuse_texture_path = copy_string(texture_path);
+        override.diffuse_texture_guid = copy_string(ifx override.diffuse_texture_ref.guid then override.diffuse_texture_ref.guid else texture_guid);
+        override.diffuse_map = texture;
+    } else {
+        texture := asset_ref_acquire_texture(
+            *override.specular_texture_ref,
+            texture_path,
+            texture_guid,
+            spec,
+            false
         );
-        if override {
-            override.double_sided = true;
-        }
+        if !texture then return;
+
+        free(override.specular_texture_path);
+        free(override.specular_texture_guid);
+        override.specular_texture_path = copy_string(texture_path);
+        override.specular_texture_guid = copy_string(ifx override.specular_texture_ref.guid then override.specular_texture_ref.guid else texture_guid);
+        override.specular_map = texture;
     }
 }
 
@@ -902,7 +921,7 @@ scene_write_environment :: (builder: *String_Builder, scene: *Scene) {
         scene_write_string(builder, env.skybox_cubemap_guid);
         print_to_builder(builder, "\n");
     }
-    print_to_builder(builder, "postfx_enabled = %\n", env.postfx_enabled);
+    print_to_builder(builder, "fog_resolve_enabled = %\n", env.fog_resolve_enabled);
     print_to_builder(builder, "fog_enabled = %\n", env.fog_enabled);
     scene_write_vec4_assignment(builder, "fog_color", env.fog_color);
     print_to_builder(builder, "fog_near = %\n", env.fog_near);
@@ -926,23 +945,12 @@ scene_load_environment :: (scene: *Scene, value: Toml.Value) {
         free(env.skybox_cubemap_guid);
         env.skybox_cubemap_guid = copy_string(cubemap_guid);
     }
-    env.postfx_enabled = scene_toml_get_bool(value, "postfx_enabled", env.postfx_enabled);
+    env.fog_resolve_enabled = scene_toml_get_bool(value, "fog_resolve_enabled", env.fog_resolve_enabled);
     env.fog_enabled = scene_toml_get_bool(value, "fog_enabled", env.fog_enabled);
     env.fog_color = scene_toml_get_vec4(value, "fog_color", env.fog_color);
     env.fog_near = scene_toml_get_float(value, "fog_near", env.fog_near);
     env.fog_far = scene_toml_get_float(value, "fog_far", env.fog_far);
     scene.ambient_color = env.ambient_color;
-}
-
-scene_load_legacy_postfx :: (scene: *Scene, postfx_value: Toml.Value) {
-    if !scene || postfx_value.kind != .TABLE then return;
-
-    env := *scene.environment;
-    env.postfx_enabled = scene_toml_get_bool(postfx_value, "enabled", env.postfx_enabled);
-    env.fog_enabled = scene_toml_get_bool(postfx_value, "fog_enabled", env.fog_enabled);
-    env.fog_color = scene_toml_get_vec4(postfx_value, "fog_color", env.fog_color);
-    env.fog_near = scene_toml_get_float(postfx_value, "fog_near", env.fog_near);
-    env.fog_far = scene_toml_get_float(postfx_value, "fog_far", env.fog_far);
 }
 
 #scope_export
@@ -956,8 +964,8 @@ scene_apply_environment_settings :: (scene: *Scene) {
 scene_apply_environment_settings :: (scene: *Scene, environment: Scene_Environment) {
     if !scene then return;
 
-    state := postfx_get_state();
-    state.enabled = environment.postfx_enabled;
+    state := fog_resolve_get_state();
+    state.enabled = environment.fog_resolve_enabled;
     state.fog_enabled = environment.fog_enabled;
     state.fog_color = environment.fog_color;
     state.fog_near = environment.fog_near;
@@ -1001,10 +1009,25 @@ scene_parse_billboard_mode :: (value: string) -> Sprite_Billboard_Mode {
     return .Y_AXIS;
 }
 
-scene_parse_blend_mode :: (value: string) -> Blend_Mode {
-    if value == "opaque" then return .OPAQUE;
-    if value == "alpha_cutout" || value == "alpha_clip" then return .ALPHA_CLIP;
-    return .ALPHA_BLEND;
+scene_parse_transparency :: (
+    value: string,
+    default: Transparency_Mode = .ALPHA_BLEND
+) -> Transparency_Mode {
+    if value == "disabled" then return .DISABLED;
+    if value == "alpha_scissor" then return .ALPHA_SCISSOR;
+    if value == "alpha_blend" then return .ALPHA_BLEND;
+    log_warning("Unknown transparency mode '%', keeping previous value", value);
+    return default;
+}
+
+scene_toml_get_transparency :: (
+    table: Toml.Value,
+    default: Transparency_Mode
+) -> Transparency_Mode {
+    value := scene_toml_get_string(table, "transparency", "");
+    if value then return scene_parse_transparency(value, default);
+
+    return default;
 }
 
 scene_toml_find :: (table: Toml.Value, key: string) -> bool, Toml.Value {

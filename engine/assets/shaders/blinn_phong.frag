@@ -10,7 +10,7 @@ struct Material {
     float alpha;
     float alpha_cutoff;
     mat3 uv_transform;
-    int blend_mode;
+    int transparency;
 };
 
 struct DirectionalLight {
@@ -46,8 +46,13 @@ struct SpotLight {
 in vec3 v_position;
 in vec3 v_normal;
 in vec2 v_uv;
+in float v_view_depth;
 
 uniform vec3 u_view_position;
+uniform int u_fog_enabled;
+uniform vec4 u_fog_color;
+uniform float u_fog_near;
+uniform float u_fog_far;
 
 uniform vec3 u_global_ambient;
 uniform int u_has_directional_light;
@@ -62,6 +67,8 @@ uniform int u_render_mode;
 #define RENDER_MODE_UNLIT 1
 #define RENDER_MODE_LIGHTING_ONLY 2
 #define RENDER_MODE_ALBEDO 3
+
+#define TRANSPARENCY_ALPHA_SCISSOR 1
 
 uniform DirectionalLight u_directional_light;
 uniform PointLight u_point_lights[MAX_POINT_LIGHTS];
@@ -175,7 +182,8 @@ void main() {
     vec3 specular_map = vec3(texture(u_material.specular, uv)) * u_material.specular_color;
     float alpha = diffuse_sample.a * u_material.alpha;
 
-    if (u_material.blend_mode == 1 && alpha < u_material.alpha_cutoff) {
+    if (u_material.transparency == TRANSPARENCY_ALPHA_SCISSOR &&
+        alpha < u_material.alpha_cutoff) {
         discard;
     }
 
@@ -235,7 +243,16 @@ void main() {
         color = vec4(lighting_only, alpha);
         return;
     }
-    
+
+    if (u_fog_enabled != 0) {
+        float fog_factor = clamp(
+            (u_fog_far - v_view_depth) / max(u_fog_far - u_fog_near, 0.0001),
+            0.0,
+            1.0
+        );
+        result = mix(u_fog_color.rgb, result, fog_factor);
+    }
+
     // final
     color = vec4(result, alpha);
 }

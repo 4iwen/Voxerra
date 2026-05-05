@@ -25,7 +25,7 @@
 #load "renderer/model.jai";
 #load "renderer/light.jai";
 #load "renderer/framebuffer.jai";
-#load "renderer/postfx.jai";
+#load "renderer/fog_resolve.jai";
 #load "renderer/scene.jai";
 #load "renderer/skybox.jai";
 #load "renderer/cubemap.jai";
@@ -56,7 +56,7 @@
     #load "ui/node_hierarchy.jai";
     #load "ui/node_properties.jai";
     #load "ui/main_menu.jai";
-    #load "ui/postfx.jai";
+    #load "ui/fog.jai";
     #load "ui/viewport.jai";
     #load "ui/scene_tabs.jai";
     #load "ui/asset_browser.jai";

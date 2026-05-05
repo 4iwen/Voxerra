@@ -7,11 +7,11 @@
 
 Scene_Environment :: struct {
     clear_color: Vector4 = .{0.08, 0.08, 0.09, 1.0};
-    ambient_color: Vector3 = .{0.0, 0.0, 0.0};
+    ambient_color: Vector3 = .{0.5, 0.5, 0.5};
     skybox_enabled: bool = true;
     skybox_cubemap_guid: string;
     skybox_cubemap_path: string;
-    postfx_enabled: bool;
+    fog_resolve_enabled: bool;
     fog_enabled: bool;
     fog_color: Vector4 = .{0.72, 0.78, 0.86, 1.0};
     fog_near: float = 12.0;
@@ -31,7 +31,7 @@ Scene :: struct {
     // lights
     lights: *Light_System;
     
-    ambient_color: Vector3 = .{0, 0, 0};
+    ambient_color: Vector3 = .{127.0 / 255.0, 127.0 / 255.0, 127.0 / 255.0};
     environment: Scene_Environment;
 }
 

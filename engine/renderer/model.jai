@@ -11,6 +11,7 @@ Model :: struct {
     name: string;
     submeshes: [..] *Sub_Mesh;
     materials: [..] *Material;
+    owned_textures: [..] *Texture;
 }
 
 Sub_Mesh :: struct {
@@ -22,20 +23,18 @@ Sub_Mesh :: struct {
 Model_Load_Options :: struct {
     flip_uvs: bool;
     calculate_tangents: bool;
-    merge_meshes: bool;
 }
 
 DEFAULT_MODEL_LOAD_OPTIONS :: Model_Load_Options.{
     flip_uvs = false,
-    calculate_tangents = true,
-    merge_meshes = false
+    calculate_tangents = true
 };
 
 model_create_from_file :: (
     path: string,
     options: Model_Load_Options = DEFAULT_MODEL_LOAD_OPTIONS
 ) -> *Model {
-    ok, meshes, materials, material_indices := assimp_load_meshes(path, options);
+    ok, meshes, materials, material_indices, owned_textures := assimp_load_meshes(path, options);
     if !ok {
         log_error("Failed to load mesh file: %", path);
         return null;
@@ -44,6 +43,7 @@ model_create_from_file :: (
     model := New(Model);
     model.name = copy_string(path);
     model.materials = materials;
+    model.owned_textures = owned_textures;
 
     for mesh, index: meshes {
         submesh := New(Sub_Mesh);
@@ -80,6 +80,11 @@ model_destroy :: (model: *Model) {
     }
     array_free(model.materials);
 
+    for model.owned_textures {
+        texture_destroy(it);
+    }
+    array_free(model.owned_textures);
+
     free(model);
 }
 
@@ -88,13 +93,16 @@ model_reload_from_file :: (
     path: string,
     options: Model_Load_Options
 ) -> bool {
-    ok, meshes, materials, material_indices := assimp_load_meshes(path, options);
+    ok, meshes, materials, material_indices, owned_textures := assimp_load_meshes(path, options);
     if !ok || meshes.count == 0 {
         for meshes {
             mesh_destroy(it);
         }
         for materials {
             material_destroy(it);
+        }
+        for owned_textures {
+            texture_destroy(it);
         }
         return false;
     }
@@ -112,8 +120,14 @@ model_reload_from_file :: (
     }
     array_reset(*model.materials);
 
+    for model.owned_textures {
+        texture_destroy(it);
+    }
+    array_reset(*model.owned_textures);
+
     // rebuild submeshes
     model.materials = materials;
+    model.owned_textures = owned_textures;
     for mesh, index: meshes {
         submesh := New(Sub_Mesh);
         submesh.mesh = mesh;
@@ -193,10 +207,11 @@ try_load_string :: (material: *aiMaterial, key: string) -> bool, string {
 assimp_load_meshes :: (
     path: string,
     options: Model_Load_Options
-) -> bool, [..] *Mesh, [..] *Material, [..] u32 {
+) -> bool, [..] *Mesh, [..] *Material, [..] u32, [..] *Texture {
     meshes: [..] *Mesh;
     materials: [..] *Material;
     material_indices: [..] u32;
+    owned_textures: [..] *Texture;
 
     path_c_str := to_c_string(path);
     defer free(path_c_str);
@@ -217,7 +232,7 @@ assimp_load_meshes :: (
         } else {
             log_error("Assimp failed to load file: %", path);
         }
-        return false, meshes, materials, material_indices;
+        return false, meshes, materials, material_indices, owned_textures;
     }
     defer aiReleaseImport(scene);
 
@@ -228,12 +243,12 @@ assimp_load_meshes :: (
         } else {
             log_error("Assimp scene incomplete: %", path);
         }
-        return false, meshes, materials, material_indices;
+        return false, meshes, materials, material_indices, owned_textures;
     }
 
     if scene.mNumMeshes == 0 {
         log_error("No meshes found in file: %", path);
-        return false, meshes, materials, material_indices;
+        return false, meshes, materials, material_indices, owned_textures;
     }
 
     // materials
@@ -272,10 +287,10 @@ assimp_load_meshes :: (
             ok_mode, mode_str := try_load_string(ai_material, "$mat.gltf.alphaMode");
             if ok_mode {
                 if mode_str == "BLEND" {
-                    material.blend_mode = .ALPHA_BLEND;
+                    material.transparency = .ALPHA_BLEND;
                     material.alpha_cutoff = 0.0;
                 } else if mode_str == "MASK" {
-                    material.blend_mode = .ALPHA_CLIP;
+                    material.transparency = .ALPHA_SCISSOR;
                     ok_cutoff, cutoff := try_load_float(ai_material, "$mat.gltf.alphaCutoff");
                     if ok_cutoff {
                         material.alpha_cutoff = cutoff;
@@ -291,8 +306,8 @@ assimp_load_meshes :: (
             ok_opacity, opacity := try_load_float(ai_material, "$mat.opacity");
             if ok_opacity {
                 material.alpha = clamp(opacity, 0.0, 1.0);
-                if material.alpha < 0.999 && material.blend_mode == .OPAQUE {
-                    material.blend_mode = .ALPHA_BLEND;
+                if material.alpha < 0.999 && material.transparency == .DISABLED {
+                    material.transparency = .ALPHA_BLEND;
                 }
             }
         }
@@ -300,12 +315,12 @@ assimp_load_meshes :: (
         // diffuse map
         {
             types := aiTextureType.[.BASE_COLOR, .DIFFUSE];
-            texture := load_texture_from_material(scene, ai_material, types, path, true);
+            texture := load_texture_from_material(scene, ai_material, types, path, true, *owned_textures);
             if texture {
                 material.diffuse_map = texture;
 
-                if material.blend_mode == .OPAQUE && texture.has_transparency {
-                    material.blend_mode = .ALPHA_CLIP;
+                if material.transparency == .DISABLED && texture.has_transparency {
+                    material.transparency = .ALPHA_SCISSOR;
                     material.alpha_cutoff = 0.5;
                 }
             }
@@ -314,7 +329,7 @@ assimp_load_meshes :: (
         // specular map
         {
             types := aiTextureType.[.SPECULAR];
-            texture := load_texture_from_material(scene, ai_material, types, path, false);
+            texture := load_texture_from_material(scene, ai_material, types, path, false, *owned_textures);
             if texture then material.specular_map = texture;
         }
 
@@ -330,7 +345,7 @@ assimp_load_meshes :: (
         *material_indices
     );
 
-    return true, meshes, materials, material_indices;
+    return true, meshes, materials, material_indices, owned_textures;
 }
 
 // load textures
@@ -339,7 +354,8 @@ load_texture_from_material :: (
     ai_material: *aiMaterial,
     types: [] aiTextureType,
     model_path: string,
-    srgb: bool
+    srgb: bool,
+    owned_textures: *[..] *Texture
 ) -> *Texture {
     for type: types {
         if aiGetMaterialTextureCount(ai_material, type) <= 0 then continue;
@@ -400,6 +416,9 @@ load_texture_from_material :: (
                 spec.generate_mipmaps = false;
                 spec.srgb = srgb;
                 texture := texture_create_from_data(width, height, data, spec);
+                if texture && owned_textures {
+                    array_add(owned_textures, texture);
+                }
 
                 ifx is_compressed then stbi_image_free(data) else free(data);
 
@@ -422,6 +441,13 @@ load_texture_from_material :: (
             texture_path_buffer := cast(*u8) alloc(texture_length);
             memcpy(texture_path_buffer, *ai_path.data, texture_length);
             defer free(texture_path_buffer);
+
+            // replace backslashes with forward slashes for cross platform compatibility
+            for i: 0..texture_length - 1 {
+                if texture_path_buffer[i] == #char "\\" {
+                    texture_path_buffer[i] = #char "/";
+                }
+            }
 
             texture_relative_path: string;
             texture_relative_path.data  = texture_path_buffer;

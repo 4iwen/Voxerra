@@ -5,9 +5,9 @@
 
 #scope_export
 
-Blend_Mode :: enum {
-    OPAQUE;
-    ALPHA_CLIP;
+Transparency_Mode :: enum {
+    DISABLED;
+    ALPHA_SCISSOR;
     ALPHA_BLEND;
 }
 
@@ -31,7 +31,7 @@ Material :: struct {
 
     // rendering
     shader: *Shader;
-    blend_mode: Blend_Mode = .OPAQUE;
+    transparency: Transparency_Mode = .DISABLED;
     double_sided: bool; @"Tooltip(\"Render both sides by disabling back-face culling for this material\")"
 }
 
@@ -51,7 +51,7 @@ Resolved_Material :: struct {
     uv_transform: Matrix3;
 
     shader: *Shader;
-    blend_mode: Blend_Mode = .OPAQUE;
+    transparency: Transparency_Mode = .DISABLED;
     double_sided: bool;
 }
 
@@ -89,7 +89,7 @@ material_resolve :: (
         resolved.alpha_cutoff = material.alpha_cutoff;
         resolved.uv_transform = material.uv_transform;
         resolved.shader = material.shader;
-        resolved.blend_mode = material.blend_mode;
+        resolved.transparency = material.transparency;
         resolved.double_sided = material.double_sided;
     }
 
@@ -97,11 +97,17 @@ material_resolve :: (
         resolved.diffuse_color = override.diffuse_color;
         resolved.specular_color = override.specular_color;
         resolved.tint_color = override.tint_color;
+        if override.diffuse_map {
+            resolved.diffuse_map = override.diffuse_map;
+        }
+        if override.specular_map {
+            resolved.specular_map = override.specular_map;
+        }
         resolved.shininess = override.shininess;
         resolved.alpha = override.alpha;
         resolved.alpha_cutoff = override.alpha_cutoff;
         resolved.uv_transform = override.uv_transform;
-        resolved.blend_mode = override.blend_mode;
+        resolved.transparency = override.transparency;
         resolved.double_sided = override.double_sided;
     }
 
@@ -143,9 +149,49 @@ material_use_resolved :: (material: Resolved_Material) {
     shader_set_float(material.shader, "u_material.alpha_cutoff", material.alpha_cutoff);
     shader_set_mat3(material.shader, "u_material.uv_transform", material.uv_transform);
     shader_set_mat3(material.shader, "u_uv_transform", material.uv_transform);
-    shader_set_int(material.shader, "u_material.blend_mode", cast(s32) material.blend_mode);
+    shader_set_int(material.shader, "u_material.transparency", cast(s32) material.transparency);
 }
 
 material_is_alpha_blend :: (material: Resolved_Material) -> bool {
-    return material.blend_mode == .ALPHA_BLEND;
+    if material.transparency != .ALPHA_BLEND then return false;
+    if material.alpha < 0.999 then return true;
+    return material.diffuse_map && material.diffuse_map.has_transparency;
+}
+
+material_uses_alpha_test :: (material: Resolved_Material) -> bool {
+    return material.transparency == .ALPHA_SCISSOR ||
+        material.transparency == .ALPHA_BLEND;
+}
+
+material_pick_alpha_cutoff :: (material: Resolved_Material) -> float {
+    if material.transparency == .ALPHA_BLEND then return 0.01;
+    return material.alpha_cutoff;
+}
+
+material_pick_alpha :: (material: Resolved_Material) -> float {
+    if material.transparency == .ALPHA_BLEND then return 1.0;
+    return material.alpha;
+}
+
+sprite_is_alpha_blend :: (sprite: *Sprite_Component) -> bool {
+    if !sprite || sprite.transparency != .ALPHA_BLEND then return false;
+    if sprite.alpha < 0.999 then return true;
+    if sprite.texture && sprite.texture.has_transparency then return true;
+    return false;
+}
+
+sprite_uses_alpha_test :: (sprite: *Sprite_Component) -> bool {
+    return sprite && sprite.transparency != .DISABLED;
+}
+
+sprite_pick_alpha_cutoff :: (sprite: *Sprite_Component) -> float {
+    if sprite && sprite.transparency == .ALPHA_BLEND then return 0.01;
+    if sprite then return sprite.alpha_cutoff;
+    return 1.0;
+}
+
+sprite_pick_alpha :: (sprite: *Sprite_Component) -> float {
+    if sprite && sprite.transparency == .ALPHA_BLEND then return 1.0;
+    if sprite then return sprite.alpha;
+    return 1.0;
 }

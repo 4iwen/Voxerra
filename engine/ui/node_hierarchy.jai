@@ -48,6 +48,8 @@ Hierarchy_Pending_Operation_Kind :: enum {
     MOVE_OFFSET;
     DROP_NODE;
     DROP_MODEL;
+    DROP_SCENE;
+    DROP_TEXTURE;
     OPEN_SCENE;
 }
 
@@ -154,15 +156,16 @@ draw_node_drop_target :: (node: *Node) {
     if BeginDragDropTarget() {
         flags := DragDropFlags.AcceptBeforeDelivery | .AcceptNoDrawDefaultRect;
 
-        model_payload := AcceptDragDropPayload(temp_c_string(EDITOR_MODEL_ASSET_PAYLOAD), flags);
-        if model_payload && model_payload.Preview {
+        asset_payload := AcceptDragDropPayload(temp_c_string(EDITOR_ASSET_PAYLOAD), flags);
+        if asset_payload && asset_payload.Preview {
             draw_node_drop_preview(row_min, row_max, drop_mode);
         }
-        if model_payload && model_payload.Delivery {
-            dropped_model_path := editor_model_asset_payload_to_string(model_payload);
-            if dropped_model_path {
-                drop_model_asset_on_node(node, drop_mode, dropped_model_path);
+        if asset_payload && asset_payload.Delivery {
+            dropped_asset := editor_asset_payload_to_drop(asset_payload);
+            if dropped_asset.path {
+                drop_asset_on_node(node, drop_mode, dropped_asset);
             }
+            editor_asset_drop_destroy(*dropped_asset);
         }
 
         node_payload := AcceptDragDropPayload(temp_c_string(EDITOR_NODE_PAYLOAD), flags);
@@ -213,19 +216,35 @@ draw_node_drop_preview :: (row_min: ImVec2, row_max: ImVec2, mode: Node_Drop_Mod
     );
 }
 
-drop_model_asset_on_node :: (target: *Node, mode: Node_Drop_Mode, model_path: string) -> bool {
-    if !target || !model_path then return false;
-
-    hierarchy_queue_model_drop(target, mode, model_path);
-    return true;
-}
-
 drop_node_on_node :: (dropped_node: *Node, target: *Node, mode: Node_Drop_Mode) -> bool {
     if !dropped_node || !target then return false;
     if dropped_node == target then return false;
 
     hierarchy_queue_node_drop(dropped_node, target, mode);
     return true;
+}
+
+drop_asset_on_node :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    asset: Editor_Asset_Drop
+) -> bool {
+    if !target || !asset.path then return false;
+
+    if asset.type == .MODEL {
+        hierarchy_queue_model_drop(target, mode, asset.path);
+        return true;
+    }
+    if asset.type == .SCENE {
+        hierarchy_queue_scene_drop(target, mode, asset.path);
+        return true;
+    }
+    if asset.type == .TEXTURE {
+        hierarchy_queue_texture_drop(target, mode, asset.path);
+        return true;
+    }
+
+    return false;
 }
 
 node_index_in_parent :: (node: *Node) -> s64 {
@@ -286,6 +305,34 @@ hierarchy_queue_model_drop :: (
     hierarchy_pending_operation.path = copy_string(model_path);
 }
 
+hierarchy_queue_scene_drop :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    scene_path: string
+) {
+    if !target || !scene_path then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = .DROP_SCENE;
+    hierarchy_pending_operation.target_runtime_id = target.runtime_id;
+    hierarchy_pending_operation.drop_mode = mode;
+    hierarchy_pending_operation.path = copy_string(scene_path);
+}
+
+hierarchy_queue_texture_drop :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    texture_path: string
+) {
+    if !target || !texture_path then return;
+
+    hierarchy_clear_pending_operation();
+    hierarchy_pending_operation.kind = .DROP_TEXTURE;
+    hierarchy_pending_operation.target_runtime_id = target.runtime_id;
+    hierarchy_pending_operation.drop_mode = mode;
+    hierarchy_pending_operation.path = copy_string(texture_path);
+}
+
 hierarchy_queue_open_scene :: (path: string) {
     if !path then return;
 
@@ -331,6 +378,16 @@ hierarchy_apply_pending_operation :: () {
         return;
     }
 
+    if operation.kind == .DROP_SCENE {
+        hierarchy_apply_scene_drop(target, operation.drop_mode, operation.path);
+        return;
+    }
+
+    if operation.kind == .DROP_TEXTURE {
+        hierarchy_apply_texture_drop(target, operation.drop_mode, operation.path);
+        return;
+    }
+
     if operation.kind == .DROP_NODE {
         source := node_find_by_runtime_id(scene.root, operation.source_runtime_id);
         hierarchy_apply_node_drop(source, target, operation.drop_mode);
@@ -354,6 +411,46 @@ hierarchy_apply_model_drop :: (
     if mode == .AFTER then index += 1;
 
     new_node := editor_create_model_node_from_asset(target.parent, model_path);
+    if !new_node then return false;
+    return editor_move_node_to_parent_index(new_node, target.parent, index);
+}
+
+hierarchy_apply_scene_drop :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    scene_path: string
+) -> bool {
+    if !target || !scene_path then return false;
+
+    if mode == .CHILD || !target.parent {
+        return editor_create_scene_instance_from_asset(target, scene_path) != null;
+    }
+
+    index := node_index_in_parent(target);
+    if index < 0 then return false;
+    if mode == .AFTER then index += 1;
+
+    new_node := editor_create_scene_instance_from_asset(target.parent, scene_path);
+    if !new_node then return false;
+    return editor_move_node_to_parent_index(new_node, target.parent, index);
+}
+
+hierarchy_apply_texture_drop :: (
+    target: *Node,
+    mode: Node_Drop_Mode,
+    texture_path: string
+) -> bool {
+    if !target || !texture_path then return false;
+
+    if mode == .CHILD || !target.parent {
+        return editor_create_sprite_node_from_asset(target, texture_path) != null;
+    }
+
+    index := node_index_in_parent(target);
+    if index < 0 then return false;
+    if mode == .AFTER then index += 1;
+
+    new_node := editor_create_sprite_node_from_asset(target.parent, texture_path);
     if !new_node then return false;
     return editor_move_node_to_parent_index(new_node, target.parent, index);
 }

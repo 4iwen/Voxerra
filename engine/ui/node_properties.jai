@@ -15,6 +15,15 @@ properties_shutdown :: () {
     }
 
     deinit(*ui_cache);
+
+    if transparency_combo_c_names {
+        ti := type_info(Transparency_Mode);
+        for i: 0..ti.names.count-1 {
+            free(transparency_combo_c_names[i]);
+        }
+        free(transparency_combo_c_names);
+        transparency_combo_c_names = null;
+    }
 }
 
 node_name_edit_runtime_id: u64;
@@ -255,9 +264,23 @@ draw_model_component_model_field :: (model_component: *Model_Component) {
     label := ifx model_component.model_path then model_component.model_path else "Drop model here";
     Selectable(temp_c_string(tprint("% %##model_component_model_drop", ICON_FA_CUBE, label)), false, .None, ImVec2.{0, 0});
 
-    dropped_path := editor_accept_model_asset_drop();
-    if dropped_path {
-        if scene_set_model_component_model(model_component, dropped_path) {
+    dropped_asset := editor_accept_asset_drop(.MODEL);
+    defer editor_asset_drop_destroy(*dropped_asset);
+    if dropped_asset.path {
+        if scene_set_model_component_model(model_component, dropped_asset.path) {
+            editor_mark_current_scene_dirty();
+        }
+    }
+}
+
+draw_sprite_texture_field :: (sprite: *Sprite_Component) {
+    label := ifx sprite.texture_path then sprite.texture_path else "Drop texture here";
+    Selectable(temp_c_string(tprint("% %##sprite_texture_drop", ICON_FA_FILE_IMAGE, label)), false, .None, ImVec2.{0, 0});
+
+    dropped_asset := editor_accept_asset_drop(.TEXTURE);
+    defer editor_asset_drop_destroy(*dropped_asset);
+    if dropped_asset.path {
+        if editor_set_sprite_texture(sprite, dropped_asset.path) {
             editor_mark_current_scene_dirty();
         }
     }
@@ -327,6 +350,14 @@ draw_model_material_override_fields :: (
     }
     PopItemWidth();
 
+    draw_material_texture_drop(
+        "Diffuse Texture",
+        "##override_diffuse_texture",
+        ifx override.diffuse_texture_path then override.diffuse_texture_path else "",
+        override,
+        diffuse = true
+    );
+
     TableNextRow();
     TableNextColumn();
     AlignTextToFramePadding();
@@ -337,6 +368,14 @@ draw_model_material_override_fields :: (
         editor_mark_current_scene_dirty();
     }
     PopItemWidth();
+
+    draw_material_texture_drop(
+        "Specular Texture",
+        "##override_specular_texture",
+        ifx override.specular_texture_path then override.specular_texture_path else "",
+        override,
+        diffuse = false
+    );
 
     TableNextRow();
     TableNextColumn();
@@ -374,15 +413,15 @@ draw_model_material_override_fields :: (
     TableNextRow();
     TableNextColumn();
     AlignTextToFramePadding();
-    Text("Blend Mode");
+    Text("Transparency");
     TableNextColumn();
     PushItemWidth(-1);
-    if draw_blend_mode_combo("##override_blend_mode", *override.blend_mode) {
+    if draw_transparency_combo("##override_transparency", *override.transparency) {
         editor_mark_current_scene_dirty();
     }
     PopItemWidth();
 
-    if override.blend_mode == .ALPHA_CLIP {
+    if override.transparency == .ALPHA_SCISSOR {
         TableNextRow();
         TableNextColumn();
         AlignTextToFramePadding();
@@ -409,22 +448,62 @@ draw_model_material_override_fields :: (
         TableNextColumn();
         TableNextColumn();
         if Button(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset From Source"), ImVec2.{-1, 22}) {
+            model_material_override_destroy(override);
             override.* = model_material_override_from_material(override.material_index, source_material);
             editor_mark_current_scene_dirty();
         }
     }
 }
 
-draw_blend_mode_combo :: (hidden_label: *u8, value: *Blend_Mode) -> bool {
-    names := NewArray(3, *u8,, temp);
-    names[0] = "Opaque\0".data;
-    names[1] = "Alpha Clip\0".data;
-    names[2] = "Alpha Blend\0".data;
+draw_material_texture_drop :: (
+    label: string,
+    id: string,
+    current_path: string,
+    override: *Model_Material_Override,
+    diffuse: bool
+) {
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    TextUnformatted(label);
+    TableNextColumn();
+
+    display := ifx current_path then current_path else "Drop texture here";
+    Selectable(temp_c_string(tprint("% %%", ICON_FA_FILE_IMAGE, display, id)), false, .None, ImVec2.{0, 0});
+
+    dropped_asset := editor_accept_asset_drop(.TEXTURE);
+    defer editor_asset_drop_destroy(*dropped_asset);
+    changed := false;
+    if dropped_asset.path {
+        if diffuse {
+            changed = editor_set_material_override_diffuse_texture(override, dropped_asset.path);
+        } else {
+            changed = editor_set_material_override_specular_texture(override, dropped_asset.path);
+        }
+    }
+    if changed {
+        editor_mark_current_scene_dirty();
+    }
+}
+
+transparency_combo_c_names: **u8;
+
+draw_transparency_combo :: (hidden_label: *u8, value: *Transparency_Mode) -> bool {
+    ti := type_info(Transparency_Mode);
+
+    if !transparency_combo_c_names {
+        transparency_combo_c_names = cast(**u8) alloc(size_of(*u8) * ti.names.count);
+        for ti.values {
+            val := cast(Transparency_Mode) it;
+            name := enum_value_to_name(val);
+            transparency_combo_c_names[it_index] = to_c_string(name);
+        }
+    }
 
     current_index := cast(s32) value.*;
-    changed := Combo(hidden_label, *current_index, names.data, cast(s32) names.count);
+    changed := Combo(hidden_label, *current_index, transparency_combo_c_names, cast(s32) ti.names.count);
     if changed {
-        value.* = cast(Blend_Mode) current_index;
+        value.* = cast(Transparency_Mode) ti.values[current_index];
     }
 
     return changed;
@@ -474,6 +553,18 @@ draw_field_pointer :: (member: *Type_Info_Struct_Member, field_pointer: *void, h
             i += 1;
         }
         draw_asset_combo(hidden_label, current_ptr, items);
+
+        dropped_asset := editor_accept_asset_drop(.TEXTURE);
+        defer editor_asset_drop_destroy(*dropped_asset);
+        if dropped_asset.path {
+            spec := DEFAULT_TEXTURE_SPEC;
+            spec.srgb = true;
+            texture := asset_manager_load_texture(dropped_asset.path, spec, false);
+            if texture {
+                current_ptr.* = texture;
+                editor_mark_current_scene_dirty();
+            }
+        }
 
     } else if s_info.name == "Mesh" {
         models := asset_manager_get_models();
@@ -650,6 +741,8 @@ ui_draw_struct_fields :: (data: *void, struct_info: *Type_Info_Struct, is_top_le
 
         if struct_info.name == "Model_Component" && member.name == "model_path" {
             draw_model_component_model_field(cast(*Model_Component) data);
+        } else if struct_info.name == "Sprite_Component" && member.name == "texture" {
+            draw_sprite_texture_field(cast(*Sprite_Component) data);
         } else {
             if member.type.type == {
                 case .INTEGER; draw_field_integer(*member, meta, field_pointer, hidden_label);

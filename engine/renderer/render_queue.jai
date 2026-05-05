@@ -15,7 +15,7 @@ Render_Item :: struct {
     world_matrix: Matrix4;
     world_position: Vector3;
     is_transparent: bool;
-    blend_mode: Blend_Mode;
+    transparency: Transparency_Mode;
     distance_squared_to_camera: float; // used for sorting
 }
 
@@ -71,8 +71,8 @@ render_queue_submit :: (
     item.world_matrix = world_matrix;
     item.world_position = world_position;
     resolved := material_resolve(material, material_override);
-    item.blend_mode = resolved.blend_mode;
-    item.is_transparent = item.blend_mode == .ALPHA_BLEND;
+    item.transparency = resolved.transparency;
+    item.is_transparent = material_is_alpha_blend(resolved);
 
     if item.is_transparent {
         array_add(*queue.transparent, item);
@@ -98,8 +98,8 @@ render_queue_submit :: (
     item.sprite = sprite;
     item.world_matrix = world_matrix;
     item.world_position = world_position;
-    item.blend_mode = sprite.blend_mode;
-    item.is_transparent = sprite.blend_mode == .ALPHA_BLEND;
+    item.transparency = sprite.transparency;
+    item.is_transparent = sprite_is_alpha_blend(sprite);
 
     if item.is_transparent {
         array_add(*queue.transparent, item);
@@ -122,19 +122,6 @@ render_queue_submit :: (
     submit_node(scene.root, queue, include_lights);
 }
 
-render_queue_flush :: (
-    queue: *Render_Queue,
-    camera: *Camera,
-    aspect: float = 1.0
-) {
-    assert(queue != null, "render_queue_flush: queue is null");
-    assert(camera != null, "render_queue_flush: camera is null");
-
-    render_queue_flush_opaque(queue, camera, aspect);
-    render_queue_flush_transparent(queue, camera, aspect);
-    render_queue_clear(queue);
-}
-
 #scope_file
 
 submit_node :: (node: *Node, queue: *Render_Queue, include_lights: bool) {
@@ -142,7 +129,10 @@ submit_node :: (node: *Node, queue: *Render_Queue, include_lights: bool) {
 
     mesh_comp := node_get_component(node, Static_Mesh_Component);
     if mesh_comp != null && mesh_comp.mesh != null && mesh_comp.material != null {
-        render_queue_submit(queue, mesh_comp.mesh, mesh_comp.material, node.world_matrix, node.world_position);
+        center := (mesh_comp.mesh.bounds_min + mesh_comp.mesh.bounds_max) * 0.5;
+        world_center := (node.world_matrix * Vector4.{center.x, center.y, center.z, 1.0}).xyz;
+
+        render_queue_submit(queue, mesh_comp.mesh, mesh_comp.material, node.world_matrix, world_center);
     }
 
     model_component := node_get_component(node, Model_Component);
@@ -151,12 +141,16 @@ submit_node :: (node: *Node, queue: *Render_Queue, include_lights: bool) {
         for submesh: model_component.model_resource.submeshes {
             if submesh.mesh && submesh.material {
                 material_override := model_component_find_material_override(model_component, submesh.material_index);
+
+                center := (submesh.mesh.bounds_min + submesh.mesh.bounds_max) * 0.5;
+                world_center := (mesh_world_matrix * Vector4.{center.x, center.y, center.z, 1.0}).xyz;
+
                 render_queue_submit(
                     queue,
                     submesh.mesh,
                     submesh.material,
                     mesh_world_matrix,
-                    node.world_position,
+                    world_center,
                     material_override
                 );
             }
@@ -196,24 +190,24 @@ render_item_draw :: (
     item: *Render_Item,
     camera: *Camera,
     lights: *Light_System,
-    aspect: float
+    aspect: float,
+    shader_fog_enabled: bool
 ) {
     assert(item != null, "render_item_draw: item is null");
     assert(camera != null, "render_item_draw: camera is null");
 
     if item.kind == .SPRITE {
-        render_sprite_item(item, camera, aspect);
+        render_sprite_item(item, camera, aspect, shader_fog_enabled);
         return;
     }
 
     material := material_resolve(item.material, item.material_override);
     shader := material.shader;
     is_alpha_blend := material_is_alpha_blend(material);
-    disable_culling := is_alpha_blend || material.double_sided;
 
     renderer_set_blending(is_alpha_blend);
     renderer_set_depth_write(!is_alpha_blend);
-    renderer_set_culling(!disable_culling);
+    renderer_set_culling(!material.double_sided);
 
     // bind shader
     shader_use(shader);
@@ -224,12 +218,12 @@ render_item_draw :: (
 
     // set item properties
     shader_set_mat4(shader, "u_model", item.world_matrix);
-    
+
     material_use_resolved(material);
 
     shader_set_vec3(shader, "u_view_position", camera.position);
     shader_set_int(shader, "u_render_mode", cast(s32) renderer_get_view_mode());
-    postfx_apply_fog_uniforms(shader);
+    fog_upload_shader_uniforms(shader, shader_fog_enabled);
 
     if lights {
         light_upload_to_shader(shader, lights);
@@ -240,7 +234,7 @@ render_item_draw :: (
         shader_set_int(shader, "u_spot_light_count", 0);
         shader_set_int(shader, "u_has_directional_light", 0);
     }
-    
+
     // draw
     mesh_draw(item.mesh);
 
@@ -252,7 +246,8 @@ render_item_draw :: (
 render_sprite_item :: (
     item: *Render_Item,
     camera: *Camera,
-    aspect: float
+    aspect: float,
+    shader_fog_enabled: bool
 ) {
     assert(item != null, "render_sprite_item: item is null");
     assert(camera != null, "render_sprite_item: camera is null");
@@ -261,7 +256,7 @@ render_sprite_item :: (
     sprite := item.sprite;
     shader := sprite_system_resolve_shader(sprite);
     texture := sprite_system_resolve_texture(sprite);
-    is_alpha_blend := sprite.blend_mode == .ALPHA_BLEND;
+    is_alpha_blend := sprite_is_alpha_blend(sprite);
 
     renderer_set_blending(is_alpha_blend);
     renderer_set_depth_write(!is_alpha_blend);
@@ -286,11 +281,11 @@ render_sprite_item :: (
     shader_set_float(shader, "u_material.alpha_cutoff", sprite.alpha_cutoff);
     shader_set_mat3(shader, "u_material.uv_transform", sprite.uv_transform);
     shader_set_mat3(shader, "u_uv_transform", sprite.uv_transform);
-    shader_set_int(shader, "u_material.blend_mode", cast(s32) sprite.blend_mode);
+    shader_set_int(shader, "u_material.transparency", cast(s32) sprite.transparency);
 
     shader_set_vec3(shader, "u_view_position", camera.position);
     shader_set_int(shader, "u_render_mode", cast(s32) renderer_get_view_mode());
-    postfx_apply_fog_uniforms(shader);
+    fog_upload_shader_uniforms(shader, shader_fog_enabled);
 
     mesh_draw(item.mesh);
 
@@ -304,7 +299,8 @@ render_sprite_item :: (
 render_queue_flush_opaque :: (
     queue: *Render_Queue,
     camera: *Camera,
-    aspect: float = 1.0
+    aspect: float = 1.0,
+    shader_fog_enabled: bool = true
 ) {
     assert(queue != null, "render_queue_flush_opaque: queue is null");
     assert(camera != null, "render_queue_flush_opaque: camera is null");
@@ -318,14 +314,15 @@ render_queue_flush_opaque :: (
     );
 
     for queue.opaque {
-        render_item_draw(*it, camera, *queue.light_system, aspect);
+        render_item_draw(*it, camera, *queue.light_system, aspect, shader_fog_enabled);
     }
 }
 
 render_queue_flush_transparent :: (
     queue: *Render_Queue,
     camera: *Camera,
-    aspect: float = 1.0
+    aspect: float = 1.0,
+    shader_fog_enabled: bool = true
 ) {
     assert(queue != null, "render_queue_flush_transparent: queue is null");
     assert(camera != null, "render_queue_flush_transparent: camera is null");
@@ -339,6 +336,6 @@ render_queue_flush_transparent :: (
     );
 
     for queue.transparent {
-        render_item_draw(*it, camera, *queue.light_system, aspect);
+        render_item_draw(*it, camera, *queue.light_system, aspect, shader_fog_enabled);
     }
 }

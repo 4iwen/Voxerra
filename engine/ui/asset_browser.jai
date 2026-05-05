@@ -64,20 +64,25 @@ asset_browser_draw :: () {
 
 #scope_export
 
-EDITOR_MODEL_ASSET_PAYLOAD :: "ENGINE_MODEL_ASSET";
+EDITOR_ASSET_PAYLOAD :: "ENGINE_ASSET";
 
-editor_model_asset_drag_source :: (path: string, name: string) {
-    if !path then return;
+Editor_Asset_Drop :: struct {
+    path: string;
+    type: Asset_Type;
+}
+
+editor_asset_drag_source :: (path: string, name: string, type: Asset_Type) {
+    if !path || type == .UNKNOWN then return;
 
     if BeginDragDropSource() {
         payload := temp_c_string(path);
         SetDragDropPayload(
-            temp_c_string(EDITOR_MODEL_ASSET_PAYLOAD),
+            temp_c_string(EDITOR_ASSET_PAYLOAD),
             payload,
             cast(u64) path.count + 1
         );
 
-        Text("Model");
+        TextUnformatted(asset_type_to_string(type));
         if name {
             TextUnformatted(name);
         }
@@ -87,13 +92,13 @@ editor_model_asset_drag_source :: (path: string, name: string) {
     }
 }
 
-editor_accept_model_asset_drop :: () -> string {
-    result: string;
+editor_accept_asset_drop :: (expected_type: Asset_Type = .UNKNOWN) -> Editor_Asset_Drop {
+    result: Editor_Asset_Drop;
 
     if BeginDragDropTarget() {
-        payload := AcceptDragDropPayload(temp_c_string(EDITOR_MODEL_ASSET_PAYLOAD));
+        payload := AcceptDragDropPayload(temp_c_string(EDITOR_ASSET_PAYLOAD));
         if payload && payload.Delivery {
-            result = editor_model_asset_payload_to_string(payload);
+            result = editor_asset_payload_to_drop(payload, expected_type);
         }
         EndDragDropTarget();
     }
@@ -101,8 +106,12 @@ editor_accept_model_asset_drop :: () -> string {
     return result;
 }
 
-editor_model_asset_payload_to_string :: (payload: *Payload) -> string {
-    if !payload || !payload.Data || payload.DataSize <= 0 then return "";
+editor_asset_payload_to_drop :: (
+    payload: *Payload,
+    expected_type: Asset_Type = .UNKNOWN
+) -> Editor_Asset_Drop {
+    result: Editor_Asset_Drop;
+    if !payload || !payload.Data || payload.DataSize <= 0 then return result;
 
     payload_count := cast(s64) payload.DataSize;
     payload_data := cast(*u8) payload.Data;
@@ -110,12 +119,21 @@ editor_model_asset_payload_to_string :: (payload: *Payload) -> string {
         payload_count -= 1;
     }
 
-    if payload_count <= 0 then return "";
+    if payload_count <= 0 then return result;
 
-    buffer := cast(*u8) alloc(payload_count + 1,, temp);
-    memcpy(buffer, payload_data, payload_count);
-    buffer[payload_count] = 0;
-    return string.{data = buffer, count = payload_count};
+    path := string.{payload_count, payload_data};
+    type := asset_type_from_path(path);
+    if expected_type != .UNKNOWN && type != expected_type then return result;
+
+    result.path = copy_string(path);
+    result.type = type;
+    return result;
+}
+
+editor_asset_drop_destroy :: (drop: *Editor_Asset_Drop) {
+    if !drop then return;
+    free(drop.path);
+    drop.* = .{};
 }
 
 #scope_file
@@ -223,8 +241,8 @@ asset_browser_draw_visible_tiles :: (layout: Asset_Browser_Layout, content_heigh
             asset_browser_open_item(item);
         }
 
-        if item.type == .MODEL && !item.is_directory {
-            editor_model_asset_drag_source(item.path, item.name);
+        if !item.is_directory && item.type != .UNKNOWN {
+            editor_asset_drag_source(item.path, item.name, item.type);
         }
 
         asset_browser_draw_tile(draw_list, item, pos, layout.item_size, selected, hovered);

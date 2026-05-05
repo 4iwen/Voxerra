@@ -133,7 +133,7 @@ texture_create_from_file :: (
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8,
+        to_opengl_internal_format(spec),
         cast(u32) width,
         cast(u32) height,
         0,
@@ -200,7 +200,7 @@ texture_create_from_data :: (
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8,
+        to_opengl_internal_format(spec),
         cast(u32) width,
         cast(u32) height,
         0,
@@ -229,7 +229,7 @@ texture_create_from_data :: (
 
 texture_bind :: (texture: *Texture, slot: u32 = 0) {
     assert(texture != null, "texture_bind: texture is null");
-    
+
     glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(GL_TEXTURE_2D, texture.id);
 }
@@ -277,6 +277,7 @@ texture_reload_from_file :: (
 
     texture.width = width;
     texture.height = height;
+    texture.has_transparency = texture_data_has_transparency(data, width * height);
 
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -307,7 +308,7 @@ texture_reload_from_file :: (
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8,
+        to_opengl_internal_format(spec),
         cast(u32) width,
         cast(u32) height,
         0,
@@ -345,6 +346,11 @@ to_opengl_wrap :: (wrap: Texture_Wrap) -> GLint {
         case .MIRRORED_REPEAT; return GL_MIRRORED_REPEAT;
         case;                  return GL_REPEAT;
     }
+}
+
+to_opengl_internal_format :: (spec: Texture_Spec) -> GLint {
+    if spec.srgb then return GL_SRGB8_ALPHA8;
+    return GL_RGBA8;
 }
 
 is_mipmapped_filter :: (filter: Texture_Filter) -> bool {

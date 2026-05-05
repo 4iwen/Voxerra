@@ -56,13 +56,29 @@ viewport_draw :: () {
                 ui_state.viewport_screen_max = GetItemRectMax();
                 ui_state.viewport_size = ui_state.viewport_screen_max - ui_state.viewport_screen_min;
 
-                dropped_model_path := editor_accept_model_asset_drop();
-                if dropped_model_path && current_scene && current_scene.root {
-                    editor_create_model_node_from_asset(
-                        current_scene.root,
-                        dropped_model_path,
-                        editor_viewport_drop_position()
-                    );
+                dropped_asset := editor_accept_asset_drop();
+                defer editor_asset_drop_destroy(*dropped_asset);
+                if dropped_asset.path && current_scene && current_scene.root {
+                    drop_position := editor_viewport_drop_position();
+                    if dropped_asset.type == .MODEL {
+                        editor_create_model_node_from_asset(
+                            current_scene.root,
+                            dropped_asset.path,
+                            drop_position
+                        );
+                    } else if dropped_asset.type == .SCENE {
+                        editor_create_scene_instance_from_asset(
+                            current_scene.root,
+                            dropped_asset.path,
+                            drop_position
+                        );
+                    } else if dropped_asset.type == .TEXTURE {
+                        editor_create_sprite_node_from_asset(
+                            current_scene.root,
+                            dropped_asset.path,
+                            drop_position
+                        );
+                    }
                 }
 
                 editor_gizmo_draw();

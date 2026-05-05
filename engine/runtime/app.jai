@@ -51,7 +51,7 @@ app_init :: (game_module: Game_Module) -> bool {
 
     runtime_state.render_queue = render_queue_create();
     runtime_state.skybox = skybox_init();
-    postfx_init();
+    fog_resolve_init();
     app_load_engine_default_assets();
     runtime_state.fallback_camera = camera_create(.{0.0, 3.0, 10.0});
 
@@ -105,7 +105,7 @@ app_shutdown :: () {
     if engine_state.main_framebuffer {
         framebuffer_destroy(engine_state.main_framebuffer);
     }
-    postfx_shutdown();
+    fog_resolve_shutdown();
     skybox_shutdown(runtime_state.skybox);
     render_queue_destroy(runtime_state.render_queue);
 
@@ -293,6 +293,23 @@ editor_save_scene :: () -> bool {
     }
 }
 
+editor_create_scene :: (path: string) -> bool {
+    #if BUILD_MODE == .EDITOR {
+        if editor_is_playing() {
+            log_warning("Cannot create scene while play mode is running");
+            return false;
+        }
+        if !path {
+            log_warning("Cannot create scene: empty path");
+            return false;
+        }
+
+        return editor_create_scene_tab(path);
+    } else {
+        return false;
+    }
+}
+
 editor_open_scene :: (path: string) -> bool {
     #if BUILD_MODE == .EDITOR {
         if editor_is_playing() {
@@ -362,12 +379,12 @@ app_render_scene :: () {
         }
     }
     scene_apply_environment_settings(scene, render_environment);
+    fog_resolve_enabled := fog_resolve_get_enabled();
 
     render_framebuffer := output_framebuffer;
-    if postfx_get_enabled() {
+    if fog_resolve_enabled {
         render_framebuffer = runtime_state.scene_framebuffer;
         framebuffer_resize(render_framebuffer, output_width, output_height);
-        postfx_resize(output_width, output_height);
     }
 
     if render_framebuffer {
@@ -402,7 +419,13 @@ app_render_scene :: () {
     if output_height > 0 {
         render_aspect = cast(float) output_width / cast(float) output_height;
     }
-    render_queue_flush_opaque(runtime_state.render_queue, camera, render_aspect);
+
+    render_queue_flush_opaque(
+        runtime_state.render_queue,
+        camera,
+        render_aspect,
+        shader_fog_enabled = !fog_resolve_enabled
+    );
 
     if runtime_state.skybox && render_environment.skybox_enabled {
         skybox_draw(
@@ -412,10 +435,8 @@ app_render_scene :: () {
         );
     }
 
-    render_queue_flush_transparent(runtime_state.render_queue, camera, render_aspect);
-
-    if postfx_get_enabled() {
-        postfx_apply(
+    if fog_resolve_enabled {
+        fog_resolve_apply(
             runtime_state.scene_framebuffer,
             output_framebuffer,
             camera,
@@ -437,6 +458,13 @@ app_render_scene :: () {
             renderer_set_viewport_size(output_width, output_height);
         }
     }
+
+    render_queue_flush_transparent(
+        runtime_state.render_queue,
+        camera,
+        render_aspect,
+        shader_fog_enabled = true
+    );
 
     render_queue_clear(runtime_state.render_queue);
 

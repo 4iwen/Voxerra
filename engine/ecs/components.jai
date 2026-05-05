@@ -1,6 +1,9 @@
-#scope_export
+#scope_file
+
 #import "Basic";
 #import "Math";
+
+#scope_export
 
 Component :: struct {
     type: Type;
@@ -21,11 +24,19 @@ Model_Material_Override :: struct {
     diffuse_color: Vector3 = .{1.0, 1.0, 1.0}; @Color
     specular_color: Vector3 = .{1.0, 1.0, 1.0}; @Color
     tint_color: Vector3 = .{1.0, 1.0, 1.0}; @Color
+    diffuse_map: *Texture; @Hidden
+    diffuse_texture_path: string; @Hidden
+    diffuse_texture_guid: string; @Hidden
+    diffuse_texture_ref: Asset_Ref; @Hidden
+    specular_map: *Texture; @Hidden
+    specular_texture_path: string; @Hidden
+    specular_texture_guid: string; @Hidden
+    specular_texture_ref: Asset_Ref; @Hidden
     shininess: float = 32.0; @"Speed(1)"
     alpha: float = 1.0; @"Range(0, 1)" @"Speed(0.01)"
     alpha_cutoff: float = 0.5; @"Range(0, 1)" @"Speed(0.01)"
     uv_transform: Matrix3;
-    blend_mode: Blend_Mode = .OPAQUE;
+    transparency: Transparency_Mode = .DISABLED;
     double_sided: bool;
 }
 
@@ -51,11 +62,13 @@ model_material_override_from_material :: (material_index: s32, material: *Materi
         override.diffuse_color = material.diffuse_color;
         override.specular_color = material.specular_color;
         override.tint_color = material.tint_color;
+        override.diffuse_map = material.diffuse_map;
+        override.specular_map = material.specular_map;
         override.shininess = material.shininess;
         override.alpha = material.alpha;
         override.alpha_cutoff = material.alpha_cutoff;
         override.uv_transform = material.uv_transform;
-        override.blend_mode = material.blend_mode;
+        override.transparency = material.transparency;
         override.double_sided = material.double_sided;
     } else {
         override.uv_transform = Matrix3_Identity;
@@ -102,6 +115,7 @@ model_component_remove_material_override :: (
 
     for override: model_component.material_overrides {
         if override.material_index == material_index {
+            model_material_override_destroy(*model_component.material_overrides[it_index]);
             array_ordered_remove_by_index(*model_component.material_overrides, it_index);
             return true;
         }
@@ -112,7 +126,22 @@ model_component_remove_material_override :: (
 
 model_component_clear_material_overrides :: (model_component: *Model_Component) {
     if !model_component then return;
+    for * override: model_component.material_overrides {
+        model_material_override_destroy(override);
+    }
     array_reset(*model_component.material_overrides);
+}
+
+model_material_override_destroy :: (override: *Model_Material_Override) {
+    if !override then return;
+
+    asset_ref_release(*override.diffuse_texture_ref);
+    free(override.diffuse_texture_path);
+    free(override.diffuse_texture_guid);
+
+    asset_ref_release(*override.specular_texture_ref);
+    free(override.specular_texture_path);
+    free(override.specular_texture_guid);
 }
 
 Light_Component :: struct @Component {
@@ -157,7 +186,7 @@ Sprite_Component :: struct @Component {
     size: Vector2 = .{1.0, 1.0}; @"Tooltip(\"Sprite width and height in world units\")"
     pivot: Sprite_Pivot = .BOTTOM_CENTER; @"Tooltip(\"How sprite quad is anchored to node origin\")"
     billboard_mode: Sprite_Billboard_Mode = .Y_AXIS; @"Tooltip(\"How sprite rotates to face camera\")"
-    blend_mode: Blend_Mode = .ALPHA_BLEND; @"Tooltip(\"Sprite transparency mode\")"
+    transparency: Transparency_Mode = .ALPHA_BLEND; @"Tooltip(\"Sprite transparency mode\")"
     uv_transform: Matrix3;
 
     render_matrix: Matrix4;
@@ -203,7 +232,14 @@ component_clone :: (
         clone.model_resource = source.model_resource;
         clone.model_local_matrix = source.model_local_matrix;
         for source.material_overrides {
-            array_add(*clone.material_overrides, it);
+            override := it;
+            override.diffuse_texture_path = copy_string(it.diffuse_texture_path);
+            override.diffuse_texture_guid = copy_string(it.diffuse_texture_guid);
+            asset_ref_clone(*it.diffuse_texture_ref, *override.diffuse_texture_ref);
+            override.specular_texture_path = copy_string(it.specular_texture_path);
+            override.specular_texture_guid = copy_string(it.specular_texture_guid);
+            asset_ref_clone(*it.specular_texture_ref, *override.specular_texture_ref);
+            array_add(*clone.material_overrides, override);
         }
         return cast(*Component) clone;
     }
@@ -240,7 +276,7 @@ component_clone :: (
         clone.size = source.size;
         clone.pivot = source.pivot;
         clone.billboard_mode = source.billboard_mode;
-        clone.blend_mode = source.blend_mode;
+        clone.transparency = source.transparency;
         clone.uv_transform = source.uv_transform;
         clone.render_matrix = source.render_matrix;
         return cast(*Component) clone;
@@ -261,7 +297,7 @@ component_clone :: (
         clone.size = source.size;
         clone.pivot = source.pivot;
         clone.billboard_mode = source.billboard_mode;
-        clone.blend_mode = source.blend_mode;
+        clone.transparency = source.transparency;
         clone.uv_transform = source.uv_transform;
         clone.render_matrix = source.render_matrix;
         clone.columns = source.columns;
@@ -283,6 +319,7 @@ component_destroy :: (component: *Component) {
 
     if component.type == Model_Component {
         source := cast(*Model_Component) component;
+        model_component_clear_material_overrides(source);
         asset_ref_release(*source.model_ref);
         free(source.model_path);
         free(source.model_guid);

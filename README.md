@@ -23,3 +23,8 @@
 - Transition to bounding box picking?
 - Improve the add component modal, improve the open scene modal
 - Add scene save as button and modal
+
+- Improve pivotation on sprites, default billboard to none and fix full billboard
+- Dragging stuff should work the similar way into the node properties components panel
+- Add gizmos for curves and implement them in the engine as a feature
+- Make exiting the engine promp for saving scenes and other unsaved stuff
