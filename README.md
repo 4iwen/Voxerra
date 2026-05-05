@@ -24,7 +24,11 @@
 - Improve the add component modal, improve the open scene modal
 - Add scene save as button and modal
 
-- Improve pivotation on sprites, default billboard to none and fix full billboard
-- Dragging stuff should work the similar way into the node properties components panel
 - Add gizmos for curves and implement them in the engine as a feature
-- Make exiting the engine promp for saving scenes and other unsaved stuff
+- Make exiting the engine prompt for saving scenes and other unsaved stuff
+- FBX doesn't work
+- When dragging gizmos out of viewport they stop affecting the thing thats being edited
+- Fix fog not applying on skybox
+- Creating a scene in a folder that does not exist causes an error
+- Fix unidentified crash when entering a folder in the asset browser
+- Sprites do not affect dirty flag on scenes

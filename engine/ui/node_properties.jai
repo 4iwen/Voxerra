@@ -179,11 +179,10 @@ ui_draw_component :: (component: *Component) -> bool {
             TableSetupColumn("Name", .WidthFixed, 0.0);
             TableSetupColumn("Value", .WidthStretch, 0.0);
             ui_draw_struct_fields(cast(*void) component, struct_info, true);
+            if component.type == Model_Component {
+                draw_model_component_materials(cast(*Model_Component) component);
+            }
             EndTable();
-        }
-
-        if component.type == Model_Component {
-            draw_model_component_materials(cast(*Model_Component) component);
         }
 
         PopID();
@@ -218,8 +217,15 @@ should_skip_field :: (struct_info: *Type_Info_Struct, member: Type_Info_Struct_M
     }
     if struct_info.name == "Sprite_Component" {
         if member.name == "component" then return true;
-        if member.name == "texture" then return true;
+        if member.name == "texture_path" then return true;
+        if member.name == "texture_guid" then return true;
+        if member.name == "texture_filter" then return true;
+        if member.name == "texture_ref" then return true;
         if member.name == "shader" then return true;
+        if member.name == "custom_pivot" {
+            sprite := cast(*Sprite_Component) data;
+            if !sprite.custom_pivot_enabled then return true;
+        }
         if member.name == "uv_transform" then return true;
         if member.name == "render_matrix" then return true;
     }
@@ -260,11 +266,26 @@ draw_field_string :: (member: *Type_Info_Struct_Member, field_pointer: *void) {
     TextDisabled(tprint("%", (cast(*string) field_pointer).*));
 }
 
-draw_model_component_model_field :: (model_component: *Model_Component) {
-    label := ifx model_component.model_path then model_component.model_path else "Drop model here";
-    Selectable(temp_c_string(tprint("% %##model_component_model_drop", ICON_FA_CUBE, label)), false, .None, ImVec2.{0, 0});
+draw_asset_drop_widget :: (
+    icon: string,
+    placeholder: string,
+    current_path: string,
+    id: string,
+    expected_type: Asset_Type
+) -> Editor_Asset_Drop {
+    display := ifx current_path then current_path else placeholder;
+    Selectable(temp_c_string(tprint("% %%", icon, display, id)), false, .None, ImVec2.{0, 0});
+    return editor_accept_asset_drop(expected_type);
+}
 
-    dropped_asset := editor_accept_asset_drop(.MODEL);
+draw_model_component_model_field :: (model_component: *Model_Component) {
+    dropped_asset := draw_asset_drop_widget(
+        ICON_FA_CUBE,
+        "Drop model here",
+        model_component.model_path,
+        "##model_component_model_drop",
+        .MODEL
+    );
     defer editor_asset_drop_destroy(*dropped_asset);
     if dropped_asset.path {
         if scene_set_model_component_model(model_component, dropped_asset.path) {
@@ -274,10 +295,13 @@ draw_model_component_model_field :: (model_component: *Model_Component) {
 }
 
 draw_sprite_texture_field :: (sprite: *Sprite_Component) {
-    label := ifx sprite.texture_path then sprite.texture_path else "Drop texture here";
-    Selectable(temp_c_string(tprint("% %##sprite_texture_drop", ICON_FA_FILE_IMAGE, label)), false, .None, ImVec2.{0, 0});
-
-    dropped_asset := editor_accept_asset_drop(.TEXTURE);
+    dropped_asset := draw_asset_drop_widget(
+        ICON_FA_FILE_IMAGE,
+        "Drop texture here",
+        sprite.texture_path,
+        "##sprite_texture_drop",
+        .TEXTURE
+    );
     defer editor_asset_drop_destroy(*dropped_asset);
     if dropped_asset.path {
         if editor_set_sprite_texture(sprite, dropped_asset.path) {
@@ -289,13 +313,20 @@ draw_sprite_texture_field :: (sprite: *Sprite_Component) {
 draw_model_component_materials :: (model_component: *Model_Component) {
     if !model_component || !model_component.model_resource then return;
 
-    if !CollapsingHeader("Materials", COLLAPSING_HEADER_FLAGS) {
-        return;
-    }
+    TableNextRow();
+    TableNextColumn();
+    open := TreeNodeEx("Materials", .DefaultOpen);
+    TableNextColumn();
 
     model := model_component.model_resource;
     if model.materials.count == 0 {
         TextDisabled("No imported materials");
+        if open then TreePop();
+        return;
+    }
+
+    TextDisabled(tprint("% imported", model.materials.count));
+    if !open {
         return;
     }
 
@@ -333,6 +364,8 @@ draw_model_component_materials :: (model_component: *Model_Component) {
         }
         PopID();
     }
+
+    TreePop();
 }
 
 draw_model_material_override_fields :: (
@@ -468,10 +501,13 @@ draw_material_texture_drop :: (
     TextUnformatted(label);
     TableNextColumn();
 
-    display := ifx current_path then current_path else "Drop texture here";
-    Selectable(temp_c_string(tprint("% %%", ICON_FA_FILE_IMAGE, display, id)), false, .None, ImVec2.{0, 0});
-
-    dropped_asset := editor_accept_asset_drop(.TEXTURE);
+    dropped_asset := draw_asset_drop_widget(
+        ICON_FA_FILE_IMAGE,
+        "Drop texture here",
+        current_path,
+        id,
+        .TEXTURE
+    );
     defer editor_asset_drop_destroy(*dropped_asset);
     changed := false;
     if dropped_asset.path {
@@ -545,16 +581,14 @@ draw_field_pointer :: (member: *Type_Info_Struct_Member, field_pointer: *void, h
     s_info := cast(*Type_Info_Struct) pointer_info.pointer_to;
 
     if s_info.name == "Texture" {
-        textures := asset_manager_get_textures();
-        items := NewArray(textures.count, Asset_Combo_Item,, temp);
-        i := 0;
-        for textures {
-            items[i] = .{ name = path_filename(it.path), ptr = it.texture };
-            i += 1;
-        }
-        draw_asset_combo(hidden_label, current_ptr, items);
-
-        dropped_asset := editor_accept_asset_drop(.TEXTURE);
+        current_label := ifx current_ptr.* then "Loaded texture" else "";
+        dropped_asset := draw_asset_drop_widget(
+            ICON_FA_FILE_IMAGE,
+            "Drop texture here",
+            current_label,
+            tprint("##%_asset_drop", member.name),
+            .TEXTURE
+        );
         defer editor_asset_drop_destroy(*dropped_asset);
         if dropped_asset.path {
             spec := DEFAULT_TEXTURE_SPEC;

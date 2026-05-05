@@ -561,6 +561,8 @@ scene_write_sprite_base :: (builder: *String_Builder, sprite: *Sprite_Component,
     print_to_builder(builder, "pivot = ");
     scene_write_string(builder, scene_sprite_pivot_to_string(sprite.pivot));
     print_to_builder(builder, "\n");
+    print_to_builder(builder, "custom_pivot_enabled = %\n", sprite.custom_pivot_enabled);
+    scene_write_vec2_assignment(builder, "custom_pivot", sprite.custom_pivot);
     print_to_builder(builder, "billboard_mode = ");
     scene_write_string(builder, scene_billboard_mode_to_string(sprite.billboard_mode));
     print_to_builder(builder, "\n");
@@ -672,8 +674,14 @@ scene_light_type_to_string :: (value: Light_Type) -> string {
 }
 
 scene_sprite_pivot_to_string :: (value: Sprite_Pivot) -> string {
-    if value == .CENTER then return "center";
+    if value == .TOP_LEFT then return "top_left";
     if value == .TOP_CENTER then return "top_center";
+    if value == .TOP_RIGHT then return "top_right";
+    if value == .CENTER_LEFT then return "center_left";
+    if value == .CENTER then return "center";
+    if value == .CENTER_RIGHT then return "center_right";
+    if value == .BOTTOM_LEFT then return "bottom_left";
+    if value == .BOTTOM_RIGHT then return "bottom_right";
     return "bottom_center";
 }
 
@@ -780,8 +788,10 @@ scene_load_sprite_base :: (sprite_component: *Sprite_Component, component_value:
     sprite_component.alpha = scene_toml_get_float(component_value, "alpha", 1.0);
     sprite_component.alpha_cutoff = scene_toml_get_float(component_value, "alpha_cutoff", 0.1);
     sprite_component.size = scene_toml_get_vec2(component_value, "size", .{1.0, 1.0});
-    sprite_component.pivot = scene_parse_sprite_pivot(scene_toml_get_string(component_value, "pivot", "bottom_center"));
-    sprite_component.billboard_mode = scene_parse_billboard_mode(scene_toml_get_string(component_value, "billboard_mode", "y_axis"));
+    sprite_component.pivot = scene_parse_sprite_pivot(scene_toml_get_string(component_value, "pivot", "center"));
+    sprite_component.custom_pivot_enabled = scene_toml_get_bool(component_value, "custom_pivot_enabled", false);
+    sprite_component.custom_pivot = scene_toml_get_vec2(component_value, "custom_pivot", .{0.5, 0.5});
+    sprite_component.billboard_mode = scene_parse_billboard_mode(scene_toml_get_string(component_value, "billboard_mode", "none"));
     sprite_component.transparency = scene_toml_get_transparency(
         component_value,
         sprite_component.transparency
@@ -998,15 +1008,23 @@ scene_parse_light_type :: (value: string) -> Light_Type {
 }
 
 scene_parse_sprite_pivot :: (value: string) -> Sprite_Pivot {
-    if value == "center" then return .CENTER;
+    if value == "top_left" then return .TOP_LEFT;
     if value == "top_center" then return .TOP_CENTER;
-    return .BOTTOM_CENTER;
+    if value == "top_right" then return .TOP_RIGHT;
+    if value == "center_left" then return .CENTER_LEFT;
+    if value == "center" then return .CENTER;
+    if value == "center_right" then return .CENTER_RIGHT;
+    if value == "bottom_left" then return .BOTTOM_LEFT;
+    if value == "bottom_center" then return .BOTTOM_CENTER;
+    if value == "bottom_right" then return .BOTTOM_RIGHT;
+    return .CENTER;
 }
 
 scene_parse_billboard_mode :: (value: string) -> Sprite_Billboard_Mode {
     if value == "none" then return .NONE;
     if value == "full" then return .FULL;
-    return .Y_AXIS;
+    if value == "y_axis" then return .Y_AXIS;
+    return .NONE;
 }
 
 scene_parse_transparency :: (

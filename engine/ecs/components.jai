@@ -159,9 +159,15 @@ Camera_Component :: struct @Component {
 }
 
 Sprite_Pivot :: enum {
-    CENTER;
-    BOTTOM_CENTER;
+    TOP_LEFT;
     TOP_CENTER;
+    TOP_RIGHT;
+    CENTER_LEFT;
+    CENTER;
+    CENTER_RIGHT;
+    BOTTOM_LEFT;
+    BOTTOM_CENTER;
+    BOTTOM_RIGHT;
 }
 
 Sprite_Billboard_Mode :: enum {
@@ -184,8 +190,10 @@ Sprite_Component :: struct @Component {
     alpha: float = 1.0; @"Tooltip(\"Overall sprite alpha\")"
     alpha_cutoff: float = 0.1; @"Tooltip(\"Alpha threshold used for cutout and picking\")"
     size: Vector2 = .{1.0, 1.0}; @"Tooltip(\"Sprite width and height in world units\")"
-    pivot: Sprite_Pivot = .BOTTOM_CENTER; @"Tooltip(\"How sprite quad is anchored to node origin\")"
-    billboard_mode: Sprite_Billboard_Mode = .Y_AXIS; @"Tooltip(\"How sprite rotates to face camera\")"
+    pivot: Sprite_Pivot = .CENTER; @"Tooltip(\"How sprite quad is anchored to node origin\")"
+    custom_pivot_enabled: bool = false; @"Tooltip(\"Use custom normalized pivot instead of the preset\")"
+    custom_pivot: Vector2 = .{0.5, 0.5}; @"Tooltip(\"Custom normalized pivot, where 0,0 is bottom-left and 1,1 is top-right\")"
+    billboard_mode: Sprite_Billboard_Mode = .NONE; @"Tooltip(\"How sprite rotates to face camera\")"
     transparency: Transparency_Mode = .ALPHA_BLEND; @"Tooltip(\"Sprite transparency mode\")"
     uv_transform: Matrix3;
 
@@ -275,6 +283,8 @@ component_clone :: (
         clone.alpha_cutoff = source.alpha_cutoff;
         clone.size = source.size;
         clone.pivot = source.pivot;
+        clone.custom_pivot_enabled = source.custom_pivot_enabled;
+        clone.custom_pivot = source.custom_pivot;
         clone.billboard_mode = source.billboard_mode;
         clone.transparency = source.transparency;
         clone.uv_transform = source.uv_transform;
@@ -296,6 +306,8 @@ component_clone :: (
         clone.alpha_cutoff = source.alpha_cutoff;
         clone.size = source.size;
         clone.pivot = source.pivot;
+        clone.custom_pivot_enabled = source.custom_pivot_enabled;
+        clone.custom_pivot = source.custom_pivot;
         clone.billboard_mode = source.billboard_mode;
         clone.transparency = source.transparency;
         clone.uv_transform = source.uv_transform;
