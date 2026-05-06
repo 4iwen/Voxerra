@@ -28,7 +28,6 @@
 - Make exiting the engine prompt for saving scenes and other unsaved stuff
 - FBX doesn't work
 - When dragging gizmos out of viewport they stop affecting the thing thats being edited
-- Fix fog not applying on skybox
 - Creating a scene in a folder that does not exist causes an error
 - Fix unidentified crash when entering a folder in the asset browser
 - Sprites do not affect dirty flag on scenes

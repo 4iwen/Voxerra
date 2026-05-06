@@ -59,7 +59,6 @@ properties_draw :: () {
                 }
 
                 Separator();
-                Dummy(ImVec2.{0, 10});
 
                 if Button(UI_Icon_Label(ICON_FA_CUBES, "Add Component"), ImVec2.{-1, 24}) {
                     properties_request_add_component_modal();
@@ -689,7 +688,11 @@ draw_field_struct :: (member: *Type_Info_Struct_Member, meta: UI_Field_Metadata,
     } else if s_info.name == "Quaternion" {
         draw_rotation_control(member.name, cast(*Quaternion) field_pointer, meta.speed, meta.range_min, meta.range_max, .{0,0,0}, false);
     } else if s_info.name == "Vector4" {
-        TextDisabled("(Vector4)");
+        if meta.is_color {
+            ColorEdit4(hidden_label, cast(*[4]float) field_pointer);
+        } else {
+            TextDisabled("(Vector4)");
+        }
     } else {
         if tree_open {
             ui_draw_struct_fields(field_pointer, s_info, false);

@@ -186,7 +186,7 @@ Sprite_Component :: struct @Component {
     texture_filter: string; @"Tooltip(\"Texture filtering mode used when resolving the texture\")"
     texture_ref: Asset_Ref; @Hidden
     shader: *Shader; @"Tooltip(\"Optional override shader. Uses engine sprite shader when empty\")"
-    tint_color: Vector3 = .{1, 1, 1}; @"Tooltip(\"Tint multiplied into sprite color\")"
+    tint_color: Vector3 = .{1, 1, 1}; @Color @"Tooltip(\"Tint multiplied into sprite color\")"
     alpha: float = 1.0; @"Tooltip(\"Overall sprite alpha\")"
     alpha_cutoff: float = 0.1; @"Tooltip(\"Alpha threshold used for cutout and picking\")"
     size: Vector2 = .{1.0, 1.0}; @"Tooltip(\"Sprite width and height in world units\")"

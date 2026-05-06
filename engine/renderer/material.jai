@@ -15,9 +15,9 @@ Material :: struct {
     name: string;
 
     // properties
-    diffuse_color: Vector3 = .{1, 1, 1};
-    specular_color: Vector3 = .{1, 1, 1};
-    tint_color: Vector3 = .{1, 1, 1};
+    diffuse_color: Vector3 = .{1, 1, 1}; @Color
+    specular_color: Vector3 = .{1, 1, 1}; @Color
+    tint_color: Vector3 = .{1, 1, 1}; @Color
     shininess: float = 32.0;
 
     // texture maps
@@ -38,9 +38,9 @@ Material :: struct {
 Resolved_Material :: struct {
     source: *Material;
 
-    diffuse_color: Vector3 = .{1, 1, 1};
-    specular_color: Vector3 = .{1, 1, 1};
-    tint_color: Vector3 = .{1, 1, 1};
+    diffuse_color: Vector3 = .{1, 1, 1}; @Color
+    specular_color: Vector3 = .{1, 1, 1}; @Color
+    tint_color: Vector3 = .{1, 1, 1}; @Color
     shininess: float = 32.0;
 
     diffuse_map: *Texture;

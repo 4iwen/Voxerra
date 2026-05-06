@@ -52,7 +52,7 @@ main_menu_draw :: () {
             if MenuItem(UI_Icon_Label(ICON_FA_CIRCLE_PLUS, "Add Node"), "", enabled = can_add_node) {
                 editor_add_child_node(node_parent);
             }
-            if MenuItem(UI_Icon_Label(ICON_FA_CUBES, "Add Component..."), "", enabled = editor_node_can_edit_components(selected_node)) {
+            if MenuItem(UI_Icon_Label(ICON_FA_CUBES, "Add Component"), "", enabled = editor_node_can_edit_components(selected_node)) {
                 properties_request_add_component_modal();
             }
             if MenuItem(UI_Icon_Label(ICON_FA_TRASH, "Delete Node"), "Del", enabled = editor_node_can_delete(selected_node)) {

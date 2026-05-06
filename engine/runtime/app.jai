@@ -431,7 +431,8 @@ app_render_scene :: () {
         skybox_draw(
             runtime_state.skybox,
             camera_get_view_matrix(camera.*),
-            camera_get_projection_matrix(camera.*, render_aspect)
+            camera_get_projection_matrix(camera.*, render_aspect),
+            shader_fog_enabled = !fog_resolve_enabled
         );
     }
 

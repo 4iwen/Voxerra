@@ -1,10 +1,43 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
- <title>Lukáš Bien &ndash; Semestrální projekt z předmětu BI-PGR.1</title>
+ <title>Lukáš Bien &#8211; Semestrální projekt z předmětu BI-PGR.1</title>
  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
  <link rel="shortcut icon" href="../../img/favicon.ico" />
  <link rel="stylesheet" type="text/css" href="https://cent.felk.cvut.cz/courses/PGR/css/template_BIPGR.css" />
+ <style type="text/css">
+  .controls {
+   border-collapse: collapse;
+   width: 100%;
+  }
+
+  .controls td, .controls th {
+   border: 1px solid #ddd;
+   padding: 3px 6px;
+  }
+
+  .controls tr:nth-child(even) {
+   background-color: #eee8;
+  }
+
+  .controls th {
+   background-color: #def;
+   color: black;
+  }
+
+  .keyboard {
+   border: 1px solid #ddd;
+   background-color: #eee;
+   color: black;
+   border-radius: 4px;
+   padding: 0 3px;
+  }
+
+  .class {
+   color: #569CD6;
+   cursor: help;
+  }
+ </style>
 </head><body>
  <div class="page">
   <div class="header" id="header">
@@ -13,7 +46,7 @@
   </div>
   <div class="left"><div class="right"><div class="main">
 
-   <h2 class="project">Game Engine</h2>
+   <h2 class="project">Voxerra &#8211; Game Engine</h2>
    <h3 class="author">Lukáš Bien</h3>
 
    <div class="screenshots">
@@ -24,17 +57,177 @@
 
    <h4>Zadání</h4>
    <p>
-    Voxerra je semestrální projekt zaměřený na malou 3D scénu postavenou nad vlastním rendererem v Jai. Projekt předvádí hardcodovaný i načtený model, per-pixel Phongovo osvětlování se směrovými, bodovými a reflektorovými světly, skybox relativní ke kameře, lineární mlhu, animaci objektu po spline křivce a interaktivní picking objektů přímo ve viewportu editoru.
+    Jako téma projektu jsem si vybral vytvořit jednoduchý herní engine.
+    Engine a editor jsou napsané v jazyce Jai, což je jazyk, který je momentálně v uzavřené betě.
+    Projekt předvádí interaktivní scénu s vlastním rendererem, scene graphem,
+    nody a komponenty, načítáním assetů, editorem scén a hot-reloadovanou
+    herní částí. Cílem bylo vytvořit jednoduchý engine workflow, ve kterém lze
+    skládat scénu z modelů, textur, světel a instancí scén, a zároveň ukázat
+    základní grafické techniky požadované v semestrálním projektu.
+   </p>
+
+   <h4>Struktura</h4>
+
+   <h5>Engine</h5>
+   <p>
+    Spouštěcím bodem projektu je <code class="class" title="first.jai">first.jai</code>,
+    který podle build módu sestavuje editor, herní modul nebo exportovanou hru.
+    Jádro enginu je ve složce <code>engine</code>. Obsahuje hlavní aplikační smyčku,
+    správu okna, vstupu, času, assetů, rendereru, scén a editorového UI.
+    Scéna je reprezentovaná stromem nodů, kde každý node nese transformaci
+    ve scéně a volitelné komponenty.
+   </p>
+   <p>
+    Komponenty zahrnují kameru, různé typy světel, model, sprite a animovaný
+    sprite. Model component načítá modelové assety a umí přepisovat materiály
+    jednotlivých submeshů. Sprite component podporuje texturu, velikost,
+    průhlednost, pivoty a billboard režimy. Scény jsou ukládané jako čitelný
+    TOML soubor, aby šly upravovat ručně i přes editor.
+   </p>
+
+   <h5>Editor</h5>
+   <p>
+    Editor běží nad stejným enginem a používá ImGui. Obsahuje viewport,
+    hierarchii nodů, vlastnosti vybraného nodu, asset browser, log, metriky
+    a nastavení prostředí (mlha). Viewport používá vlastní framebuffer a dovoluje
+    vybírat objekty pomocí picking passu. Asset browser je omezený na asset složku 
+    projektu a podporuje přetahování modelů, scén a textur do viewportu, hierarchie i vlastností
+    komponent. Materiály modelu jsou editovatelné přímo pod Model Componentem.
+   </p>
+
+   <h5>Herní modul</h5>
+   <p>
+    Herní část je ve složce <code>game</code>. V editorovém režimu se sestavuje
+    jako dynamická knihovna, takže ji lze za běhu znovu načíst. Modul vytváří
+    a aktualizuje demo scénu, spravuje kamery, pohyb objektů, reakce na picking
+    a jednoduché runtime efekty, například blikání světla u ohně.
+   </p>
+
+   <h5>Knihovny</h5>
+   <ul>
+    <li><a href="https://github.com/glfw/glfw">GLFW</a> pro okno a vstup</li>
+    <li><a href="https://github.com/bugulo/jai-glfw">GLFW Jai bindings</a></li>
+    <li><a href="https://github.com/ocornut/imgui">ImGui</a> pro editorové UI</li>
+    <li><a href="https://github.com/overlord-systems/jai-imgui">ImGui Jai bindings</a></li>
+    <li><a href="https://github.com/assimp/assimp">Assimp</a> pro import modelů</li>
+    <li><a href="https://github.com/bloeys/jassimp">Assimp Jai bindings</a></li>
+    <li><a href="https://github.com/sjorsdonkers/toml-jai">TOML Jai</a> TOML parser</li>
+    <li><a href="https://github.com/CedricGuillemet/ImGuizmo">ImGuizmo</a> pro transform gizma</li>
+    <li><a href="https://github.com/4iwen/jai-imguizmo">ImGuizmo Jai bindings</a></li>
+    <li><a href="https://github.com/nothings/stb">stb_image</a> pro načítání textur</li>
+
+   </ul>
+
+   <h4>Renderer a scéna</h4>
+   <p>
+    Renderer používá klasický forward render queue. Neprůhledné objekty se kreslí
+    s depth write zapnutým, průhledné objekty a alpha-blended sprity se řadí
+    zezadu dopředu podle vzdálenosti od kamery a kreslí se bez zápisu do depth
+    bufferu.
+   </p>
+   <p>
+    Osvětlení je založené na per-pixel Blinn-Phong modelu. Je možné měnit ambientní
+    složku, přidat směrové světla, bodová světla a reflektory. Prostředí podporuje
+    skybox skrz shader a nastavení mlhy.
+   </p>
+   <p>
+    Demo scéna je vytvořena z Kenney.NL assetů, importovaného Utah teapotu a
+    animovaného billboard ohně. Suzanne se pohybuje po uzavřené Catmull-Rom spline
+    křivce a při pohybu se natáčí podle směru trasy. Oheň je animovaný sprite sheet
+    s billboardem kolem osy Y a bodovým světlem, jehož intenzita a barva se v čase mění.
    </p>
 
    <h4>Ovládání</h4>
-   <p>
-    Klávesy 1, 2 a 3 přepínají mezi volnou a dvěma statickými kamerami. Ve volné kameře držte pravé tlačítko myši pro rozhlížení, pohybujte se klávesami W, A, S, D, Q, E a levým Shiftem zrychlíte pohyb. Levé tlačítko myši ve viewportu vybírá objekty: Suzanne zapíná a vypíná pohyb po spline, konvička přepíná zvýraznění a oheň zastavuje nebo znovu spouští animaci textury.
-   </p>
+
+   <h5>Editor</h5>
+   <table class="controls">
+    <thead>
+     <tr>
+      <th>Operace</th>
+      <th>Ovládání</th>
+     </tr>
+    </thead>
+    <tbody>
+     <tr>
+      <td>Letová kamera ve viewportu</td>
+      <td>Držet pravé tlačítko myši, pohyb <code class="keyboard">W</code> <code class="keyboard">A</code> <code class="keyboard">S</code> <code class="keyboard">D</code>, nahoru/dolů <code class="keyboard">E</code>/<code class="keyboard">Q</code>, zrychlení <code class="keyboard">Shift</code></td>
+     </tr>
+     <tr>
+      <td>Orbit kamery</td>
+      <td>Prostřední tlačítko myši + tažení</td>
+     </tr>
+     <tr>
+      <td>Posun kamery</td>
+      <td><code class="keyboard">Shift</code> + prostřední tlačítko myši + tažení</td>
+     </tr>
+     <tr>
+      <td>Přiblížení</td>
+      <td>Kolečko myši</td>
+     </tr>
+     <tr>
+      <td>Zaměření výběru</td>
+      <td><code class="keyboard">F</code></td>
+     </tr>
+     <tr>
+      <td>Transform gizmo</td>
+      <td><code class="keyboard">G</code> posun, <code class="keyboard">R</code> rotace, <code class="keyboard">S</code> změna měřítka</td>
+     </tr>
+     <tr>
+      <td>Uložení scény</td>
+      <td><code class="keyboard">Ctrl</code> + <code class="keyboard">S</code></td>
+     </tr>
+    </tbody>
+   </table>
+
+   <h5>Demo scéna</h5>
+   <table class="controls">
+    <thead>
+     <tr>
+      <th>Operace</th>
+      <th>Ovládání</th>
+     </tr>
+    </thead>
+    <tbody>
+     <tr>
+      <td>Přepnutí kamery</td>
+      <td><code class="keyboard">1</code> volná kamera, <code class="keyboard">2</code> statická kamera 1, <code class="keyboard">3</code> statická kamera 2</td>
+     </tr>
+     <tr>
+      <td>Volná herní kamera</td>
+      <td>Po aktivaci viewportu se myš zachytí automaticky; pohyb <code class="keyboard">W</code> <code class="keyboard">A</code> <code class="keyboard">S</code> <code class="keyboard">D</code>, nahoru/dolů <code class="keyboard">E</code>/<code class="keyboard">Q</code>, rychleji <code class="keyboard">Shift</code></td>
+     </tr>
+     <tr>
+      <td>Uvolnění zachycené myši</td>
+      <td><code class="keyboard">Esc</code></td>
+     </tr>
+     <tr>
+      <td>Interakce s objekty</td>
+      <td>Levé kliknutí ve viewportu: Suzanne zastaví/spustí pohyb po spline, teapot přepne zvýraznění, oheň zastaví/spustí animaci</td>
+     </tr>
+    </tbody>
+   </table>
+
+   <h5>Práce s assety</h5>
+   <ul>
+    <li>Model nebo scénu lze přetáhnout z Asset Browseru do viewportu nebo hierarchie.</li>
+    <li>Texturu lze přetáhnout do viewportu jako nový sprite.</li>
+    <li>Texturu lze přetáhnout do Sprite Componentu nebo do material override pole v Model Componentu.</li>
+    <li>Scénu lze otevřít ve vlastním tabu a instance scény lze otevřít přes tlačítko Open Source Scene.</li>
+   </ul>
+
+   <h4>Download</h4>
+   <ul>
+    <li><a href="code/src.zip">Zdrojové kódy</a></li>
+   </ul>
+   <ul>
+    <li><a href="code/windows.zip">Spustitelná verze (Windows)</a></li>
+    <li><a href="code/linux.tgz">Spustitelná verze (Linux)</a></li>
+    <li><a href="code/macos.zip">Spustitelná verze (MacOS)</a></li>
+   </ul>
 
   </div></div></div>
   <div class="footer"><hr class="hidden" />
-   <div class="footer_inner">Poslední aktualizace: 25.4.2026</div>
+   <div class="footer_inner">Poslední aktualizace: 6.5.2026</div>
   </div>
  </div>
 </body>

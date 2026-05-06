@@ -15,6 +15,8 @@ uniform float u_camera_far;
 
 out vec4 color;
 
+const float SKYBOX_FOG_AMOUNT = 0.35;
+
 float linearize_depth(float depth_sample) {
     float z = depth_sample * 2.0 - 1.0;
     return (2.0 * u_camera_near * u_camera_far) /
@@ -30,7 +32,8 @@ void main() {
 
     float depth_sample = texture(u_scene_depth, v_uv).r;
     if (depth_sample >= 0.999999) {
-        color = vec4(scene_color.rgb, 1.0);
+        float fog_amount = SKYBOX_FOG_AMOUNT * clamp(u_fog_color.a, 0.0, 1.0);
+        color = vec4(mix(scene_color.rgb, u_fog_color.rgb, fog_amount), 1.0);
         return;
     }
 
