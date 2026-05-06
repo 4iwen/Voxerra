@@ -299,6 +299,13 @@ node_find_by_scene_id :: (node: *Node, scene_id: string) -> *Node {
     return null;
 }
 
+node_find_by_runtime_or_scene_id :: (node: *Node, runtime_id: u64, scene_id: string) -> *Node {
+    found := node_find_by_runtime_id(node, runtime_id);
+    if found then return found;
+
+    return node_find_by_scene_id(node, scene_id);
+}
+
 node_find_authored_by_scene_id :: (node: *Node, scene_id: string) -> *Node {
     if !node then return null;
     if !scene_id then return null;

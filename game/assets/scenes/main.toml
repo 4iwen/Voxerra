@@ -160,7 +160,7 @@ id = "boat-row-small.glb"
 name = "boat-row-small.glb"
 parent = "root"
 position = [10.935829, 0, 2.304459]
-rotation = [-3.141592, -1.479899, -3.141592]
+rotation = [-3.141592, -1.4799, -3.141592]
 scale = [1.09, 1.09, 1.09]
 
 [[nodes.components]]
@@ -493,6 +493,31 @@ model = "game/assets/models/kenney_pirate-kit/Models/GLB format/ship-small.glb"
 model_guid = "1c7d481b8f8b9584"
 
 [[nodes]]
+id = "utah_teapot.obj"
+name = "Utah teapotter"
+parent = "ship-small.glb"
+position = [-0.007113, 9.952497, -0.611331]
+rotation = [0, 0, 0]
+scale = [0.1, 0.1, 0.1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/utah_teapot.obj"
+model_guid = "cbdad06a5e941e20"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [0.121569, 0.701961, 0.066667]
+specular_color = [0, 0, 0]
+tint_color = [1, 1, 1]
+shininess = 32
+alpha = 1
+alpha_cutoff = 0.5
+transparency = "disabled"
+double_sided = false
+
+[[nodes]]
 id = "structure-platform.glb"
 name = "structure-platform.glb"
 parent = "root"
@@ -556,31 +581,6 @@ scale = [1.437812, 0.518824, 1.5]
 type = "model"
 model = "game/assets/models/kenney_pirate-kit/Models/GLB format/rocks-c.glb"
 model_guid = "3d70415e902d9806"
-
-[[nodes]]
-id = "utah_teapot.obj"
-name = "Utah teapotter"
-parent = "root"
-position = [-15.292094, 6.657728, -4.823926]
-rotation = [0, 0, 0]
-scale = [0.0522, 0.0522, 0.0522]
-
-[[nodes.components]]
-type = "model"
-model = "game/assets/models/utah_teapot.obj"
-model_guid = "cbdad06a5e941e20"
-
-[[nodes.components.materials]]
-index = 0
-enabled = true
-diffuse_color = [0.121569, 0.701961, 0.066667]
-specular_color = [0, 0, 0]
-tint_color = [1, 1, 1]
-shininess = 32
-alpha = 1
-alpha_cutoff = 0.5
-transparency = "disabled"
-double_sided = false
 
 [[nodes]]
 id = "test.toml"

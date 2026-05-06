@@ -828,15 +828,11 @@ editor_node_handle_clear :: (handle: *Editor_Node_Handle) {
 editor_resolve_selection :: (tab: *Editor_Scene_Tab) -> *Node {
     if !tab || !tab.scene then return null;
 
-    if tab.selection.runtime_id != 0 {
-        node := node_find_by_runtime_id(tab.scene.root, tab.selection.runtime_id);
-        if node then return node;
-    }
-    if tab.selection.scene_id {
-        node := node_find_by_scene_id(tab.scene.root, tab.selection.scene_id);
-        if node then return node;
-    }
-    return null;
+    return node_find_by_runtime_or_scene_id(
+        tab.scene.root,
+        tab.selection.runtime_id,
+        tab.selection.scene_id
+    );
 }
 
 editor_node_belongs_to_scene :: (node: *Node, scene: *Scene) -> bool {

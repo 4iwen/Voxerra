@@ -10,6 +10,10 @@ Game_Camera_Mode :: enum u8 {
     STATIC_2;
 }
 
+FREE_CAMERA_SCENE_ID :: "free_camera";
+STATIC_CAMERA_1_SCENE_ID :: "static_camera_1";
+STATIC_CAMERA_2_SCENE_ID :: "static_camera_2";
+
 Game_Free_Camera_Controller :: struct {
     active: bool = false;
     capture_blocked_until_click: bool = false;
@@ -165,13 +169,21 @@ game_camera_controller_rebind :: (
     previous_mode := controller.previous_mode;
     free_controller := controller.free_controller;
 
-    free_node := node_find_by_runtime_id(scene.root, controller.free_node_runtime_id);
-    static_1_node := node_find_by_runtime_id(scene.root, controller.static_1_node_runtime_id);
-    static_2_node := node_find_by_runtime_id(scene.root, controller.static_2_node_runtime_id);
-
-    if !free_node     then free_node     = node_find_by_scene_id(scene.root, "free_camera");
-    if !static_1_node then static_1_node = node_find_by_scene_id(scene.root, "static_camera_1");
-    if !static_2_node then static_2_node = node_find_by_scene_id(scene.root, "static_camera_2");
+    free_node := node_find_by_runtime_or_scene_id(
+        scene.root,
+        controller.free_node_runtime_id,
+        FREE_CAMERA_SCENE_ID
+    );
+    static_1_node := node_find_by_runtime_or_scene_id(
+        scene.root,
+        controller.static_1_node_runtime_id,
+        STATIC_CAMERA_1_SCENE_ID
+    );
+    static_2_node := node_find_by_runtime_or_scene_id(
+        scene.root,
+        controller.static_2_node_runtime_id,
+        STATIC_CAMERA_2_SCENE_ID
+    );
 
     controller.free_node = free_node;
     controller.free_camera = node_get_component(free_node, Camera_Component);
