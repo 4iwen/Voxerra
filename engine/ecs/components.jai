@@ -1,3 +1,7 @@
+// File:        components.jai
+// Author:      Lukáš Bien
+// Description: Defines the ECS component types used by scenes, rendering, and the editor.
+
 #scope_file
 
 #import "Basic";

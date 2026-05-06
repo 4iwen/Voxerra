@@ -1,3 +1,7 @@
+// File:        main.jai
+// Author:      Lukáš Bien
+// Description: Boots the game module and syncs scene runtime state per frame.
+
 #import "Basic";
 #import "Math";
 
@@ -90,6 +94,8 @@ game_shutdown :: () {
 
 #scope_file
 
+// detect scene swaps from the editor or runtime and rebuild cached game-side
+// bindings before the next simulation step runs.
 game_sync_current_scene :: () {
     if game_state.scene != engine_state.current_scene {
         game_state.scene = engine_state.current_scene;

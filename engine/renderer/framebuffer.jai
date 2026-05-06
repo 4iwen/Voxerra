@@ -1,3 +1,7 @@
+// File:        framebuffer.jai
+// Author:      Lukáš Bien
+// Description: Creates, resizes, and destroys framebuffer objects used by rendering passes.
+
 #scope_file
 
 #import "Basic";

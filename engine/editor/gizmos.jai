@@ -1,3 +1,7 @@
+// File:        gizmos.jai
+// Author:      Lukáš Bien
+// Description: Draws and applies transform gizmo interaction inside the editor viewport.
+
 #scope_file
 
 #import "Basic";
@@ -237,6 +241,8 @@ editor_imguizmo_begin_frame :: (rect_min: ImVec2, rect_size: ImVec2) {
     }
 }
 
+// ImGuizmo operates in world space, so convert the edited local transform
+// through the parent and then pull the result back.
 editor_imguizmo_manipulate_trs :: (
     view: Matrix4,
     projection: Matrix4,

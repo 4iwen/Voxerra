@@ -160,7 +160,7 @@ id = "boat-row-small.glb"
 name = "boat-row-small.glb"
 parent = "root"
 position = [10.935829, 0, 2.304459]
-rotation = [-3.141592, -1.4799, -3.141592]
+rotation = [-3.141592, -1.479899, -3.141592]
 scale = [1.09, 1.09, 1.09]
 
 [[nodes.components]]

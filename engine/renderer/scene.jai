@@ -1,3 +1,7 @@
+// File:        scene.jai
+// Author:      Lukáš Bien
+// Description: Owns scene lifetime, active camera state, and scene-wide transform updates.
+
 #scope_file
 
 #import "Basic";

@@ -1,3 +1,7 @@
+// File:        renderer.jai
+// Author:      Lukáš Bien
+// Description: Wraps renderer-wide GPU state toggles and per-frame setup.
+
 #scope_file
 
 #import "Basic";

@@ -1,3 +1,7 @@
+// File:        skybox.frag
+// Author:      Lukáš Bien
+// Description: Draws either a cubemap skybox or procedural sky with fog mix.
+
 #version 330 core
 
 in vec3 v_tex_coords;
@@ -19,6 +23,8 @@ uniform vec4 u_fog_color;
 
 const float SKYBOX_FOG_AMOUNT = 0.35;
 
+// keep skybox fog capped so fogged skies still preserve highlights like the
+// sun disk and bright cubemap features.
 void main() {
     vec3 dir = normalize(v_tex_coords);
     vec3 final_color;

@@ -1,3 +1,7 @@
+// File:        light.jai
+// Author:      Lukáš Bien
+// Description: Defines light data structures shared by scenes and shaders.
+
 #scope_file
 
 #import "Basic";

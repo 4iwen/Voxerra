@@ -1,3 +1,7 @@
+// File:        ui.jai
+// Author:      Lukáš Bien
+// Description: Initializes ImGui and drives the editor UI frame lifecycle.
+
 #scope_file
 
 #import "Basic";

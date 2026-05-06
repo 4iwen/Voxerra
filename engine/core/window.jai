@@ -1,3 +1,7 @@
+// File:        window.jai
+// Author:      Lukáš Bien
+// Description: Creates the main window and forwards window-system events into engine state.
+
 #scope_file
 
 #import "glfw";

@@ -1,3 +1,8 @@
+// File:        editor_context.jai
+// Author:      Lukáš Bien
+// Description: Owns editor scene tabs, selection state, scene editing
+//              operations, and editor render mode state.
+
 #scope_file
 
 #import "Basic";
@@ -781,6 +786,8 @@ editor_refresh_scene_instances_from_disk :: (source_path: string) {
 
 #scope_file
 
+// instance propagation can bounce between open tabs, so track visited tabs
+// to stop cyclical refresh cascades.
 editor_propagate_scene_changes_recursive :: (
     source_index: s32,
     visited: *[..] s32
@@ -976,6 +983,8 @@ editor_view_camera_create :: () -> Editor_View_Camera {
 
 #scope_export
 
+// sanitize editor camera state before rebuilding vectors so broken serialized
+// values cannot poison viewport navigation.
 editor_view_camera_rebuild :: (view: *Editor_View_Camera) {
     if !view then return;
 

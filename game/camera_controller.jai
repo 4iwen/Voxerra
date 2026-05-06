@@ -1,3 +1,7 @@
+// File:        camera_controller.jai
+// Author:      Lukáš Bien
+// Description: Manages gameplay camera modes and free camera input behavior.
+
 #scope_file
 
 #import "Basic";
@@ -159,6 +163,8 @@ game_camera_controller_get_mode :: (controller: *Game_Camera_Controller) -> Game
     return controller.active_mode;
 }
 
+// restore camera node bindings after scene reloads while keeping the user's
+// current mode and free-camera state intact.
 game_camera_controller_rebind :: (
     controller: *Game_Camera_Controller,
     scene: *Scene
@@ -239,6 +245,8 @@ game_camera_controller_process_shortcuts :: (
     }
 }
 
+// when switching back to free mode, seed it from the previous active camera
+// so the transition feels continuous instead of snapping to an old state.
 game_camera_controller_apply_mode_transition :: (
     controller: *Game_Camera_Controller,
     scene: *Scene,
@@ -304,6 +312,8 @@ game_sync_camera_node_from_component :: (
     }
 }
 
+// gate cursor capture on viewport focus and click state so editor mode and
+// free camera movement do not fight each other.
 game_free_camera_controller_update :: (
     controller: *Game_Free_Camera_Controller,
     camera: *Camera,

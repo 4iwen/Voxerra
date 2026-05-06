@@ -1,3 +1,7 @@
+// File:        asset_browser.jai
+// Author:      Lukáš Bien
+// Description: Draws the asset browser and handles asset drag and drop workflows.
+
 #scope_file
 
 #import "Basic";
@@ -212,6 +216,8 @@ asset_browser_draw_grid :: () {
     EndChild();
 }
 
+// lay tiles out manually so filtering and zooming can share one predictable
+// grid without depending on ImGui columns.
 asset_browser_draw_visible_tiles :: (layout: Asset_Browser_Layout, content_height: float) {
     draw_list := GetWindowDrawList();
     start_pos := GetCursorScreenPos() + ImVec2.{layout.outer_padding, layout.outer_padding};
@@ -515,6 +521,8 @@ asset_browser_compare_items :: (a: Asset_Browser_Item, b: Asset_Browser_Item) ->
     return compare_nocase(a.name, b.name);
 }
 
+// rebuild the visible directory listing from disk each refresh so drag and
+// drop and filtering operate on current project assets.
 asset_browser_refresh :: () {
     asset_browser_ensure_directory_state();
     asset_browser_clear();

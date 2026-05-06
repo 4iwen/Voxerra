@@ -1,3 +1,7 @@
+// File:        fog_resolve.frag
+// Author:      Lukáš Bien
+// Description: Applies fullscreen distance fog to the rendered scene color.
+
 #version 330 core
 
 in vec2 v_uv;
@@ -17,12 +21,16 @@ out vec4 color;
 
 const float SKYBOX_FOG_AMOUNT = 0.35;
 
+// reconstruct linear view distance from the default depth buffer so fog can
+// be evaluated in world-consistent distance units.
 float linearize_depth(float depth_sample) {
     float z = depth_sample * 2.0 - 1.0;
     return (2.0 * u_camera_near * u_camera_far) /
            (u_camera_far + u_camera_near - z * (u_camera_far - u_camera_near));
 }
 
+// treat far-depth pixels as skybox/background and clamp them to a limited fog
+// mix so bright sky details are still visible through haze.
 void main() {
     vec4 scene_color = texture(u_scene_color, v_uv);
     if (u_fog_enabled == 0) {

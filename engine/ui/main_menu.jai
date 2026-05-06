@@ -1,3 +1,7 @@
+// File:        main_menu.jai
+// Author:      Lukáš Bien
+// Description: Builds the editor main menu and dispatches top-level editor actions.
+
 #scope_file
 
 #import "Basic";

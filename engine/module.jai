@@ -1,3 +1,7 @@
+// File:        module.jai
+// Author:      Lukáš Bien
+// Description: Aggregates the engine source tree into a single import surface.
+
 #scope_export
 
 // core

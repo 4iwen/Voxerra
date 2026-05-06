@@ -1,3 +1,7 @@
+// File:        node_hierarchy.jai
+// Author:      Lukáš Bien
+// Description: Draws the scene hierarchy tree and handles node reordering and parenting.
+
 #scope_file
 
 #import "jai-imgui";

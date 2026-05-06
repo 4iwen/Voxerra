@@ -1,3 +1,7 @@
+// File:        main.jai
+// Author:      Lukáš Bien
+// Description: Loads engine modules and runs the main application loop.
+
 // #import "Basic"()(MEMORY_DEBUGGER = MEMORY_DEBUGGER_ENABLED);
 
 #load "module.jai";

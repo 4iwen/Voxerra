@@ -1,3 +1,7 @@
+// File:        unlit_alpha.vert
+// Author:      Lukáš Bien
+// Description: Transforms unlit sprite and alpha geometry and forwards depth.
+
 #version 330 core
 
 layout (location = 0) in vec3 a_position;

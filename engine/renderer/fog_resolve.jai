@@ -1,3 +1,7 @@
+// File:        fog_resolve.jai
+// Author:      Lukáš Bien
+// Description: Runs the fullscreen fog resolve pass over the rendered scene color buffer.
+
 #scope_file
 
 #import "Basic";

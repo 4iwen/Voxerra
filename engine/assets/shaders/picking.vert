@@ -1,3 +1,7 @@
+// File:        picking.vert
+// Author:      Lukáš Bien
+// Description: Transforms geometry for the editor picking ID pass.
+
 #version 330 core
 
 layout (location = 0) in vec3 a_position;

@@ -1,3 +1,7 @@
+// File:        cubemap.jai
+// Author:      Lukáš Bien
+// Description: Loads cubemap textures and creates GPU cubemap resources.
+
 #scope_file
 
 #import "GL";

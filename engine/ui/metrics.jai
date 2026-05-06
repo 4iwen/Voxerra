@@ -1,3 +1,7 @@
+// File:        metrics.jai
+// Author:      Lukáš Bien
+// Description: Displays runtime and renderer metrics inside the editor UI.
+
 #scope_export
 
 #import "Basic";

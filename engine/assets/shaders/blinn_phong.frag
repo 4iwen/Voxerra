@@ -1,3 +1,7 @@
+// File:        blinn_phong.frag
+// Author:      Lukáš Bien
+// Description: Shades lit materials with fog and editor view mode overrides.
+
 #version 330 core
 
 struct Material {
@@ -77,6 +81,8 @@ uniform Material u_material;
 
 out vec4 color;
 
+// keep the lighting helpers separate so the main path can switch between
+// lit, albedo-only, and lighting-only output without duplicating math.
 vec3 directional_light(
     DirectionalLight light,
     vec3 normal,
@@ -170,6 +176,8 @@ vec3 spot_light(
     return (ambient_final + diffuse_final + specular_final);
 }
 
+// gather material sampling, view-mode overrides, lights, and fog in one pass
+// so opaque meshes and alpha-scissor meshes share the same shading path.
 void main() {
     // properties
     vec3 normal = normalize(v_normal);

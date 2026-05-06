@@ -1,3 +1,7 @@
+// File:        shader.jai
+// Author:      Lukáš Bien
+// Description: Compiles shaders, links programs, and uploads uniform values.
+
 #scope_file
 
 #import "Basic";

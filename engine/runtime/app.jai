@@ -1,3 +1,8 @@
+// File:        app.jai
+// Author:      Lukáš Bien
+// Description: Coordinates runtime startup, editor play mode, scene
+//              rendering, and per-frame app flow.
+
 #scope_file
 
 #import "Basic";
@@ -327,12 +332,13 @@ editor_open_scene :: (path: string) -> bool {
     }
 }
 
+// route editor rendering through the viewport framebuffer first, then
+// optionally through the fog resolve chain.
 app_render_scene :: () {
     scene := engine_state.current_scene;
     output_framebuffer: *Framebuffer;
     output_width := engine_state.window.framebuffer_width;
     output_height := engine_state.window.framebuffer_height;
-
     #if BUILD_MODE == .EDITOR {
         if engine_state.main_framebuffer {
             output_framebuffer = engine_state.main_framebuffer;
@@ -437,6 +443,8 @@ app_render_scene :: () {
     }
 
     if fog_resolve_enabled {
+        // fog resolve composites fullscreen fog after opaque and skybox
+        // rendering, then transparent items render on top of that result.
         fog_resolve_apply(
             runtime_state.scene_framebuffer,
             output_framebuffer,
@@ -485,6 +493,8 @@ app_render_scene :: () {
     }
 }
 
+// choose the editor camera while editing, otherwise fall back to the active
+// scene camera or the runtime fallback camera.
 app_get_render_camera :: () -> *Camera {
     scene := engine_state.current_scene;
     #if BUILD_MODE == .EDITOR {

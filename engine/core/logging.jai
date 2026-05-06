@@ -1,3 +1,7 @@
+// File:        logging.jai
+// Author:      Lukáš Bien
+// Description: Provides formatted engine logging helpers for runtime and editor code.
+
 #scope_file
 
 #import "Basic";

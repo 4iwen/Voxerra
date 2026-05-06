@@ -1,3 +1,7 @@
+// File:        unlit_alpha.frag
+// Author:      Lukáš Bien
+// Description: Shades unlit alpha-tested or alpha-blended materials with fog.
+
 #version 330 core
 
 struct Material {
@@ -33,6 +37,8 @@ uniform int u_render_mode;
 
 out vec4 color;
 
+// keep the unlit pass compatible with editor render modes and fog so sprites
+// and transparent quads stay consistent with the rest of the renderer.
 void main() {
     vec4 sample_color = texture(u_material.diffuse, v_uv);
     float alpha = sample_color.a * u_material.alpha;

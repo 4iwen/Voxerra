@@ -1,3 +1,7 @@
+// File:        picking.jai
+// Author:      Lukáš Bien
+// Description: Renders and resolves editor picking IDs for viewport selection.
+
 #scope_file
 
 #import "Basic";
@@ -52,6 +56,8 @@ editor_picking_resize :: (width: s32, height: s32) {
     framebuffer_resize(editor_picking_state.framebuffer, width, height);
 }
 
+// rebuild the id buffer every frame so selection always matches the current
+// scene graph and viewport size.
 editor_picking_render :: (
     scene: *Scene,
     camera: *Camera,
@@ -162,6 +168,8 @@ editor_handle_viewport_selection :: () {
 
 #scope_file
 
+// assign one stable pick id per logical node, then draw every renderable
+// representation that should resolve back to it.
 editor_picking_submit_node :: (
     node: *Node,
     shader: *Shader,

@@ -1,3 +1,7 @@
+// File:        widgets.jai
+// Author:      Lukáš Bien
+// Description: Provides reusable editor widgets for transforms, vectors, and rotation editing.
+
 #scope_module
 
 draw_vec3_control :: (

@@ -1,3 +1,7 @@
+// File:        render_queue.jai
+// Author:      Lukáš Bien
+// Description: Builds render queues from scene nodes and submits opaque and transparent draw calls.
+
 #scope_file
 
 #import "Basic";

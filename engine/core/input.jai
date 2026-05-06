@@ -1,3 +1,7 @@
+// File:        input.jai
+// Author:      Lukáš Bien
+// Description: Collects input state and exposes per-frame keyboard and mouse queries.
+
 #scope_file
 
 #import "Basic";

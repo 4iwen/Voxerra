@@ -1,3 +1,8 @@
+// File:        entity.jai
+// Author:      Lukáš Bien
+// Description: Implements node hierarchy management, component attachment,
+//              and transform propagation.
+
 #scope_file
 
 #import "Basic";
@@ -160,6 +165,8 @@ node_reparent :: (node: *Node, new_parent: *Node) -> bool {
     return true;
 }
 
+// capture the old index before mutating the array so reordering within the
+// same parent keeps the requested visual slot.
 node_reparent_at :: (node: *Node, new_parent: *Node, child_index: s64) -> bool {
     if !node || !new_parent then return false;
     if node == new_parent then return false;
@@ -248,6 +255,8 @@ node_update_transforms :: (node: *Node, parent_world_matrix: Matrix4) {
     }
 }
 
+// clone hierarchy state first, then let each component duplicate its own
+// runtime data onto the new node.
 node_clone :: (
     node: *Node,
     active_camera_source: *Camera = null,

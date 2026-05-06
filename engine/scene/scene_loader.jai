@@ -1,3 +1,7 @@
+// File:        scene_loader.jai
+// Author:      Lukáš Bien
+// Description: Loads, saves, and refreshes scene data and scene instances from TOML files.
+
 #scope_file
 
 #import "Basic";
@@ -19,6 +23,8 @@ scene_load_toml :: (path: string) -> *Scene, bool {
     return scene, ok;
 }
 
+// load authored nodes first, then instantiate inherited scene content so
+// parent ids always resolve against authored structure.
 scene_load_toml_internal :: (path: string, options: Scene_Load_Options) -> *Scene, bool {
     contents, read_ok := read_entire_file(path);
     if !read_ok {
@@ -256,6 +262,8 @@ scene_has_instance_path :: (scene: *Scene, source_path: string) -> bool {
 
 #scope_file
 
+// keep a per-load stack of source paths so nested scene instances cannot
+// recursively instantiate each other forever.
 scene_instantiate_source :: (
     scene: *Scene,
     node: *Node,
@@ -697,6 +705,8 @@ scene_transparency_to_string :: (value: Transparency_Mode) -> string {
     return "alpha_blend";
 }
 
+// keep component loading centralized here so save/load stays symmetric across
+// every supported component type.
 scene_load_component :: (scene: *Scene, node: *Node, component_value: Toml.Value) -> bool {
     component_type := scene_toml_get_string(component_value, "type", "");
 

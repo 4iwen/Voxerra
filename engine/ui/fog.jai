@@ -1,3 +1,7 @@
+// File:        fog.jai
+// Author:      Lukáš Bien
+// Description: Draws the editor fog controls for scene environment settings.
+
 #scope_file
 
 #import "Basic";

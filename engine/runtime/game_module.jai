@@ -1,3 +1,7 @@
+// File:        game_module.jai
+// Author:      Lukáš Bien
+// Description: Defines the interface used to load and call the game module.
+
 #scope_export
 
 Game_Init_Proc         :: #type ();

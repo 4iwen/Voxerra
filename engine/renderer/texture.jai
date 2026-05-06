@@ -1,3 +1,7 @@
+// File:        texture.jai
+// Author:      Lukáš Bien
+// Description: Loads textures from disk and creates GPU texture resources.
+
 #scope_file
 
 #import "Basic";

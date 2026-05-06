@@ -1,3 +1,7 @@
+// File:        editor_camera.jai
+// Author:      Lukáš Bien
+// Description: Updates the editor orbit camera and its viewport interaction behavior.
+
 #scope_file
 
 #import "Basic";

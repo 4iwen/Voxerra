@@ -1,3 +1,7 @@
+// File:        node_properties.jai
+// Author:      Lukáš Bien
+// Description: Draws the node properties inspector and reflective component editing UI.
+
 #scope_file
 
 #import "String";
@@ -309,6 +313,8 @@ draw_sprite_texture_field :: (sprite: *Sprite_Component) {
     }
 }
 
+// material overrides are shown against imported materials so the inspector
+// can expose authored diffs without duplicating base data.
 draw_model_component_materials :: (model_component: *Model_Component) {
     if !model_component || !model_component.model_resource then return;
 
@@ -701,6 +707,8 @@ draw_field_struct :: (member: *Type_Info_Struct_Member, meta: UI_Field_Metadata,
     }
 }
 
+// drive the inspector from reflection metadata so most component fields can
+// stay in sync without hand-written UI per struct.
 ui_draw_struct_fields :: (data: *void, struct_info: *Type_Info_Struct, is_top_level: bool = false) {
     for member: struct_info.members {
         if is_top_level {

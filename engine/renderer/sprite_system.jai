@@ -1,3 +1,7 @@
+// File:        sprite_system.jai
+// Author:      Lukáš Bien
+// Description: Builds sprite render data and draws billboard and animated sprite quads.
+
 #scope_file
 
 #import "Basic";

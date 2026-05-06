@@ -1,3 +1,7 @@
+// File:        scene_tabs.jai
+// Author:      Lukáš Bien
+// Description: Draws editor scene tabs and manages tab switching and close requests.
+
 #scope_file
 
 #import "Basic";

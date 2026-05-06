@@ -1,3 +1,7 @@
+// File:        blinn_phong.vert
+// Author:      Lukáš Bien
+// Description: Transforms lit mesh vertices and forwards view-space depth.
+
 #version 330 core
 
 layout (location = 0) in vec3 a_position;

@@ -1,3 +1,7 @@
+// File:        default_scene.jai
+// Author:      Lukáš Bien
+// Description: Binds scene-authored demo content and updates its runtime behavior.
+
 #scope_file
 
 #import "Basic";
@@ -47,6 +51,8 @@ Game_Scene_Runtime :: struct {
 
 game_scene_runtime: Game_Scene_Runtime;
 
+// rebind scene-authored nodes after reloads and recreate only the hardcoded
+// Suzanne mesh that does not come from the authored scene file.
 game_rebind_default_scene_runtime :: (scene: *Scene) {
     if !scene then return;
 
@@ -104,6 +110,8 @@ game_create_hardcoded_suzanne :: (scene: *Scene) {
 
 #scope_export
 
+// animate the ship along the spline, pulse the teapot highlight, and drive
+// the fire light flicker from one central runtime update.
 game_update_scene_runtime :: (time: float64, camera: *Camera = null) {
     _ = camera;
     if game_scene_runtime.ship_node {
@@ -200,6 +208,8 @@ game_collect_teapot_materials :: (instance_node: *Node) {
     }
 }
 
+// collect every material under the teapot hierarchy so the highlight toggle
+// works whether the mesh comes from a direct model or nested submeshes.
 game_collect_teapot_materials_recursive :: (node: *Node) {
     if !node then return;
 
@@ -222,6 +232,8 @@ game_collect_teapot_materials_recursive :: (node: *Node) {
     }
 }
 
+// bind the authored ship by runtime id first and authored scene id second so
+// scene reloads keep working without name-based guessing.
 game_bind_ship_small :: (scene: *Scene) {
     if !scene || !scene.root then return;
 
@@ -280,6 +292,8 @@ game_bind_fire :: (scene: *Scene) {
     game_scene_runtime.fire_light = node_get_component(fire_light_node, Light_Component);
 }
 
+// sample a closed Catmull-Rom loop and return both position and tangent so
+// the ship can move and face along the path.
 game_sample_ship_path :: (time: float64) -> Vector3, Vector3 {
     points := SHIP_PATH_CONTROL_POINTS;
     segment_count := points.count;

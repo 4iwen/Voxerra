@@ -1,3 +1,7 @@
+// File:        project.jai
+// Author:      Lukáš Bien
+// Description: Loads project configuration and exposes validated project descriptor data.
+
 #scope_file
 
 #import "Basic";

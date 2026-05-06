@@ -1,3 +1,8 @@
+// File:        transform.jai
+// Author:      Lukáš Bien
+// Description: Defines transform math helpers for matrices, quaternions,
+//              and local/world conversion.
+
 #scope_file
 
 #import "Basic";

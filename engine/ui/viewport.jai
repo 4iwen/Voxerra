@@ -1,3 +1,7 @@
+// File:        viewport.jai
+// Author:      Lukáš Bien
+// Description: Draws the editor viewport window and coordinates viewport interaction state.
+
 #scope_file
 
 #import "Basic";

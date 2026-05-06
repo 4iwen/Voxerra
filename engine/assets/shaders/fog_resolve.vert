@@ -1,3 +1,7 @@
+// File:        fog_resolve.vert
+// Author:      Lukáš Bien
+// Description: Generates a fullscreen triangle for the fog resolve pass.
+
 #version 330 core
 
 out vec2 v_uv;

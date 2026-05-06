@@ -30,4 +30,8 @@
 - When dragging gizmos out of viewport they stop affecting the thing thats being edited
 - Creating a scene in a folder that does not exist causes an error
 - Fix unidentified crash when entering a folder in the asset browser
-- Sprites do not affect dirty flag on scenes
+- Sprite components do not affect dirty flag on scenes
+
+## TODO!!!
+- Binaries Windows+Linux+MacOS
+- Send zipped docs to teacher

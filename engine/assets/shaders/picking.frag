@@ -1,3 +1,7 @@
+// File:        picking.frag
+// Author:      Lukáš Bien
+// Description: Writes object IDs for the editor picking framebuffer.
+
 #version 330 core
 
 in vec2 v_uv;
@@ -10,6 +14,8 @@ uniform int u_object_id;
 
 layout(location = 0) out uint out_object_id;
 
+// mirror alpha-scissor rejection from the visual pass so invisible pixels do
+// not become selectable in the picking buffer.
 void main() {
     if (u_use_alpha_test != 0) {
         float alpha = texture(u_diffuse, v_uv).a * u_material_alpha;

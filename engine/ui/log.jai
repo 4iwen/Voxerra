@@ -1,3 +1,7 @@
+// File:        log.jai
+// Author:      Lukáš Bien
+// Description: Draws the editor log window from captured engine log messages.
+
 #scope_export
 
 #import "Basic";

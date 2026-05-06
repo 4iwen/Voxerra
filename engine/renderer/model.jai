@@ -1,3 +1,7 @@
+// File:        model.jai
+// Author:      Lukáš Bien
+// Description: Imports models through Assimp and builds engine mesh and material resources.
+
 #scope_file
 
 #import "Basic";
@@ -469,6 +473,8 @@ load_texture_from_material :: (
 }
 
 // walk nodes
+// accumulate Assimp node transforms while traversing so imported meshes land
+// in the same baked space the scene expects.
 process_node :: (
     node: *aiNode,
     scene: *aiScene,
@@ -519,6 +525,8 @@ process_node :: (
     }
 }
 
+// normals need the inverse-transpose path because the imported node transform
+// may include non-uniform scaling.
 build_mesh_from_ai_mesh :: (
     ai_mesh: *aiMesh,
     transform: Matrix4

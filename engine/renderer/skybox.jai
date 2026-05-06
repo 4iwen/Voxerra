@@ -1,3 +1,7 @@
+// File:        skybox.jai
+// Author:      Lukáš Bien
+// Description: Initializes and draws the scene skybox with optional fog integration.
+
 #scope_export
 
 Skybox :: struct {

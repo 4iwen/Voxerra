@@ -1,3 +1,7 @@
+// File:        material.jai
+// Author:      Lukáš Bien
+// Description: Defines material data and material override state used during rendering.
+
 #scope_file
 
 #import "Basic";

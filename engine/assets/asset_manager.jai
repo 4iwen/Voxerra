@@ -1,3 +1,8 @@
+// File:        asset_manager.jai
+// Author:      Lukáš Bien
+// Description: Manages asset loading, caching, metadata, and hot-reload
+//              integration for engine resources.
+
 #scope_file
 
 #import "Basic";
@@ -351,6 +356,8 @@ asset_manager_ensure_metadata :: (
     return metadata;
 }
 
+// cache textures by absolute path plus texture spec so editor and runtime
+// can reuse GPU resources safely.
 asset_manager_load_texture :: (
     path: string,
     spec := DEFAULT_TEXTURE_SPEC,
@@ -758,6 +765,8 @@ asset_type_from_path :: (path: string) -> Asset_Type {
 
 #scope_file
 
+// walk each hot-reload table explicitly so only asset types that opted in
+// get rebuilt from watcher changes.
 file_change_callback :: (
     watcher: *File_Watcher(void),
     change: *File_Change,

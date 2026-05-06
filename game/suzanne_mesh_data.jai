@@ -1,3 +1,7 @@
+// File:        suzanne_mesh_data.jai
+// Author:      Lukáš Bien
+// Description: Stores generated Suzanne mesh vertex and index data for runtime use.
+
 #scope_file
 
 SUZANNE_VERTEX_COUNT :: 11808;
