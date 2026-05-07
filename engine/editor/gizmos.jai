@@ -107,20 +107,43 @@ editor_gizmo_draw :: () {
     ImGuizmo_Enable(allow_gizmo_input);
 
     rotate_snap_radians := editor_gizmo_state.rotate_snap_degrees * (PI / 180.0);
-    changed := editor_imguizmo_manipulate_trs(
-        view,
-        projection,
-        parent_world,
-        *selected_node.local.position,
-        *selected_node.local.rotation,
-        *selected_node.local.scale,
-        editor_gizmo_state.operation,
-        editor_gizmo_state.space,
-        editor_gizmo_state.move_snap,
-        rotate_snap_radians,
-        editor_gizmo_state.scale_snap,
-        editor_gizmo_state.snap_enabled
-    );
+    changed := false;
+
+    if editor_curve_has_selected_point() {
+        curve_point := editor_curve_get_selected_point();
+        point_rotation := Quaternion.{0.0, 0.0, 0.0, 1.0};
+        point_scale := Vector3.{1.0, 1.0, 1.0};
+
+        changed = editor_imguizmo_manipulate_trs(
+            view,
+            projection,
+            selected_node.world_matrix,
+            curve_point,
+            *point_rotation,
+            *point_scale,
+            .TRANSLATE,
+            .WORLD,
+            editor_gizmo_state.move_snap,
+            rotate_snap_radians,
+            editor_gizmo_state.scale_snap,
+            editor_gizmo_state.snap_enabled
+        );
+    } else {
+        changed = editor_imguizmo_manipulate_trs(
+            view,
+            projection,
+            parent_world,
+            *selected_node.local.position,
+            *selected_node.local.rotation,
+            *selected_node.local.scale,
+            editor_gizmo_state.operation,
+            editor_gizmo_state.space,
+            editor_gizmo_state.move_snap,
+            rotate_snap_radians,
+            editor_gizmo_state.scale_snap,
+            editor_gizmo_state.snap_enabled
+        );
+    }
 
     if allow_gizmo_input {
         editor_gizmo_state.is_over = ImGuizmo_IsOver();
@@ -129,7 +152,9 @@ editor_gizmo_draw :: () {
 
     if changed {
         scene_update_transforms(scene);
-        ui_reset_rotation_state(selected_node.local.rotation);
+        if !editor_curve_has_selected_point() {
+            ui_reset_rotation_state(selected_node.local.rotation);
+        }
         editor_mark_current_scene_dirty();
     }
 }

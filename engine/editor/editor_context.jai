@@ -67,6 +67,7 @@ editor_context_init :: (project: Project_Descriptor) {
     editor_context.pending_close_tab_index = -1;
     editor_context.project_asset_root = copy_string(project.asset_root);
     editor_context.render_mode = .LIT;
+    editor_curve_init();
 }
 
 editor_context_shutdown :: () {
@@ -81,6 +82,7 @@ editor_context_shutdown :: () {
     editor_context.pending_close_tab_index = -1;
     selected_node = null;
     engine_state.current_scene = null;
+    editor_curve_shutdown();
 }
 
 editor_create_scene_tab :: (path: string) -> bool {
@@ -192,6 +194,7 @@ editor_set_active_scene_tab :: (index: s32, request_ui_selection := true) {
     scene_apply_environment_settings(tab.scene);
 
     selected_node = editor_resolve_selection(tab);
+    editor_curve_on_node_selected(selected_node);
     if selected_node {
         ui_reset_rotation_state(selected_node.local.rotation);
     }
@@ -684,6 +687,7 @@ editor_close_scene_tab :: (index: s32) {
 
 editor_select_node :: (node: *Node) {
     selected_node = node;
+    editor_curve_on_node_selected(node);
 
     if editor_is_playing() {
         if node {
@@ -711,6 +715,7 @@ editor_validate_selection :: () {
         scene := engine_state.current_scene;
         if !scene {
             selected_node = null;
+            editor_curve_on_node_selected(null);
             return;
         }
 
@@ -719,12 +724,14 @@ editor_validate_selection :: () {
         }
 
         selected_node = null;
+        editor_curve_on_node_selected(null);
         return;
     }
 
     tab := editor_get_active_tab();
     if !tab {
         selected_node = null;
+        editor_curve_on_node_selected(null);
         return;
     }
 
@@ -733,6 +740,7 @@ editor_validate_selection :: () {
     }
 
     selected_node = editor_resolve_selection(tab);
+    editor_curve_on_node_selected(selected_node);
 }
 
 editor_refresh_scene_instances_for_tab :: (target_index: s32) {

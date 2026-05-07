@@ -197,7 +197,6 @@ write_log_prefix :: (
 }
 
 colored_logger :: (message: string, data: *void, info: Log_Info) {
-    _ = data;
     severity := log_info_to_severity(info);
     host_log_write(.ENGINE, severity, message);
 }

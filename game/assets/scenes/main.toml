@@ -492,6 +492,29 @@ type = "model"
 model = "game/assets/models/kenney_pirate-kit/Models/GLB format/ship-small.glb"
 model_guid = "1c7d481b8f8b9584"
 
+[[nodes.components]]
+type = "curve_follower"
+enabled = true
+curve = "ship_path"
+speed = 0.025
+loop = true
+start_offset = 0
+orientation = "y_axis"
+yaw_offset = 0
+
+[[nodes]]
+id = "ship_path"
+name = "Ship Path"
+parent = "root"
+position = [0, 0, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "curve"
+closed = true
+points = [[-15.822819, -0.857285, -4.020668], [-22, -0.857285, -10], [-31, -0.857285, -4], [-30, -0.857285, 7.5], [-21, -0.857285, 13.5], [-13, -0.857285, 6]]
+
 [[nodes]]
 id = "utah_teapot.obj"
 name = "Utah teapotter"

@@ -162,6 +162,36 @@ Camera_Component :: struct @Component {
     camera: Camera; @Inline
 }
 
+Curve_Component :: struct @Component {
+    #as using base: Component;
+    base.type = Curve_Component;
+
+    closed: bool;
+    points: [..] Vector3; @Hidden
+}
+
+Curve_Follower_Orientation :: enum {
+    NONE;
+    Y_AXIS;
+    FULL;
+}
+
+Curve_Follower_Component :: struct @Component {
+    #as using base: Component;
+    base.type = Curve_Follower_Component;
+
+    enabled: bool = true;
+    curve_node_scene_id: string; @Hidden
+    curve_node_runtime_id: u64; @Hidden
+    speed: float = 0.025; @"Speed(0.001)"
+    loop: bool = true;
+    start_offset: float; @"Range(0, 1)" @"Speed(0.01)"
+    orientation: Curve_Follower_Orientation = .Y_AXIS;
+    yaw_offset: float; @"Speed(0.01)"
+
+    progress: float64; @Hidden
+}
+
 Sprite_Pivot :: enum {
     TOP_LEFT;
     TOP_CENTER;
@@ -273,6 +303,29 @@ component_clone :: (
         return cast(*Component) clone;
     }
 
+    if component.type == Curve_Component {
+        source := cast(*Curve_Component) component;
+        clone := node_add_component(node, Curve_Component);
+        clone.closed = source.closed;
+        for source.points {
+            array_add(*clone.points, it);
+        }
+        return cast(*Component) clone;
+    }
+
+    if component.type == Curve_Follower_Component {
+        source := cast(*Curve_Follower_Component) component;
+        clone := node_add_component(node, Curve_Follower_Component);
+        clone.enabled = source.enabled;
+        clone.curve_node_scene_id = copy_string(source.curve_node_scene_id);
+        clone.speed = source.speed;
+        clone.loop = source.loop;
+        clone.start_offset = source.start_offset;
+        clone.orientation = source.orientation;
+        clone.yaw_offset = source.yaw_offset;
+        return cast(*Component) clone;
+    }
+
     if component.type == Sprite_Component {
         source := cast(*Sprite_Component) component;
         clone := node_add_component(node, Sprite_Component);
@@ -352,6 +405,12 @@ component_destroy :: (component: *Component) {
         free(source.texture_path);
         free(source.texture_guid);
         free(source.texture_filter);
+    } else if component.type == Curve_Component {
+        source := cast(*Curve_Component) component;
+        array_free(source.points);
+    } else if component.type == Curve_Follower_Component {
+        source := cast(*Curve_Follower_Component) component;
+        free(source.curve_node_scene_id);
     }
 
     free(component);
@@ -371,4 +430,51 @@ node_get_sprite_component :: (node: *Node) -> *Sprite_Component {
 node_get_animated_sprite_component :: (node: *Node) -> *Animated_Sprite_Component {
     if !node then return null;
     return node_get_component(node, Animated_Sprite_Component);
+}
+
+curve_component_add_point :: (curve: *Curve_Component, point: Vector3) -> s32 {
+    if !curve then return -1;
+    array_add(*curve.points, point);
+    return cast(s32) curve.points.count - 1;
+}
+
+curve_component_insert_point :: (curve: *Curve_Component, index: s32, point: Vector3) -> s32 {
+    if !curve then return -1;
+
+    insert_index := clamp(index, 0, cast(s32) curve.points.count);
+    array_insert_at(*curve.points, point, insert_index);
+    return insert_index;
+}
+
+curve_component_remove_point :: (curve: *Curve_Component, index: s32) -> bool {
+    if !curve then return false;
+    if index < 0 || index >= cast(s32) curve.points.count then return false;
+
+    array_ordered_remove_by_index(*curve.points, index);
+    return true;
+}
+
+// move points through remove+insert so the serialized order always matches
+// what the inspector shows.
+curve_component_move_point :: (curve: *Curve_Component, index: s32, offset: s32) -> s32 {
+    if !curve then return -1;
+    if index < 0 || index >= cast(s32) curve.points.count then return -1;
+
+    new_index := clamp(index + offset, 0, cast(s32) curve.points.count - 1);
+    if new_index == index then return index;
+
+    point := curve.points[index];
+    array_ordered_remove_by_index(*curve.points, index);
+    array_insert_at(*curve.points, point, new_index);
+    return new_index;
+}
+
+node_get_curve_component :: (node: *Node) -> *Curve_Component {
+    if !node then return null;
+    return node_get_component(node, Curve_Component);
+}
+
+node_get_curve_follower_component :: (node: *Node) -> *Curve_Follower_Component {
+    if !node then return null;
+    return node_get_component(node, Curve_Follower_Component);
 }

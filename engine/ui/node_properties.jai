@@ -184,6 +184,10 @@ ui_draw_component :: (component: *Component) -> bool {
             ui_draw_struct_fields(cast(*void) component, struct_info, true);
             if component.type == Model_Component {
                 draw_model_component_materials(cast(*Model_Component) component);
+            } else if component.type == Curve_Component {
+                draw_curve_component_controls(cast(*Curve_Component) component);
+            } else if component.type == Curve_Follower_Component {
+                draw_curve_follower_component_controls(cast(*Curve_Follower_Component) component);
             }
             EndTable();
         }
@@ -217,6 +221,16 @@ should_skip_field :: (struct_info: *Type_Info_Struct, member: Type_Info_Struct_M
         if member.name == "model_resource" then return true;
         if member.name == "model_local_matrix" then return true;
         if member.name == "material_overrides" then return true;
+    }
+    if struct_info.name == "Curve_Component" {
+        if member.name == "base" then return true;
+        if member.name == "points" then return true;
+    }
+    if struct_info.name == "Curve_Follower_Component" {
+        if member.name == "base" then return true;
+        if member.name == "curve_node_scene_id" then return true;
+        if member.name == "curve_node_runtime_id" then return true;
+        if member.name == "progress" then return true;
     }
     if struct_info.name == "Sprite_Component" {
         if member.name == "component" then return true;
@@ -310,6 +324,162 @@ draw_sprite_texture_field :: (sprite: *Sprite_Component) {
         if editor_set_sprite_texture(sprite, dropped_asset.path) {
             editor_mark_current_scene_dirty();
         }
+    }
+}
+
+draw_curve_component_controls :: (curve: *Curve_Component) {
+    if !curve then return;
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Points");
+    TableNextColumn();
+    TextDisabled(tprint("% point(s)", curve.points.count));
+
+    TableNextRow();
+    TableNextColumn();
+    TableNextColumn();
+    if Button(UI_Icon_Label(ICON_FA_PLUS, "Append Point"), ImVec2.{-1, 22}) {
+        new_point := Vector3.{0.0, 0.0, 0.0};
+        if curve.points.count > 0 {
+            new_point = curve.points[curve.points.count - 1] + Vector3.{1.0, 0.0, 0.0};
+        }
+        index := curve_component_add_point(curve, new_point);
+        editor_curve_select_point(index);
+        editor_mark_current_scene_dirty();
+    }
+
+    if curve.points.count == 0 then return;
+
+    selected_index := editor_curve_state.selected_point_index;
+    if selected_index < 0 || selected_index >= cast(s32) curve.points.count {
+        selected_index = 0;
+        editor_curve_select_point(selected_index);
+    }
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Point List");
+    TableNextColumn();
+    BeginGroup();
+    for curve.points {
+        point_index := cast(s32) it_index;
+        if Selectable(temp_c_string(tprint("Point %###curve_point_%", point_index, point_index)),
+            selected = point_index == selected_index) {
+            editor_curve_select_point(point_index);
+        }
+    }
+    EndGroup();
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Selected Point");
+    TableNextColumn();
+    PushItemWidth(-1);
+    point := editor_curve_get_selected_point(curve);
+    if point && DragFloat3("##curve_selected_point", *point.component, 0.05, -100000.0, 100000.0) {
+        editor_mark_current_scene_dirty();
+    }
+    PopItemWidth();
+
+    TableNextRow();
+    TableNextColumn();
+    TableNextColumn();
+    if Button(UI_Icon_Label(ICON_FA_PLUS, "Insert After"), ImVec2.{-1, 22}) {
+        base_point := curve.points[selected_index];
+        inserted_index := curve_component_insert_point(
+            curve,
+            selected_index + 1,
+            base_point + Vector3.{1.0, 0.0, 0.0}
+        );
+        editor_curve_select_point(inserted_index);
+        editor_mark_current_scene_dirty();
+    }
+
+    TableNextRow();
+    TableNextColumn();
+    TableNextColumn();
+    if Button(UI_Icon_Label(ICON_FA_ARROW_UP, "Move Up"), ImVec2.{-1, 22}) {
+        editor_curve_select_point(curve_component_move_point(curve, selected_index, -1));
+        editor_mark_current_scene_dirty();
+    }
+
+    TableNextRow();
+    TableNextColumn();
+    TableNextColumn();
+    if Button(UI_Icon_Label(ICON_FA_ARROW_DOWN, "Move Down"), ImVec2.{-1, 22}) {
+        editor_curve_select_point(curve_component_move_point(curve, selected_index, 1));
+        editor_mark_current_scene_dirty();
+    }
+
+    TableNextRow();
+    TableNextColumn();
+    TableNextColumn();
+    if Button(UI_Icon_Label(ICON_FA_TRASH, "Remove Point"), ImVec2.{-1, 22}) {
+        if curve_component_remove_point(curve, selected_index) {
+            new_selected := min(selected_index, cast(s32) curve.points.count - 1);
+            if curve.points.count == 0 {
+                editor_curve_clear_point_selection();
+            } else {
+                editor_curve_select_point(new_selected);
+            }
+            editor_mark_current_scene_dirty();
+        }
+    }
+}
+
+draw_curve_follower_component_controls :: (follower: *Curve_Follower_Component) {
+    if !follower then return;
+
+    scene := engine_state.current_scene;
+    current_label := "None";
+    if follower.curve_node_scene_id {
+        current_label = follower.curve_node_scene_id;
+    }
+
+    TableNextRow();
+    TableNextColumn();
+    AlignTextToFramePadding();
+    Text("Curve");
+    TableNextColumn();
+    if BeginCombo("##curve_follower_curve", temp_c_string(current_label)) {
+        selected := !follower.curve_node_scene_id;
+        if Selectable("None", selected) {
+            free(follower.curve_node_scene_id);
+            follower.curve_node_scene_id = copy_string("");
+            follower.curve_node_runtime_id = 0;
+            follower.progress = 0.0;
+            editor_mark_current_scene_dirty();
+        }
+
+        if scene && scene.root {
+            draw_curve_follower_curve_options(scene.root, follower);
+        }
+        EndCombo();
+    }
+}
+
+draw_curve_follower_curve_options :: (node: *Node, follower: *Curve_Follower_Component) {
+    if !node || !follower then return;
+
+    curve := node_get_curve_component(node);
+    if curve && node.scene_id {
+        selected := follower.curve_node_scene_id == node.scene_id;
+        label := temp_c_string(tprint("%###curve_target_%", node.scene_id, node.runtime_id));
+        if Selectable(label, selected) {
+            free(follower.curve_node_scene_id);
+            follower.curve_node_scene_id = copy_string(node.scene_id);
+            follower.curve_node_runtime_id = node.runtime_id;
+            follower.progress = 0.0;
+            editor_mark_current_scene_dirty();
+        }
+    }
+
+    for node.children {
+        draw_curve_follower_curve_options(it, follower);
     }
 }
 

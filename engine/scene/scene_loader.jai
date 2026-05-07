@@ -512,6 +512,33 @@ scene_write_component :: (builder: *String_Builder, component: *Component) {
         return;
     }
 
+    if component.type == Curve_Component {
+        curve_component := cast(*Curve_Component) component;
+        print_to_builder(builder, "\n[[nodes.components]]\n");
+        print_to_builder(builder, "type = \"curve\"\n");
+        print_to_builder(builder, "closed = %\n", curve_component.closed);
+        scene_write_curve_points(builder, curve_component);
+        return;
+    }
+
+    if component.type == Curve_Follower_Component {
+        follower := cast(*Curve_Follower_Component) component;
+        print_to_builder(builder, "\n[[nodes.components]]\n");
+        print_to_builder(builder, "type = \"curve_follower\"\n");
+        print_to_builder(builder, "enabled = %\n", follower.enabled);
+        print_to_builder(builder, "curve = ");
+        scene_write_string(builder, follower.curve_node_scene_id);
+        print_to_builder(builder, "\n");
+        print_to_builder(builder, "speed = %\n", follower.speed);
+        print_to_builder(builder, "loop = %\n", follower.loop);
+        print_to_builder(builder, "start_offset = %\n", follower.start_offset);
+        print_to_builder(builder, "orientation = ");
+        scene_write_string(builder, scene_curve_follower_orientation_to_string(follower.orientation));
+        print_to_builder(builder, "\n");
+        print_to_builder(builder, "yaw_offset = %\n", follower.yaw_offset);
+        return;
+    }
+
     if component.type == Animated_Sprite_Component {
         animated_sprite := cast(*Animated_Sprite_Component) component;
         scene_write_sprite_base(builder, cast(*Sprite_Component) animated_sprite, "animated_sprite");
@@ -675,10 +702,29 @@ scene_write_model_material_overrides :: (
     }
 }
 
+scene_write_curve_points :: (builder: *String_Builder, curve_component: *Curve_Component) {
+    if !curve_component then return;
+
+    print_to_builder(builder, "points = [");
+    for curve_component.points {
+        if it_index > 0 {
+            print_to_builder(builder, ", ");
+        }
+        print_to_builder(builder, "[%, %, %]", it.x, it.y, it.z);
+    }
+    print_to_builder(builder, "]\n");
+}
+
 scene_light_type_to_string :: (value: Light_Type) -> string {
     if value == .Directional then return "directional";
     if value == .Spot then return "spot";
     return "point";
+}
+
+scene_curve_follower_orientation_to_string :: (value: Curve_Follower_Orientation) -> string {
+    if value == .NONE then return "none";
+    if value == .FULL then return "full";
+    return "y_axis";
 }
 
 scene_sprite_pivot_to_string :: (value: Sprite_Pivot) -> string {
@@ -766,6 +812,27 @@ scene_load_component :: (scene: *Scene, node: *Node, component_value: Toml.Value
             scene_load_model_material_overrides(model_component, component_value);
         }
         return ok;
+    }
+
+    if component_type == "curve" {
+        curve_component := node_add_component(node, Curve_Component);
+        curve_component.closed = scene_toml_get_bool(component_value, "closed", false);
+        scene_load_curve_points(curve_component, component_value);
+        return true;
+    }
+
+    if component_type == "curve_follower" {
+        follower := node_add_component(node, Curve_Follower_Component);
+        follower.enabled = scene_toml_get_bool(component_value, "enabled", follower.enabled);
+        follower.curve_node_scene_id = copy_string(scene_toml_get_string(component_value, "curve", ""));
+        follower.speed = scene_toml_get_float(component_value, "speed", follower.speed);
+        follower.loop = scene_toml_get_bool(component_value, "loop", follower.loop);
+        follower.start_offset = scene_toml_get_float(component_value, "start_offset", follower.start_offset);
+        follower.orientation = scene_parse_curve_follower_orientation(
+            scene_toml_get_string(component_value, "orientation", "y_axis")
+        );
+        follower.yaw_offset = scene_toml_get_float(component_value, "yaw_offset", follower.yaw_offset);
+        return true;
     }
 
     log_error("Unknown scene component type: %", component_type);
@@ -874,6 +941,33 @@ scene_load_model_material_overrides :: (
         );
         override.double_sided = scene_toml_get_bool(material_value, "double_sided", override.double_sided);
     }
+}
+
+scene_load_curve_points :: (curve_component: *Curve_Component, component_value: Toml.Value) {
+    if !curve_component then return;
+
+    found, points_value := scene_toml_find(component_value, "points");
+    if !found || points_value.kind != .ARRAY then return;
+
+    for point_value: points_value.array {
+        if point_value.kind != .ARRAY || point_value.array.count < 3 {
+            log_warning("Skipping malformed curve point");
+            continue;
+        }
+
+        point := Vector3.{
+            scene_toml_number(point_value.array[0], 0.0),
+            scene_toml_number(point_value.array[1], 0.0),
+            scene_toml_number(point_value.array[2], 0.0),
+        };
+        array_add(*curve_component.points, point);
+    }
+}
+
+scene_parse_curve_follower_orientation :: (value: string) -> Curve_Follower_Orientation {
+    if value == "none" then return .NONE;
+    if value == "full" then return .FULL;
+    return .Y_AXIS;
 }
 
 scene_load_material_override_texture :: (

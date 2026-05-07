@@ -85,6 +85,7 @@ viewport_draw :: () {
                     }
                 }
 
+                editor_curve_draw_viewport_overlay();
                 editor_gizmo_draw();
             }
         }

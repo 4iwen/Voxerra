@@ -9,17 +9,6 @@
 
 #scope_export
 
-SHIP_PATH_CONTROL_POINTS : [6] Vector3 : .[
-    Vector3.{-15.822819, -0.857285, -4.020668},
-    Vector3.{-22.0, -0.857285, -10.0},
-    Vector3.{-31.0, -0.857285, -4.0},
-    Vector3.{-30.0, -0.857285, 7.5},
-    Vector3.{-21.0, -0.857285, 13.5},
-    Vector3.{-13.0, -0.857285, 6.0}
-];
-
-SHIP_PATH_SPEED :: 0.025;
-SHIP_FORWARD_YAW_OFFSET :: 0.0;
 SHIP_SCENE_ID :: "ship-small.glb";
 TEAPOT_SCENE_ID :: "utah_teapot.obj";
 SUZANNE_SCENE_ID :: "suzanne";
@@ -31,8 +20,9 @@ Game_Scene_Runtime :: struct {
 
     ship_node: *Node;
     ship_node_runtime_id: u64;
-    ship_animation_enabled: bool = true;
+    ship_follower: *Curve_Follower_Component;
     ship_missing_warned: bool;
+    ship_follower_missing_warned: bool;
 
     teapot_node: *Node;
     teapot_node_runtime_id: u64;
@@ -70,7 +60,6 @@ game_rebind_default_scene_runtime :: (scene: *Scene) {
     game_scene_runtime.teapot_node_runtime_id = teapot_node_runtime_id;
     game_scene_runtime.fire_node_runtime_id = fire_node_runtime_id;
     game_scene_runtime.fire_light_node_runtime_id = fire_light_node_runtime_id;
-    game_scene_runtime.ship_animation_enabled = true;
 
     if !node_find_by_scene_id(scene.root, SUZANNE_SCENE_ID) {
         game_create_hardcoded_suzanne(scene);
@@ -110,21 +99,9 @@ game_create_hardcoded_suzanne :: (scene: *Scene) {
 
 #scope_export
 
-// animate the ship along the spline, pulse the teapot highlight, and drive
-// the fire light flicker from one central runtime update.
+// keep the remaining demo-specific visual reactions in one place while
+// movement itself is handled by engine components.
 game_update_scene_runtime :: (time: float64, camera: *Camera = null) {
-    _ = camera;
-    if game_scene_runtime.ship_node {
-        ship_position, ship_forward := game_sample_ship_path(time);
-        if game_scene_runtime.ship_animation_enabled {
-            game_scene_runtime.ship_node.local.position = ship_position;
-            yaw := atan2(ship_forward.x, ship_forward.z);
-            game_scene_runtime.ship_node.local.rotation = quaternion_from_euler_xyz(
-                .{0.0, yaw + SHIP_FORWARD_YAW_OFFSET, 0.0}
-            );
-        }
-    }
-
     if game_scene_runtime.teapot_materials.count > 0 {
         teapot_tint := Vector3.{1.0, 1.0, 1.0};
         if game_scene_runtime.teapot_highlight_enabled {
@@ -162,7 +139,9 @@ game_toggle_picked_node :: (node: *Node) {
     }
 
     if node == game_scene_runtime.ship_node || game_node_is_descendant_of(node, game_scene_runtime.ship_node) {
-        game_scene_runtime.ship_animation_enabled = !game_scene_runtime.ship_animation_enabled;
+        if game_scene_runtime.ship_follower {
+            game_scene_runtime.ship_follower.enabled = !game_scene_runtime.ship_follower.enabled;
+        }
         return;
     }
 
@@ -245,11 +224,19 @@ game_bind_ship_small :: (scene: *Scene) {
 
     if game_scene_runtime.ship_node {
         game_scene_runtime.ship_node_runtime_id = game_scene_runtime.ship_node.runtime_id;
+        game_scene_runtime.ship_follower = node_get_component(
+            game_scene_runtime.ship_node,
+            Curve_Follower_Component
+        );
+        if !game_scene_runtime.ship_follower && !game_scene_runtime.ship_follower_missing_warned {
+            log_warning("Ship Small is missing Curve_Follower_Component");
+            game_scene_runtime.ship_follower_missing_warned = true;
+        }
         return;
     }
 
     if !game_scene_runtime.ship_missing_warned {
-        log_warning("Ship Small node not found in scene graph; spline animation is disabled");
+        log_warning("Ship Small node not found in scene graph");
         game_scene_runtime.ship_missing_warned = true;
     }
 }
@@ -290,58 +277,6 @@ game_bind_fire :: (scene: *Scene) {
         game_scene_runtime.fire_light_node_runtime_id = fire_light_node.runtime_id;
     }
     game_scene_runtime.fire_light = node_get_component(fire_light_node, Light_Component);
-}
-
-// sample a closed Catmull-Rom loop and return both position and tangent so
-// the ship can move and face along the path.
-game_sample_ship_path :: (time: float64) -> Vector3, Vector3 {
-    points := SHIP_PATH_CONTROL_POINTS;
-    segment_count := points.count;
-    path_time := time * SHIP_PATH_SPEED;
-    segment_float := path_time * cast(float64) segment_count;
-    segment_index := cast(s32) floor(segment_float);
-    local_t := cast(float) (segment_float - cast(float64) segment_index);
-
-    p0 := points[(segment_index - 1 + segment_count) % segment_count];
-    p1 := points[segment_index % segment_count];
-    p2 := points[(segment_index + 1) % segment_count];
-    p3 := points[(segment_index + 2) % segment_count];
-
-    position := game_catmull_rom_position(p0, p1, p2, p3, local_t);
-    tangent := normalize(game_catmull_rom_tangent(p0, p1, p2, p3, local_t));
-    return position, tangent;
-}
-
-game_catmull_rom_position :: (
-    p0: Vector3,
-    p1: Vector3,
-    p2: Vector3,
-    p3: Vector3,
-    t: float
-) -> Vector3 {
-    t2 := t * t;
-    t3 := t2 * t;
-    return 0.5 * (
-        (2.0 * p1) +
-        (-p0 + p2) * t +
-        (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 +
-        (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3
-    );
-}
-
-game_catmull_rom_tangent :: (
-    p0: Vector3,
-    p1: Vector3,
-    p2: Vector3,
-    p3: Vector3,
-    t: float
-) -> Vector3 {
-    t2 := t * t;
-    return 0.5 * (
-        (-p0 + p2) +
-        (4.0 * p0 - 10.0 * p1 + 8.0 * p2 - 2.0 * p3) * t +
-        (-3.0 * p0 + 9.0 * p1 - 9.0 * p2 + 3.0 * p3) * t2
-    );
 }
 
 game_node_is_descendant_of :: (node: *Node, ancestor: *Node) -> bool {

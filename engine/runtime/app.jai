@@ -250,6 +250,7 @@ editor_play :: () {
         runtime_state.editor_play_mode = .PLAYING;
         runtime_state.game_module.game_init();
         selected_node = engine_state.current_scene.root;
+        editor_curve_on_node_selected(selected_node);
     }
 }
 
@@ -401,6 +402,14 @@ app_render_scene :: () {
 
     renderer_begin_frame(render_environment.clear_color);
 
+    scene_update_transforms(scene);
+    follower_delta_time := engine_get_delta_time();
+    #if BUILD_MODE == .EDITOR {
+        if !editor_is_playing() {
+            follower_delta_time = 0.0;
+        }
+    }
+    scene_update_curve_followers(scene, follower_delta_time);
     scene_update_transforms(scene);
     scene_update_cameras(scene);
     sprite_delta_time := engine_get_delta_time();

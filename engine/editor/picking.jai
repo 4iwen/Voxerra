@@ -136,6 +136,10 @@ editor_handle_viewport_selection :: () {
         return;
     }
 
+    if editor_curve_handle_viewport_selection() {
+        return;
+    }
+
     framebuffer := editor_picking_state.framebuffer;
     if !framebuffer || ui_state.viewport_size.x <= 0 || ui_state.viewport_size.y <= 0 {
         return;

@@ -16,6 +16,7 @@
 #load "math/math.jai";
 #load "math/noise.jai";
 #load "math/transform.jai";
+#load "math/curve.jai";
 
 // render
 #load "renderer/renderer.jai";
@@ -49,6 +50,7 @@
     #load "editor/editor_context.jai";
     #load "editor/editor_camera.jai";
     #load "editor/picking.jai";
+    #load "editor/curve_editor.jai";
     #load "editor/gizmos.jai";
 }
 
