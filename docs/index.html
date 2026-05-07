@@ -78,11 +78,14 @@
     ve scéně a volitelné komponenty.
    </p>
    <p>
-    Komponenty zahrnují kameru, různé typy světel, model, sprite a animovaný
-    sprite. Model component načítá modelové assety a umí přepisovat materiály
-    jednotlivých submeshů. Sprite component podporuje texturu, velikost,
-    průhlednost, pivoty a billboard režimy. Scény jsou ukládané jako čitelný
-    TOML soubor, aby šly upravovat ručně i přes editor.
+    Komponenty zahrnují kameru, různé typy světel, model, sprite, animovaný
+    sprite, curve a curve follower. Model component načítá modelové assety a umí
+    přepisovat materiály jednotlivých submeshů. Sprite component podporuje
+    texturu, velikost, průhlednost, pivoty a billboard režimy. Curve component
+    ukládá lokální Catmull-Rom řídicí body a umí reprezentovat otevřenou i
+    uzavřenou křivku. Curve follower component dovoluje navázat libovolný node
+    na vybranou křivku a řídit rychlost, looping a orientaci podél trasy.
+    Scény jsou ukládané jako čitelný TOML soubor, aby šly upravovat ručně i přes editor.
    </p>
 
    <h5>Editor</h5>
@@ -90,9 +93,18 @@
     Editor běží nad stejným enginem a používá ImGui. Obsahuje viewport,
     hierarchii nodů, vlastnosti vybraného nodu, asset browser, log, metriky
     a nastavení prostředí (mlha). Viewport používá vlastní framebuffer a dovoluje
-    vybírat objekty pomocí picking passu. Asset browser je omezený na asset složku 
-    projektu a podporuje přetahování modelů, scén a textur do viewportu, hierarchie i vlastností
-    komponent. Materiály modelu jsou editovatelné přímo pod Model Componentem.
+    vybírat objekty pomocí picking passu. Asset browser je omezený na asset složku
+    projektu a podporuje přetahování modelů, scén a textur do viewportu,
+    hierarchie i vlastností komponent. Materiály modelu jsou editovatelné
+    přímo pod Model Componentem.
+   </p>
+   <p>
+    Editor podporuje i authoring křivek. Curve component lze přidat na node,
+    řídicí body lze vybírat přímo ve viewportu nebo v inspektoru a přesouvat je
+    pomocí stejného gizma jako transformace nodů. Curve follower component
+    dovoluje v inspektoru vybrat cílovou křivku ze scény a nastavit způsob
+    orientace objektu podél trajektorie. Editor zároveň podporuje instancování
+    scén a otevření zdrojové scény instance přes tlačítko Open Source Scene.
    </p>
 
    <h5>Herní modul</h5>
@@ -120,21 +132,24 @@
 
    <h4>Renderer a scéna</h4>
    <p>
-    Renderer používá klasický forward render queue. Neprůhledné objekty se kreslí
-    s depth write zapnutým, průhledné objekty a alpha-blended sprity se řadí
-    zezadu dopředu podle vzdálenosti od kamery a kreslí se bez zápisu do depth
-    bufferu.
+    Renderer používá forward render queue. Neprůhledné objekty se kreslí s depth
+    write zapnutým, potom se vykreslí skybox a následně se podle nastavení prostředí
+    aplikuje fullscreen fog resolve pass. Průhledné objekty a alpha-blended sprity
+    se řadí zezadu dopředu podle vzdálenosti od kamery a kreslí se až nad výsledkem
+    opaque + skybox části bez zápisu do depth bufferu.
    </p>
    <p>
     Osvětlení je založené na per-pixel Blinn-Phong modelu. Je možné měnit ambientní
     složku, přidat směrové světla, bodová světla a reflektory. Prostředí podporuje
-    skybox skrz shader a nastavení mlhy.
+    skybox, fog resolve, picking pass a oddělené renderování transparentních objektů.
    </p>
    <p>
-    Demo scéna je vytvořena z <a href="https://kenney.nl/assets/pirate-kit">Kenney.NL Pirate Kit assetů</a>, importovaného Utah teapotu a
-    animovaného billboard ohně. Suzanne se pohybuje po uzavřené Catmull-Rom spline
-    křivce a při pohybu se natáčí podle směru trasy. Oheň je animovaný sprite sheet
-    s billboardem kolem osy Y a bodovým světlem, jehož intenzita a barva se v čase mění.
+    Demo scéna je vytvořena z <a href="https://kenney.nl/assets/pirate-kit">Kenney.NL Pirate Kit assetů</a>, importovaného Utah teapotu,
+    statické Suzanne a animovaného billboard ohně. Loď <code>ship-small.glb</code>
+    se pohybuje po uzavřené Catmull-Rom křivce přes Curve Follower
+    Component a při pohybu se natáčí podle směru trasy. Oheň je animovaný sprite
+    sheet s billboardem kolem osy Y a bodovým světlem, jehož intenzita a barva se
+    v čase mění.
    </p>
 
    <h4>Ovládání</h4>
@@ -173,6 +188,10 @@
       <td><code class="keyboard">G</code> posun, <code class="keyboard">R</code> rotace, <code class="keyboard">S</code> změna měřítka</td>
      </tr>
      <tr>
+      <td>Úprava curve pointů</td>
+      <td>Vybrat node s Curve Componentem, kliknout na point ve viewportu nebo v inspektoru a přesouvat ho stejným gizmem jako běžný node</td>
+     </tr>
+     <tr>
       <td>Uložení scény</td>
       <td><code class="keyboard">Ctrl</code> + <code class="keyboard">S</code></td>
      </tr>
@@ -200,10 +219,6 @@
       <td>Uvolnění zachycené myši</td>
       <td><code class="keyboard">Esc</code></td>
      </tr>
-     <tr>
-      <td>Interakce s objekty</td>
-      <td>Levé kliknutí ve viewportu: Suzanne zastaví/spustí pohyb po spline, teapot přepne zvýraznění, oheň zastaví/spustí animaci</td>
-     </tr>
     </tbody>
    </table>
 
@@ -213,6 +228,7 @@
     <li>Texturu lze přetáhnout do viewportu jako nový sprite.</li>
     <li>Texturu lze přetáhnout do Sprite Componentu nebo do material override pole v Model Componentu.</li>
     <li>Scénu lze otevřít ve vlastním tabu a instance scény lze otevřít přes tlačítko Open Source Scene.</li>
+    <li>Curve follower lze navázat na curve node výběrem cílové křivky přímo v Node Properties.</li>
    </ul>
 
    <h4>Download</h4>
@@ -221,7 +237,6 @@
    </ul>
    <ul>
     <li><a href="code/windows.zip">Spustitelná verze (Windows)</a></li>
-    <li><a href="code/linux.tgz">Spustitelná verze (Linux)</a></li>
     <li><a href="code/macos.zip">Spustitelná verze (MacOS)</a></li>
    </ul>
 
