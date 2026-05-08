@@ -1,0 +1,678 @@
+version = 1
+name = "Main"
+
+[environment]
+clear_color = [0.08, 0.08, 0.09, 1]
+ambient_color = [0.403922, 0.501961, 0.501961]
+skybox_enabled = true
+fog_resolve_enabled = true
+fog_enabled = true
+fog_color = [0.568627, 0.701961, 0.909804, 1]
+fog_near = 10
+fog_far = 75
+
+[[nodes]]
+id = "free_camera"
+name = "Freecam"
+parent = "root"
+position = [-11.879898, 5, 19.441425]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "camera"
+active = true
+yaw = -60
+pitch = -2
+near = 0.1
+far = 1000
+fov = 50
+
+[[nodes]]
+id = "static_camera_1"
+name = "Camera1"
+parent = "root"
+position = [-10, 8, 25]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "camera"
+active = false
+yaw = -66
+pitch = -10
+near = 0.1
+far = 1000
+fov = 45
+
+[[nodes]]
+id = "static_camera_2"
+name = "Camera2"
+parent = "root"
+position = [2.25, 2, -6.5]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "camera"
+active = false
+yaw = 34
+pitch = 4
+near = 0.1
+far = 1000
+fov = 45
+
+[[nodes]]
+id = "sun"
+name = "Sun"
+parent = "root"
+position = [0, 0, 0]
+rotation = [-1.570799, 0.523599, 0.523599]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "light"
+kind = "directional"
+color = [1, 0.95, 0.9]
+intensity = 0.5
+
+[[nodes]]
+id = "fire"
+name = "Fire"
+parent = "root"
+position = [-5.42338, 1.179664, 0.981875]
+rotation = [0, 0, 0]
+scale = [1.086405, 1.086405, 1.086405]
+
+[[nodes.components]]
+type = "animated_sprite"
+texture = "game/assets/textures/fire_animated.png"
+texture_guid = "60e8a623f397e8f2"
+texture_filter = "nearest"
+tint_color = [1, 0.95, 0.9]
+alpha = 1
+alpha_cutoff = 0.05
+size = [0.75, 1.4]
+pivot = "center"
+custom_pivot_enabled = false
+custom_pivot = [0.5, 0.5]
+billboard_mode = "y_axis"
+transparency = "alpha_blend"
+columns = 8
+rows = 1
+frame_count = 8
+fps = 10
+playing = true
+loop = true
+
+[[nodes]]
+id = "fire_light"
+name = "Fire Light"
+parent = "fire"
+position = [0, -0.54, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "light"
+kind = "point"
+color = [1, 0.42, 0.08]
+intensity = 3
+range = 20
+
+[[nodes]]
+id = "Node"
+name = "Sea"
+parent = "root"
+position = [0, 0, 0]
+rotation = [1.570796, 0, 0]
+scale = [1000, 1000, 1000]
+
+[[nodes.components]]
+type = "sprite"
+texture = ""
+texture_filter = "linear"
+tint_color = [0, 0.7, 1]
+alpha = 1
+alpha_cutoff = 0.1
+size = [1, 1]
+pivot = "center"
+custom_pivot_enabled = false
+custom_pivot = [0.5, 0.5]
+billboard_mode = "none"
+transparency = "alpha_blend"
+
+[[nodes]]
+id = "barrel.glb"
+name = "barrel.glb"
+parent = "root"
+position = [-7.173278, 0.243836, -2.219724]
+rotation = [-0.144055, 0, 0.092174]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/barrel.glb"
+model_guid = "4a6d82f3f5ca1e18"
+
+[[nodes]]
+id = "boat-row-small.glb"
+name = "boat-row-small.glb"
+parent = "root"
+position = [10.935829, 0, 2.304459]
+rotation = [-3.141592, -1.479899, -3.141592]
+scale = [1.09, 1.09, 1.09]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/boat-row-small.glb"
+model_guid = "8704ba1e1a9f1bf7"
+
+[[nodes]]
+id = "bottle.glb"
+name = "bottle.glb"
+parent = "root"
+position = [3.456028, 1.645911, -4.727703]
+rotation = [0, 0, 0]
+scale = [0.53, 0.53, 0.53]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/bottle.glb"
+model_guid = "eae22a601363ca88"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [1, 1, 1]
+specular_color = [1, 1, 1]
+tint_color = [1, 1, 1]
+shininess = 32
+alpha = 0.8
+alpha_cutoff = 0.5
+transparency = "alpha_blend"
+double_sided = false
+
+[[nodes]]
+id = "cannon-ball.glb"
+name = "cannon-ball.glb"
+parent = "root"
+position = [-0.141059, 1.128178, 8.017194]
+rotation = [0, 0, 0]
+scale = [0.73, 0.73, 0.73]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/cannon-ball.glb"
+model_guid = "9863c2c27a43199b"
+
+[[nodes]]
+id = "cannon-mobile.glb"
+name = "cannon-mobile.glb"
+parent = "root"
+position = [-1.454802, 0.753074, 8.349094]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/cannon-mobile.glb"
+model_guid = "5ecfdeeba1ed2c76"
+
+[[nodes]]
+id = "crate-bottles.glb"
+name = "crate-bottles.glb"
+parent = "root"
+position = [-7.699739, 0.352051, -1.247355]
+rotation = [-0, -0.412162, 0.054725]
+scale = [0.84, 0.84, 0.84]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/crate-bottles.glb"
+model_guid = "c717ea34af121dc9"
+
+[[nodes]]
+id = "chest.glb"
+name = "chest.glb"
+parent = "root"
+position = [2.874494, 0.627194, 3.216792]
+rotation = [0, 0.450666, 0]
+scale = [0.76, 0.76, 0.76]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/chest.glb"
+model_guid = "2f829295d831b4fb"
+
+[[nodes]]
+id = "crate.glb"
+name = "crate.glb"
+parent = "root"
+position = [-0.048728, 0.857612, 8.083145]
+rotation = [0, 1.099307, 0]
+scale = [0.71, 0.71, 0.71]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/crate.glb"
+model_guid = "6162c7dd06d00655"
+
+[[nodes]]
+id = "flag-pirate-high.glb"
+name = "flag-pirate-high.glb"
+parent = "root"
+position = [-1.454178, 0.264166, -2.46519]
+rotation = [-3.141592, 0.65703, -3.141592]
+scale = [1.92, 1.92, 1.92]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/flag-pirate-high.glb"
+model_guid = "e5e53b63c0dd0551"
+
+[[nodes]]
+id = "hole.glb"
+name = "hole.glb"
+parent = "root"
+position = [-5.434816, 0.447614, 0.969871]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/hole.glb"
+model_guid = "820829ff41e0993a"
+
+[[nodes]]
+id = "grass-plant.glb"
+name = "grass-plant.glb"
+parent = "root"
+position = [24.044315, 0.68906, 9.37839]
+rotation = [0, 0, 0]
+scale = [0.73, 0.73, 0.73]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/grass-plant.glb"
+model_guid = "951f1ab018be194e"
+
+[[nodes]]
+id = "grass-patch.glb"
+name = "grass-patch.glb"
+parent = "root"
+position = [4.501469, 0.637238, 2.578317]
+rotation = [0, 1.229085, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/grass-patch.glb"
+model_guid = "baad806cca66c8a3"
+
+[[nodes]]
+id = "palm-bend.glb"
+name = "palm-bend.glb"
+parent = "root"
+position = [25.20274, 0.492457, 8.167611]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/palm-bend.glb"
+model_guid = "f985e3173bbce598"
+
+[[nodes]]
+id = "palm-detailed-bend.glb"
+name = "palm-detailed-bend.glb"
+parent = "root"
+position = [26.010765, 0.496214, 8.741133]
+rotation = [-3.141592, 0.797913, -3.141592]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/palm-detailed-bend.glb"
+model_guid = "99d7dd6648e7bc03"
+
+[[nodes]]
+id = "patch-grass.glb"
+name = "patch-grass.glb"
+parent = "root"
+position = [3.851377, 0.370575, 2.82851]
+rotation = [0, 0, 0]
+scale = [1.24, 1.24, 1.24]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/patch-grass.glb"
+model_guid = "29a10128b9ee7f03"
+
+[[nodes]]
+id = "patch-grass-foliage.glb"
+name = "patch-grass-foliage.glb"
+parent = "root"
+position = [25.085321, 0.403522, 8.200669]
+rotation = [0, 0.927784, 0]
+scale = [1.25, 1.25, 1.25]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/patch-grass-foliage.glb"
+model_guid = "96ddc11a057a0979"
+
+[[nodes]]
+id = "palm-straight.glb"
+name = "palm-straight.glb"
+parent = "root"
+position = [2.47745, 0.507943, 2.415565]
+rotation = [-0.071404, 0, 0.082497]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/palm-straight.glb"
+model_guid = "4fe8f076268d1e37"
+
+[[nodes]]
+id = "palm-detailed-straight.glb"
+name = "palm-detailed-straight.glb"
+parent = "root"
+position = [3.675682, 0.33407, 1.743888]
+rotation = [-0.305154, -0.505008, 0.000001]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/palm-detailed-straight.glb"
+model_guid = "6d914282680d2b64"
+
+[[nodes]]
+id = "patch-sand-foliage.glb"
+name = "patch-sand-foliage.glb"
+parent = "root"
+position = [24.165621, -0.069744, 8.267182]
+rotation = [0, 0, 0]
+scale = [1.9158, 1.9158, 1.9158]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/patch-sand-foliage.glb"
+model_guid = "1c6d767f9a5b3603"
+
+[[nodes]]
+id = "patch-sand.glb"
+name = "patch-sand.glb"
+parent = "root"
+position = [0.027094, -0.2997, 0]
+rotation = [0, 0, 0]
+scale = [2.85, 2.85, 2.85]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/patch-sand.glb"
+model_guid = "735c41ae892eae31"
+
+[[nodes]]
+id = "platform-planks.glb"
+name = "platform-planks.glb"
+parent = "root"
+position = [8.03124, 0.400788, 0.775115]
+rotation = [0, 0.609126, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/platform-planks.glb"
+model_guid = "34ef23c52f1c5451"
+
+[[nodes]]
+id = "rocks-sand-a.glb"
+name = "rocks-sand-a.glb"
+parent = "root"
+position = [2.981265, 0.261064, -3.130863]
+rotation = [0, 1.273935, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/rocks-sand-a.glb"
+model_guid = "43e0c43dcc9c3c33"
+
+[[nodes]]
+id = "ship-ghost.glb"
+name = "ship-ghost.glb"
+parent = "root"
+position = [9.046134, -1.082427, -33.111546]
+rotation = [-0.037728, 0.98747, -0.012417]
+scale = [0.95, 0.95, 0.95]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/ship-ghost.glb"
+model_guid = "4815ec528bb30428"
+
+[[nodes]]
+id = "ship-pirate-medium.glb"
+name = "ship-pirate-medium.glb"
+parent = "root"
+position = [26.969837, -1.014719, -0.720618]
+rotation = [-3.115626, -1.194102, -3.141592]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/ship-pirate-medium.glb"
+model_guid = "4d21bd2be84b6808"
+
+[[nodes]]
+id = "cannon.glb"
+name = "cannon.glb"
+parent = "ship-pirate-medium.glb"
+position = [1.767609, 2.135339, -0.536835]
+rotation = [-0.000003, 1.556311, -0.000003]
+scale = [0.78, 0.78, 0.78]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/cannon.glb"
+model_guid = "ed447307108faab3"
+
+[[nodes]]
+id = "ship-small.glb"
+name = "ship-small.glb"
+parent = "root"
+position = [-15.822819, -0.857285, -4.020668]
+rotation = [-0.065378, -0.586615, 0]
+scale = [0.76, 0.76, 0.76]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/ship-small.glb"
+model_guid = "1c7d481b8f8b9584"
+
+[[nodes.components]]
+type = "curve_follower"
+enabled = true
+curve = "ship_path"
+speed = 0.025
+loop = true
+start_offset = 0
+orientation = "y_axis"
+yaw_offset = 0
+
+[[nodes]]
+id = "ship_path"
+name = "Ship Path"
+parent = "root"
+position = [0, 0, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "curve"
+closed = true
+points = [[-15.822819, -0.857285, -4.020668], [-22, -0.857285, -10], [-31, -0.857285, -4], [-30, -0.857285, 7.5], [-21, -0.857285, 13.5], [-13, -0.857285, 6]]
+
+[[nodes]]
+id = "utah_teapot.obj"
+name = "Utah teapotter"
+parent = "ship-small.glb"
+position = [-0.007113, 9.952497, -0.611331]
+rotation = [0, 0, 0]
+scale = [0.1, 0.1, 0.1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/utah_teapot.obj"
+model_guid = "cbdad06a5e941e20"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [0.121569, 0.701961, 0.066667]
+specular_color = [0, 0, 0]
+tint_color = [1, 1, 1]
+shininess = 32
+alpha = 1
+alpha_cutoff = 0.5
+transparency = "disabled"
+double_sided = false
+
+[[nodes]]
+id = "structure-platform.glb"
+name = "structure-platform.glb"
+parent = "root"
+position = [-1.063846, -0.041542, 8.357729]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/structure-platform.glb"
+model_guid = "ed408fbd17963185"
+
+[[nodes]]
+id = "tool-shovel.glb"
+name = "tool-shovel.glb"
+parent = "root"
+position = [-3.600034, 0.000031, -3.778234]
+rotation = [-0.141512, -0.365676, -0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/tool-shovel.glb"
+model_guid = "808577a9c0388df2"
+
+[[nodes]]
+id = "platform.glb"
+name = "platform.glb"
+parent = "root"
+position = [-1.073286, 0.356807, 5.847537]
+rotation = [0, 0.17293, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/platform.glb"
+model_guid = "e2a8e039f2689875"
+
+[[nodes]]
+id = "crate.glb_2"
+name = "crate.glb"
+parent = "root"
+position = [-5.430171, 0.498102, 0.957826]
+rotation = [0, 0, 3.141592]
+scale = [1.295512, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/crate.glb"
+model_guid = "6162c7dd06d00655"
+
+[[nodes]]
+id = "rocks-c.glb"
+name = "rocks-c.glb"
+parent = "root"
+position = [-0.512383, 0.307452, 0.370336]
+rotation = [0, -1.132233, 0]
+scale = [1.437812, 0.518824, 1.5]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/rocks-c.glb"
+model_guid = "3d70415e902d9806"
+
+[[nodes]]
+id = "test.toml"
+name = "Shroom"
+parent = "root"
+position = [25.499628, 0.906673, 8.590322]
+rotation = [0, -0.576572, 0]
+scale = [0.19, 0.19, 0.19]
+instance = "game/assets/scenes/test.toml"
+
+[[nodes]]
+id = "bottle-large.glb"
+name = "bottle-large.glb"
+parent = "root"
+position = [3.673338, 1.648201, -4.415166]
+rotation = [-3.141592, -1.380544, -3.141592]
+scale = [0.5936, 0.928645, 0.5936]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/bottle-large.glb"
+model_guid = "4cb6b991f4c4e676"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [1, 1, 1]
+specular_color = [1, 1, 1]
+tint_color = [1, 1, 1]
+shininess = 32
+alpha = 0.8
+alpha_cutoff = 0.5
+transparency = "alpha_blend"
+double_sided = false
+
+[[nodes]]
+id = "bottle.glb_2"
+name = "bottle.glb"
+parent = "root"
+position = [3.694092, 1.664949, -4.707892]
+rotation = [0, 0.230533, 0]
+scale = [0.6232, 0.6232, 0.6232]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/bottle.glb"
+model_guid = "eae22a601363ca88"
+
+[[nodes.components.materials]]
+index = 0
+enabled = true
+diffuse_color = [1, 1, 1]
+specular_color = [1, 1, 1]
+tint_color = [0.852941, 0, 1]
+shininess = 32
+alpha = 0.8
+alpha_cutoff = 0.5
+transparency = "alpha_blend"
+double_sided = false
+
+[[nodes]]
+id = "hole.glb_2"
+name = "hole.glb"
+parent = "root"
+position = [-3.614634, 0.380614, -3.822449]
+rotation = [0, -0.260133, 0]
+scale = [0.467559, 0.3306, 0.3306]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/GLB format/hole.glb"
+model_guid = "820829ff41e0993a"

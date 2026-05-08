@@ -1,3 +1,7 @@
+// File:        log.jai
+// Author:      Lukáš Bien
+// Description: Draws the editor log window from captured engine log messages.
+
 #scope_export
 
 #import "Basic";
@@ -21,7 +25,7 @@ log_window_state: Log_Window_State;
 #scope_export
 
 log_draw :: () {
-    if Begin("Log") {
+    if Begin(UI_Icon_Window_Title(ICON_FA_SCROLL, "Log", "Log")) {
         draw_log_toolbar();
         draw_log_entries();
     }
@@ -99,10 +103,10 @@ draw_log_line :: (entry: Log_Entry, index: int) {
     PopStyleColor();
 
     if BeginPopupContextItem("line_context") {
-        if MenuItem("Copy line") {
+        if MenuItem(UI_Icon_Label(ICON_FA_COPY, "Copy line")) {
             SetClipboardText(temp_c_string(line_text));
         }
-        if MenuItem("Copy all") {
+        if MenuItem(UI_Icon_Label(ICON_FA_COPY, "Copy all")) {
             copy_logs_to_clipboard();
         }
         EndPopup();

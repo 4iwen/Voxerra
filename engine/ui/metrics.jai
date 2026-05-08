@@ -1,3 +1,7 @@
+// File:        metrics.jai
+// Author:      Lukáš Bien
+// Description: Displays runtime and renderer metrics inside the editor UI.
+
 #scope_export
 
 #import "Basic";
@@ -12,7 +16,7 @@ metrics_draw :: () {
     metrics_state.offset = (metrics_state.offset + 1) % METRICS_HISTORY_COUNT;
 
     SetNextWindowSize(ImVec2.{300, 0}, Cond.FirstUseEver);
-    if Begin("Metrics") {
+    if Begin(UI_Icon_Window_Title(ICON_FA_GAUGE, "Metrics", "Metrics")) {
         metrics_ui(io.Framerate);
     }
     End();

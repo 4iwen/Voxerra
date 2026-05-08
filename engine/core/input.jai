@@ -1,8 +1,11 @@
+// File:        input.jai
+// Author:      Lukáš Bien
+// Description: Collects input state and exposes per-frame keyboard and mouse queries.
+
 #scope_file
 
 #import "Basic";
 #import "glfw";
-#import "jai-imgui";
 
 #scope_export
 
@@ -185,6 +188,13 @@ Input_State :: struct {
 
     cursor_disabled: bool;
     ignored_cursor_events: s32;
+
+    ui_wants_mouse: bool;
+    ui_wants_keyboard: bool;
+    ui_wants_text: bool;
+    ui_has_active_item: bool;
+    ui_popup_open: bool;
+    viewport_hovered: bool;
 }
 
 #scope_export
@@ -214,6 +224,18 @@ input_key_pressed :: (key: Key_Code) -> bool {
 
 input_key_released :: (key: Key_Code) -> bool {
     return !input_state.keys_current[key] && input_state.keys_previous[key];
+}
+
+input_control_down :: () -> bool {
+    return input_key_down(.LEFT_CONTROL) || input_key_down(.RIGHT_CONTROL);
+}
+
+input_super_down :: () -> bool {
+    return input_key_down(.LEFT_SUPER) || input_key_down(.RIGHT_SUPER);
+}
+
+input_primary_modifier_down :: () -> bool {
+    return input_control_down() || input_super_down();
 }
 
 input_mouse_down :: (button: Mouse_Button) -> bool {
@@ -248,6 +270,50 @@ input_shutdown :: () {
     array_free(input_state.text_input);
 }
 
+input_set_capture_policy :: (
+    ui_wants_mouse: bool,
+    ui_wants_keyboard: bool,
+    ui_wants_text: bool,
+    ui_has_active_item: bool,
+    ui_popup_open: bool,
+    viewport_hovered: bool
+) {
+    input_state.ui_wants_mouse = ui_wants_mouse;
+    input_state.ui_wants_keyboard = ui_wants_keyboard;
+    input_state.ui_wants_text = ui_wants_text;
+    input_state.ui_has_active_item = ui_has_active_item;
+    input_state.ui_popup_open = ui_popup_open;
+    input_state.viewport_hovered = viewport_hovered;
+}
+
+input_editor_shortcuts_blocked :: () -> bool {
+    #if BUILD_MODE == .EDITOR {
+        return input_state.ui_wants_text ||
+               input_state.ui_has_active_item ||
+               input_state.ui_popup_open;
+    } else {
+        return false;
+    }
+}
+
+input_viewport_mouse_allowed :: () -> bool {
+    #if BUILD_MODE == .EDITOR {
+        if input_state.cursor_disabled then return true;
+        if input_state.ui_popup_open then return false;
+        return input_state.viewport_hovered;
+    } else {
+        return true;
+    }
+}
+
+input_viewport_shortcuts_allowed :: () -> bool {
+    #if BUILD_MODE == .EDITOR {
+        return input_state.viewport_hovered && !input_editor_shortcuts_blocked();
+    } else {
+        return true;
+    }
+}
+
 #scope_file
 
 input_should_ignore :: (window: *GLFWwindow, action: s32, is_mouse: bool) -> bool {
@@ -258,12 +324,10 @@ input_should_ignore :: (window: *GLFWwindow, action: s32, is_mouse: bool) -> boo
         // do not ignore releases
         if action == GLFW_RELEASE then return false;
 
-        io := GetIO();
-
         if is_mouse {
-            return io.WantCaptureMouse && !ui_state.viewport_hovered;
+            return input_state.ui_wants_mouse && !input_state.viewport_hovered;
         } else {
-            return io.WantCaptureKeyboard && !ui_state.viewport_focused;
+            return input_editor_shortcuts_blocked();
         }
     } else {
         // export never ignores input

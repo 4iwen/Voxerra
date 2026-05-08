@@ -1,0 +1,25 @@
+version = 1
+name = "new_scene.toml"
+
+[environment]
+clear_color = [0.08, 0.08, 0.09, 1]
+ambient_color = [0.5, 0.5, 0.5]
+skybox_enabled = true
+fog_resolve_enabled = false
+fog_enabled = false
+fog_color = [0.72, 0.78, 0.86, 1]
+fog_near = 12
+fog_far = 40
+
+[[nodes]]
+id = "Node"
+name = "Node"
+parent = "root"
+position = [0, 0, 0]
+rotation = [0, 0, 0]
+scale = [0.01, 0.01, 0.01]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/kenney_pirate-kit/Models/FBX format/ship-ghost.fbx"
+model_guid = "6530fcba21847278"

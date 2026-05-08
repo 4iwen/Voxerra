@@ -1,3 +1,7 @@
+// File:        platform.jai
+// Author:      Lukáš Bien
+// Description: Wraps platform startup, shutdown, and low-level OS integration helpers.
+
 #scope_file
 
 #import "Basic";

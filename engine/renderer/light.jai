@@ -1,3 +1,7 @@
+// File:        light.jai
+// Author:      Lukáš Bien
+// Description: Defines light data structures shared by scenes and shaders.
+
 #scope_file
 
 #import "Basic";
@@ -115,8 +119,9 @@ light_upload_to_shader :: (shader: *Shader, system: *Light_System) {
     spot_count := 0;
 
     for l: system.lights {
-        diffuse_color := l.color * min(l.intensity, 1.0);
-        specular_color := l.color * min(l.intensity * 0.5, 1.0);
+        light_intensity := max(l.intensity, 0.0);
+        diffuse_color := l.color * light_intensity;
+        specular_color := l.color * (light_intensity * 0.5);
 
         if l.type == .Directional && !directional_set {
             shader_set_vec3(shader, "u_directional_light.direction", l.direction);

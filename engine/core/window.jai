@@ -1,3 +1,7 @@
+// File:        window.jai
+// Author:      Lukáš Bien
+// Description: Creates the main window and forwards window-system events into engine state.
+
 #scope_file
 
 #import "glfw";
@@ -11,6 +15,7 @@ Window :: struct {
     framebuffer_height: s32;
     content_scale_x: float32;
     content_scale_y: float32;
+    vsync_enabled: bool;
     handle: *GLFWwindow;
 }
 
@@ -93,8 +98,22 @@ window_swap_buffers :: (window: *Window) {
     glfwSwapBuffers(window.handle);
 }
 
-window_set_vsync :: (vsync: bool) {
+window_set_vsync :: (window: *Window, vsync: bool) {
+    assert(window != null, "window_set_vsync: window is null");
+
+    window.vsync_enabled = vsync;
     glfwSwapInterval(cast(s32) ifx vsync then 1 else 0); 
+}
+
+window_get_vsync :: (window: *Window) -> bool {
+    assert(window != null, "window_get_vsync: window is null");
+
+    return window.vsync_enabled;
+}
+
+window_is_focused :: (window: *Window) -> bool {
+    if !window || !window.handle then return false;
+    return glfwGetWindowAttrib(window.handle, GLFW_FOCUSED) == GLFW_TRUE;
 }
 
 window_set_cursor_mode :: (window: *Window, mode: Cursor_Mode) {

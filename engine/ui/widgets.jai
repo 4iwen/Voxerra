@@ -1,3 +1,7 @@
+// File:        widgets.jai
+// Author:      Lukáš Bien
+// Description: Provides reusable editor widgets for transforms, vectors, and rotation editing.
+
 #scope_module
 
 draw_vec3_control :: (
@@ -31,7 +35,7 @@ draw_vec3_control :: (
     );
     if value.* != reset_value {
         SameLine();
-        if SmallButton("Reset") {
+        if SmallButton(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset")) {
             value.* = reset_value;
             changed = true;
         }
@@ -120,7 +124,7 @@ draw_rotation_control :: (
     // reset button if value changed
     if !quaternion_equal_rotation(value.*, reset_quat) {
         SameLine();
-        if SmallButton("Reset") {
+        if SmallButton(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset")) {
             value.* = reset_quat;
             euler_radians = reset_value;
             last_quaternion = value.*;
@@ -152,7 +156,9 @@ draw_transform_component :: (node: *Node) {
             }
             TableNextColumn();
             PushItemWidth(-1);
-            Checkbox("##Active", *node.active);
+            if Checkbox("##Active", *node.active) {
+                editor_mark_current_scene_dirty();
+            }
             PopItemWidth();
 
             t_info := cast(*Type_Info_Struct) type_info(Transform);

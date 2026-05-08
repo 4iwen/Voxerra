@@ -1,3 +1,7 @@
+// File:        camera.jai
+// Author:      Lukáš Bien
+// Description: Defines camera state and camera matrix update routines.
+
 #scope_file
 
 #import "Basic";

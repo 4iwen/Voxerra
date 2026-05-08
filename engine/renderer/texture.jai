@@ -1,3 +1,7 @@
+// File:        texture.jai
+// Author:      Lukáš Bien
+// Description: Loads textures from disk and creates GPU texture resources.
+
 #scope_file
 
 #import "Basic";
@@ -21,6 +25,7 @@ Texture :: struct {
     id: u32;
     width: s32;
     height: s32;
+    has_transparency: bool;
 }
 
 Texture_Spec :: struct {
@@ -101,6 +106,7 @@ texture_create_from_file :: (
 
     texture.width = width;
     texture.height = height;
+    texture.has_transparency = texture_data_has_transparency(data, width * height);
 
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -131,7 +137,7 @@ texture_create_from_file :: (
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8,
+        to_opengl_internal_format(spec),
         cast(u32) width,
         cast(u32) height,
         0,
@@ -167,6 +173,7 @@ texture_create_from_data :: (
     texture := New(Texture);
     texture.width = width;
     texture.height = height;
+    texture.has_transparency = texture_data_has_transparency(data, width * height);
 
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -197,7 +204,7 @@ texture_create_from_data :: (
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8,
+        to_opengl_internal_format(spec),
         cast(u32) width,
         cast(u32) height,
         0,
@@ -226,7 +233,7 @@ texture_create_from_data :: (
 
 texture_bind :: (texture: *Texture, slot: u32 = 0) {
     assert(texture != null, "texture_bind: texture is null");
-    
+
     glActiveTexture(GL_TEXTURE0 + slot);
     glBindTexture(GL_TEXTURE_2D, texture.id);
 }
@@ -274,6 +281,7 @@ texture_reload_from_file :: (
 
     texture.width = width;
     texture.height = height;
+    texture.has_transparency = texture_data_has_transparency(data, width * height);
 
     glGenTextures(1, *texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
@@ -304,7 +312,7 @@ texture_reload_from_file :: (
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8,
+        to_opengl_internal_format(spec),
         cast(u32) width,
         cast(u32) height,
         0,
@@ -344,9 +352,27 @@ to_opengl_wrap :: (wrap: Texture_Wrap) -> GLint {
     }
 }
 
+to_opengl_internal_format :: (spec: Texture_Spec) -> GLint {
+    if spec.srgb then return GL_SRGB8_ALPHA8;
+    return GL_RGBA8;
+}
+
 is_mipmapped_filter :: (filter: Texture_Filter) -> bool {
     return filter == .NEAREST_MIPMAP_NEAREST ||
            filter == .LINEAR_MIPMAP_NEAREST ||
            filter == .NEAREST_MIPMAP_LINEAR ||
            filter == .LINEAR_MIPMAP_LINEAR;
+}
+
+texture_data_has_transparency :: (data: *u8, pixel_count: s32) -> bool {
+    if !data || pixel_count <= 0 then return false;
+
+    for i: 0..pixel_count - 1 {
+        alpha := data[i * 4 + 3];
+        if alpha < 250 {
+            return true;
+        }
+    }
+
+    return false;
 }

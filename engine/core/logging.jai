@@ -1,3 +1,7 @@
+// File:        logging.jai
+// Author:      Lukáš Bien
+// Description: Provides formatted engine logging helpers for runtime and editor code.
+
 #scope_file
 
 #import "Basic";
@@ -193,7 +197,6 @@ write_log_prefix :: (
 }
 
 colored_logger :: (message: string, data: *void, info: Log_Info) {
-    _ = data;
     severity := log_info_to_severity(info);
     host_log_write(.ENGINE, severity, message);
 }

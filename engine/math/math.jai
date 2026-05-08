@@ -1,3 +1,7 @@
+// File:        math.jai
+// Author:      Lukáš Bien
+// Description: Provides core math helpers and shared numeric utilities.
+
 #scope_file
 
 #import "Math";

@@ -1,3 +1,7 @@
+// File:        engine.jai
+// Author:      Lukáš Bien
+// Description: Initializes and shuts down the shared engine subsystems.
+
 #scope_file
 
 #import "Basic";

@@ -1,0 +1,9 @@
+name = "Voxerra"
+version = 1
+
+startup_scene = "game/assets/scenes/main.toml"
+editor_startup_scene = "game/assets/scenes/main.toml"
+asset_root = "game"
+editor_state_path = "game/editor_workspace.toml"
+default_build_mode = "editor_and_game"
+export_name = "voxerra"

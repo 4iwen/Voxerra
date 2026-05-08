@@ -1,3 +1,7 @@
+// File:        mesh.jai
+// Author:      Lukáš Bien
+// Description: Creates mesh GPU buffers and draws static mesh geometry.
+
 #scope_file
 
 #import "Basic";

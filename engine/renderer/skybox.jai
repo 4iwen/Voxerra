@@ -1,3 +1,7 @@
+// File:        skybox.jai
+// Author:      Lukáš Bien
+// Description: Initializes and draws the scene skybox with optional fog integration.
+
 #scope_export
 
 Skybox :: struct {
@@ -33,7 +37,8 @@ skybox_shutdown :: (skybox: *Skybox) {
 skybox_draw :: (
     skybox: *Skybox,
     view: Matrix4,
-    projection: Matrix4
+    projection: Matrix4,
+    shader_fog_enabled: bool = true
 ) {
     assert(skybox != null, "skybox_draw: skybox is null");
 
@@ -48,6 +53,7 @@ skybox_draw :: (
 
     shader_set_mat4(skybox.shader, "u_projection", projection);
     shader_set_mat4(skybox.shader, "u_view", view_no_trans);
+    fog_upload_shader_uniforms(skybox.shader, shader_fog_enabled);
 
     shader_set_int(skybox.shader, "u_skybox", 0);
 

@@ -6,10 +6,6 @@
 	path = modules/jassimp
 	url = https://github.com/4iwen/jassimp
 	branch = dev
-[submodule "game/assets/models/glTF-Sample-Assets"]
-	path = game/assets/models/glTF-Sample-Assets
-	url = https://github.com/KhronosGroup/glTF-Sample-Assets
-	branch = main
 [submodule "modules/jai-imgui"]
 	path = modules/jai-imgui
 	url = https://github.com/4iwen/jai-imgui
@@ -21,4 +17,8 @@
 [submodule "modules/toml-jai"]
 	path = modules/toml-jai
 	url = https://github.com/4iwen/toml-jai
+	branch = main
+[submodule "modules/jai-imguizmo"]
+	path = modules/jai-imguizmo
+	url = https://github.com/4iwen/jai-imguizmo
 	branch = main
