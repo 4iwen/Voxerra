@@ -59,11 +59,13 @@ editor_gizmo_suppress_until_lmb_release :: () {
     editor_gizmo_state.suppress_input_until_lmb_release = true;
     editor_gizmo_state.is_over = false;
     editor_gizmo_state.is_using = false;
+    input_set_viewport_mouse_capture_override(false);
 }
 
 editor_gizmo_draw :: () {
     editor_gizmo_state.is_over = false;
     editor_gizmo_state.is_using = false;
+    input_set_viewport_mouse_capture_override(false);
 
     if editor_gizmo_state.suppress_input_until_lmb_release && !input_mouse_down(.LEFT) {
         editor_gizmo_state.suppress_input_until_lmb_release = false;
@@ -148,6 +150,7 @@ editor_gizmo_draw :: () {
     if allow_gizmo_input {
         editor_gizmo_state.is_over = ImGuizmo_IsOver();
         editor_gizmo_state.is_using = ImGuizmo_IsUsing();
+        input_set_viewport_mouse_capture_override(editor_gizmo_state.is_using);
     }
 
     if changed {

@@ -222,6 +222,9 @@ asset_browser_draw_visible_tiles :: (layout: Asset_Browser_Layout, content_heigh
     draw_list := GetWindowDrawList();
     start_pos := GetCursorScreenPos() + ImVec2.{layout.outer_padding, layout.outer_padding};
     visible_index: s32 = 0;
+    pending_open_path: string;
+    pending_open_type := Asset_Type.UNKNOWN;
+    pending_open_is_directory := false;
 
     for item, item_index: asset_browser_state.items {
         if !asset_browser_item_visible(item) then continue;
@@ -244,7 +247,9 @@ asset_browser_draw_visible_tiles :: (layout: Asset_Browser_Layout, content_heigh
 
         hovered := IsItemHovered();
         if hovered && IsMouseDoubleClicked(.Left) {
-            asset_browser_open_item(item);
+            pending_open_path = copy_string(item.path);
+            pending_open_type = item.type;
+            pending_open_is_directory = item.is_directory;
         }
 
         if !item.is_directory && item.type != .UNKNOWN {
@@ -265,10 +270,22 @@ asset_browser_draw_visible_tiles :: (layout: Asset_Browser_Layout, content_heigh
 
         PopID();
         visible_index += 1;
+
+        if pending_open_path then break;
     }
 
     SetCursorScreenPos(start_pos + ImVec2.{0.0, content_height});
     Dummy(ImVec2.{1.0, 1.0});
+
+    if pending_open_path {
+        pending_item := Asset_Browser_Item.{
+            path = pending_open_path,
+            type = pending_open_type,
+            is_directory = pending_open_is_directory,
+        };
+        asset_browser_open_item(pending_item);
+        free(pending_open_path);
+    }
 }
 
 asset_browser_draw_tile :: (
@@ -464,10 +481,14 @@ asset_browser_enter_directory :: (path: string) {
     is_dir, ok := is_directory(normalized);
     if !ok || !is_dir then return;
 
-    if asset_browser_state.current_directory == normalized then return;
+    next_directory := copy_string(normalized);
+    if asset_browser_state.current_directory == next_directory {
+        free(next_directory);
+        return;
+    }
 
     free(asset_browser_state.current_directory);
-    asset_browser_state.current_directory = copy_string(normalized);
+    asset_browser_state.current_directory = next_directory;
     asset_browser_refresh();
 }
 

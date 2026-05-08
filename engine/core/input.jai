@@ -195,6 +195,7 @@ Input_State :: struct {
     ui_has_active_item: bool;
     ui_popup_open: bool;
     viewport_hovered: bool;
+    viewport_mouse_capture_override: bool;
 }
 
 #scope_export
@@ -286,6 +287,10 @@ input_set_capture_policy :: (
     input_state.viewport_hovered = viewport_hovered;
 }
 
+input_set_viewport_mouse_capture_override :: (capture: bool) {
+    input_state.viewport_mouse_capture_override = capture;
+}
+
 input_editor_shortcuts_blocked :: () -> bool {
     #if BUILD_MODE == .EDITOR {
         return input_state.ui_wants_text ||
@@ -299,6 +304,7 @@ input_editor_shortcuts_blocked :: () -> bool {
 input_viewport_mouse_allowed :: () -> bool {
     #if BUILD_MODE == .EDITOR {
         if input_state.cursor_disabled then return true;
+        if input_state.viewport_mouse_capture_override then return true;
         if input_state.ui_popup_open then return false;
         return input_state.viewport_hovered;
     } else {
@@ -325,6 +331,7 @@ input_should_ignore :: (window: *GLFWwindow, action: s32, is_mouse: bool) -> boo
         if action == GLFW_RELEASE then return false;
 
         if is_mouse {
+            if input_state.viewport_mouse_capture_override then return false;
             return input_state.ui_wants_mouse && !input_state.viewport_hovered;
         } else {
             return input_editor_shortcuts_blocked();
