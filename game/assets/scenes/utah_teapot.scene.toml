@@ -1,0 +1,48 @@
+version = 1
+name = "Utah Teapot"
+
+[environment]
+clear_color = [0.08, 0.08, 0.09, 1]
+ambient_color = [0.504902, 0.504902, 0.504902]
+skybox_enabled = true
+fog_resolve_enabled = false
+fog_enabled = false
+fog_color = [0.72, 0.78, 0.86, 1]
+fog_near = 10
+fog_far = 34
+
+[[nodes]]
+id = "mesh"
+name = "Teapot"
+parent = "root"
+position = [0, 0, 0]
+rotation = [0, 0, 0]
+scale = [1, 1, 1]
+
+[[nodes.components]]
+type = "model"
+model = "game/assets/models/utah_teapot.obj"
+model_guid = "cbdad06a5e941e20"
+
+[[nodes]]
+id = "Node"
+name = "Sprite"
+parent = "root"
+position = [5, 0, 0]
+rotation = [0, 0, 0]
+scale = [2, 2, 2]
+
+[[nodes.components]]
+type = "sprite"
+texture = "game/assets/textures/forest.png"
+texture_guid = "5e9ae1ad583c51d9"
+texture_filter = "linear"
+tint_color = [1, 1, 1]
+alpha = 1
+alpha_cutoff = 0.1
+size = [1, 1]
+pivot = "center"
+custom_pivot_enabled = false
+custom_pivot = [0.5, 0.5]
+billboard_mode = "none"
+transparency = "alpha_blend"

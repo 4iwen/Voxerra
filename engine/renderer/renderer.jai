@@ -1,3 +1,7 @@
+// File:        renderer.jai
+// Author:      Lukáš Bien
+// Description: Wraps renderer-wide GPU state toggles and per-frame setup.
+
 #scope_file
 
 #import "Basic";
@@ -6,7 +10,22 @@
 
 #scope_export
 
+Renderer_State :: struct {
+    wireframe_enabled: bool;
+    view_mode: Render_View_Mode;
+}
+
+Render_View_Mode :: enum u32 {
+    LIT;
+    UNLIT;
+    LIGHTING_ONLY;
+    ALBEDO;
+}
+
+renderer_state: Renderer_State;
+
 renderer_init :: () {
+    renderer_state = .{};
     gl_load(*gl, glfwGetProcAddress.(*void));
     
     // enable features
@@ -24,6 +43,7 @@ renderer_init :: () {
 }
 
 renderer_shutdown :: () {
+    sprite_system_shutdown();
     texture_shutdown();
     log("Shutdown renderer");
 }
@@ -83,4 +103,22 @@ renderer_set_depth_test :: (enabled: bool) {
     } else {
         glDisable(GL_DEPTH_TEST);
     }
+}
+
+renderer_set_wireframe :: (enabled: bool) {
+    renderer_state.wireframe_enabled = enabled;
+    polygon_mode: u32 = ifx enabled then cast(u32) GL_LINE else cast(u32) GL_FILL;
+    glPolygonMode(GL_FRONT_AND_BACK, polygon_mode);
+}
+
+renderer_get_wireframe :: () -> bool {
+    return renderer_state.wireframe_enabled;
+}
+
+renderer_set_view_mode :: (mode: Render_View_Mode) {
+    renderer_state.view_mode = mode;
+}
+
+renderer_get_view_mode :: () -> Render_View_Mode {
+    return renderer_state.view_mode;
 }

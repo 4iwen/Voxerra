@@ -1,17 +1,26 @@
+// File:        widgets.jai
+// Author:      Lukáš Bien
+// Description: Provides reusable editor widgets for transforms, vectors, and rotation editing.
+
 #scope_module
 
 draw_vec3_control :: (
     label: string,
     value: *Vector3,
     speed: float = 0.1,
-    reset_value := Vector3.{}
+    value_min: float = -FLOAT32_MAX,
+    value_max: float = FLOAT32_MAX,
+    reset_value := Vector3.{},
+    draw_label: bool = true
 ) -> bool {
     changed := false;
 
     PushID(label);
 
-    AlignTextToFramePadding();
-    Text(label);
+    if draw_label {
+        AlignTextToFramePadding();
+        Text(label);
+    }
 
     // axis colors
     flags: SliderFlags = .ColorMarkers;
@@ -20,13 +29,13 @@ draw_vec3_control :: (
         "##value",
         *value.component,
         speed,
-        -FLOAT32_MAX,
-        FLOAT32_MAX,
+        value_min,
+        value_max,
         flags = flags
     );
     if value.* != reset_value {
         SameLine();
-        if SmallButton("Reset") {
+        if SmallButton(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset")) {
             value.* = reset_value;
             changed = true;
         }
@@ -57,7 +66,10 @@ draw_rotation_control :: (
     label: string,
     value: *Quaternion,
     speed: float = 0.01,
-    reset_value := Vector3.{}
+    value_min: float = -FLOAT32_MAX,
+    value_max: float = FLOAT32_MAX,
+    reset_value := Vector3.{},
+    draw_label: bool = true
 ) -> bool {
     using ui_state.rotation_state;
 
@@ -71,22 +83,36 @@ draw_rotation_control :: (
 
     PushID(label);
 
-    AlignTextToFramePadding();
-    Text(label);
+    if draw_label {
+        AlignTextToFramePadding();
+        Text(label);
+    }
 
     // axis colors
     flags: SliderFlags = .ColorMarkers;
+    
+    // convert internal radians to degrees for the ui display
+    euler_degrees: Vector3 = .{
+        euler_radians.x * (180.0 / PI),
+        euler_radians.y * (180.0 / PI),
+        euler_radians.z * (180.0 / PI)
+    };
 
     drag_changed := DragFloat3(
         "##value",
-        *euler_radians.component,
-        speed,
-        -FLOAT32_MAX,
-        FLOAT32_MAX,
+        *euler_degrees.component,
+        speed * 10.0, // scale speed for degrees
+        value_min,
+        value_max,
         flags = flags
     );
 
     if drag_changed {
+        // convert from ui degrees back to internal radians
+        euler_radians.x = euler_degrees.x * (PI / 180.0);
+        euler_radians.y = euler_degrees.y * (PI / 180.0);
+        euler_radians.z = euler_degrees.z * (PI / 180.0);
+        
         value.* = quaternion_from_euler_xyz(euler_radians);
         normalize_or_identity(value);
         last_quaternion = value.*;
@@ -98,7 +124,7 @@ draw_rotation_control :: (
     // reset button if value changed
     if !quaternion_equal_rotation(value.*, reset_quat) {
         SameLine();
-        if SmallButton("Reset") {
+        if SmallButton(UI_Icon_Label(ICON_FA_ROTATE_LEFT, "Reset")) {
             value.* = reset_quat;
             euler_radians = reset_value;
             last_quaternion = value.*;
@@ -115,32 +141,30 @@ draw_rotation_control :: (
     return changed;
 }
 
-COLLAPSING_HEADER_FLAGS: TreeNodeFlags : .DefaultOpen | .Framed | .SpanAvailWidth;
-
-// @Cleanup: bring out selected_node into the params for which this should be drawn
-draw_transform_component :: () {
+draw_transform_component :: (node: *Node) {
     if CollapsingHeader("Transform", COLLAPSING_HEADER_FLAGS) {
-        Checkbox("Active", *selected_node.active);
+        if BeginTable("Transform_Table", 2, TABLE_FLAGS, ImVec2.{0, 0}) {
+            TableSetupColumn("Name", .WidthFixed, 0.0);
+            TableSetupColumn("Value", .WidthStretch, 0.0);
 
-        Separator();
+            TableNextRow(); TableNextColumn();
+            AlignTextToFramePadding();
+            Text("Active");
+            if BeginItemTooltip() {
+                TextUnformatted("Whether this node and its children are active and rendered");
+                EndTooltip();
+            }
+            TableNextColumn();
+            PushItemWidth(-1);
+            if Checkbox("##Active", *node.active) {
+                editor_mark_current_scene_dirty();
+            }
+            PopItemWidth();
 
-        draw_vec3_control(
-            "Position",
-            *selected_node.local.position,
-            0.1,
-            .{0, 0, 0}
-        );
-        draw_rotation_control(
-            "Rotation",
-            *selected_node.local.rotation,
-            0.01,
-            .{0, 0, 0}
-        );
-        draw_vec3_control(
-            "Scale",
-            *selected_node.local.scale,
-            0.1,
-            .{1, 1, 1}
-        );
+            t_info := cast(*Type_Info_Struct) type_info(Transform);
+            ui_draw_struct_fields(cast(*void) *node.local, t_info, false);
+
+            EndTable();
+        }
     }
 }

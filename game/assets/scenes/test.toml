@@ -1,0 +1,35 @@
+version = 1
+name = "test.toml"
+
+[environment]
+clear_color = [0.08, 0.08, 0.09, 1]
+ambient_color = [0.5, 0.5, 0.5]
+skybox_enabled = true
+fog_resolve_enabled = false
+fog_enabled = false
+fog_color = [0.72, 0.78, 0.86, 1]
+fog_near = 12
+fog_far = 40
+
+[[nodes]]
+id = "Node"
+name = "Node"
+parent = "root"
+position = [0, 0, 0]
+rotation = [0, 0, 0]
+scale = [2, 2.989208, 2]
+
+[[nodes.components]]
+type = "sprite"
+texture = "game/assets/textures/mushroom_geometry.png"
+texture_guid = "9aa59d154722c4ff"
+texture_filter = "linear"
+tint_color = [1, 1, 1]
+alpha = 1
+alpha_cutoff = 0.1
+size = [1, 1]
+pivot = "center"
+custom_pivot_enabled = false
+custom_pivot = [0.5, 0.5]
+billboard_mode = "none"
+transparency = "alpha_blend"

@@ -1,3 +1,8 @@
+// File:        transform.jai
+// Author:      Lukáš Bien
+// Description: Defines transform math helpers for matrices, quaternions,
+//              and local/world conversion.
+
 #scope_file
 
 #import "Basic";
@@ -6,9 +11,9 @@
 #scope_export
 
 Transform :: struct {
-    position: Vector3 = .{0, 0, 0};
-    rotation: Quaternion = .{0, 0, 0, 1};
-    scale: Vector3 = .{1, 1, 1};
+    position: Vector3 = .{0, 0, 0}; @"Tooltip(\"The local 3D position relative to the parent\")"
+    rotation: Quaternion = .{0, 0, 0, 1}; @"Tooltip(\"The local orientation rotation\")"
+    scale: Vector3 = .{1, 1, 1}; @"Tooltip(\"The local scale multiplier\")"
 }
 
 quaternion_from_euler_xyz :: (xyz_radians: Vector3) -> Quaternion {
@@ -65,6 +70,26 @@ transform_to_matrix :: (transform: Transform) -> Matrix4 {
     rotation := rotation_matrix(Matrix4, transform.rotation);
     scale_matrix := scale(Matrix4_Identity, transform.scale);
     return translation * rotation * scale_matrix;
+}
+
+transform_extract_rotation :: (m: Matrix4) -> Quaternion {
+    r := m;
+
+    x := Vector3.{r._11, r._21, r._31};
+    y := Vector3.{r._12, r._22, r._32};
+    z := Vector3.{r._13, r._23, r._33};
+
+    normalize(*x, 0.000001, .{1, 0, 0});
+    normalize(*y, 0.000001, .{0, 1, 0});
+    normalize(*z, 0.000001, .{0, 0, 1});
+
+    r._11 = x.x; r._21 = x.y; r._31 = x.z;
+    r._12 = y.x; r._22 = y.y; r._32 = y.z;
+    r._13 = z.x; r._23 = z.y; r._33 = z.z;
+
+    q := get_rotation(r);
+    normalize_or_identity(*q);
+    return q;
 }
 
 transform_reset :: (transform: *Transform) {

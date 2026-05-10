@@ -1,3 +1,7 @@
+// File:        framebuffer.jai
+// Author:      Lukáš Bien
+// Description: Creates, resizes, and destroys framebuffer objects used by rendering passes.
+
 #scope_file
 
 #import "Basic";
@@ -13,34 +17,54 @@ Framebuffer :: struct {
     height: float;
     aspect: float;
     color_texture: u32;
-    depth_buffer: u32;
+    depth_texture: u32;
+    color_internal_format: GLint;
+    color_format: GLenum;
+    color_type: GLenum;
 }
 
 framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
+    return framebuffer_create_with_color_format(
+        width,
+        height,
+        GL_RGBA8,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE
+    );
+}
+
+framebuffer_create_with_color_format :: (
+    width: s32,
+    height: s32,
+    color_internal_format: GLint,
+    color_format: GLenum,
+    color_type: GLenum
+) -> *Framebuffer {
     framebuffer := New(Framebuffer);
     framebuffer.pixel_width = width;
     framebuffer.pixel_height = height;
     framebuffer.width = cast(float) width;
     framebuffer.height = cast(float) height;
     framebuffer.aspect = cast(float) width / cast(float) height;
+    framebuffer.color_internal_format = color_internal_format;
+    framebuffer.color_format = color_format;
+    framebuffer.color_type = color_type;
 
-    // create framebuffer
     glGenFramebuffers(1, *framebuffer.id);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);
 
-    // create color attachment
     glGenTextures(1, *framebuffer.color_texture);
     glBindTexture(GL_TEXTURE_2D, framebuffer.color_texture);
 
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8, 
+        framebuffer.color_internal_format,
         cast(u32) width,
         cast(u32) height,
         0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
+        framebuffer.color_format,
+        framebuffer.color_type,
         null
     );
 
@@ -57,25 +81,37 @@ framebuffer_create :: (width: s32, height: s32) -> *Framebuffer {
         0
     );
 
-    // create depth buffer
-    glGenRenderbuffers(1, *framebuffer.depth_buffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.depth_buffer);
+    attachments: [1] u32 = .[GL_COLOR_ATTACHMENT0];
+    glDrawBuffers(attachments.count, attachments.data);
 
-    glRenderbufferStorage(
-        GL_RENDERBUFFER,
-        GL_DEPTH24_STENCIL8,
+    glGenTextures(1, *framebuffer.depth_texture);
+    glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT24,
         cast(u32) width,
-        cast(u32) height
+        cast(u32) height,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_UNSIGNED_INT,
+        null
     );
 
-    glFramebufferRenderbuffer(
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glFramebufferTexture2D(
         GL_FRAMEBUFFER,
-        GL_DEPTH_STENCIL_ATTACHMENT,
-        GL_RENDERBUFFER,
-        framebuffer.depth_buffer
+        GL_DEPTH_ATTACHMENT,
+        GL_TEXTURE_2D,
+        framebuffer.depth_texture,
+        0
     );
 
-    // check completeness
     if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
         log_error("Framebuffer % is not complete", framebuffer.id);
     }
@@ -89,7 +125,7 @@ framebuffer_destroy :: (framebuffer: *Framebuffer) {
     assert(framebuffer != null, "framebuffer_destroy: framebuffer is null");
 
     glDeleteTextures(1, *framebuffer.color_texture);
-    glDeleteRenderbuffers(1, *framebuffer.depth_buffer);
+    glDeleteTextures(1, *framebuffer.depth_texture);
     glDeleteFramebuffers(1, *framebuffer.id);
     free(framebuffer);
 }
@@ -123,21 +159,26 @@ framebuffer_resize :: (framebuffer: *Framebuffer, width: s32, height: s32) {
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA8, 
+        framebuffer.color_internal_format,
         cast(u32) width,
         cast(u32) height,
         0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
+        framebuffer.color_format,
+        framebuffer.color_type,
         null
     );
 
-    glBindRenderbuffer(GL_RENDERBUFFER, framebuffer.depth_buffer);
-    glRenderbufferStorage(
-        GL_RENDERBUFFER,
-        GL_DEPTH24_STENCIL8,
+    glBindTexture(GL_TEXTURE_2D, framebuffer.depth_texture);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT24,
         cast(u32) width,
-        cast(u32) height
+        cast(u32) height,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_UNSIGNED_INT,
+        null
     );
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer.id);
@@ -149,4 +190,32 @@ framebuffer_resize :: (framebuffer: *Framebuffer, width: s32, height: s32) {
 
 framebuffer_unbind :: () {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+framebuffer_blit_depth :: (
+    source: *Framebuffer,
+    destination: *Framebuffer,
+    width: s32,
+    height: s32
+) {
+    assert(source != null, "framebuffer_blit_depth: source is null");
+    assert(width > 0, "framebuffer_blit_depth: width must be positive");
+    assert(height > 0, "framebuffer_blit_depth: height must be positive");
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, source.id);
+    if destination {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination.id);
+    } else {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    }
+
+    glBlitFramebuffer(
+        0, 0, width, height,
+        0, 0, width, height,
+        GL_DEPTH_BUFFER_BIT,
+        GL_NEAREST
+    );
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }

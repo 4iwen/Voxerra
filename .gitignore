@@ -3,3 +3,9 @@ bin/
 .DS_Store
 *.code-workspace
 imgui.ini
+.vscode/
+*.xlsx
+~$*.xlsx
+requirements.csv
+*.dSYM*
+AGENTS.md

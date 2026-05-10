@@ -1,3 +1,7 @@
+// File:        engine.jai
+// Author:      Lukáš Bien
+// Description: Initializes and shuts down the shared engine subsystems.
+
 #scope_file
 
 #import "Basic";
@@ -17,7 +21,7 @@ engine_state: Engine_State;
 #scope_export
 
 engine_init :: () -> bool {
-    log_install();
+    logging_init();
 
     if !platform_init() {
         return false;
@@ -46,8 +50,6 @@ window_init :: (
 
     asset_manager_init();
 
-    ui_init(window);
-
     engine_state.last_time = time_get();
     engine_state.delta_time = 0;
 
@@ -60,7 +62,15 @@ engine_get_delta_time :: () -> float64 {
     return engine_state.delta_time;
 }
 
-engine_begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) -> float64 {
+engine_get_window :: () -> *Window {
+    return engine_state.window;
+}
+
+engine_get_current_scene :: () -> *Scene {
+    return engine_state.current_scene;
+}
+
+engine_begin_frame :: () -> float64 {
     // delta time
     current_time := time_get();
     delta_time := current_time - engine_state.last_time;
@@ -72,27 +82,25 @@ engine_begin_frame :: (clear_color: Vector4 = .{0, 0, 0, 1}) -> float64 {
     input_poll();
     window_poll_events();
 
-    // ui
-    ui_begin_frame();
-    ui_draw();
-
-    // render
-    renderer_begin_frame(clear_color);
-
     return delta_time;
 }
 
 engine_end_frame :: () {
-    ui_end_frame();
     renderer_end_frame();
     window_swap_buffers(engine_state.window);
 }
 
 engine_shutdown :: () {
-    ui_shutdown();
     asset_manager_shutdown();
     renderer_shutdown();
-    window_destroy(engine_state.window);
+    if engine_state.window {
+        window_destroy(engine_state.window);
+        engine_state.window = null;
+    }
     input_shutdown();
     platform_shutdown();
+    logging_shutdown();
+
+    engine_state.main_framebuffer = null;
+    engine_state.current_scene = null;
 }

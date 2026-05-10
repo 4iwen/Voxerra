@@ -1,3 +1,7 @@
+// File:        platform.jai
+// Author:      Lukáš Bien
+// Description: Wraps platform startup, shutdown, and low-level OS integration helpers.
+
 #scope_file
 
 #import "Basic";
@@ -26,7 +30,7 @@ platform_shutdown :: () {
 
 glfw_error_callback :: (error: s32, description: *u8) #c_call {
     push_context {
-        log_install();
+        logging_install_logger();
         log_error("Glfw error %: %", error, to_string(description));
     }
 }

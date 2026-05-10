@@ -1,3 +1,7 @@
+// File:        noise.jai
+// Author:      Lukáš Bien
+// Description: Implements procedural noise helpers used by rendering and content code.
+
 #scope_file
 
 #import "Math";

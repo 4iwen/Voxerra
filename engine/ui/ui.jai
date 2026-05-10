@@ -1,3 +1,7 @@
+// File:        ui.jai
+// Author:      Lukáš Bien
+// Description: Initializes ImGui and drives the editor UI frame lifecycle.
+
 #scope_file
 
 #import "Basic";
@@ -5,18 +9,46 @@
 #import "glfw";
 #import "jai-imgui";
 #load "../../modules/jai-imgui/backends/glfw_opengl3.jai";
+#load "../assets/fonts/fontawesome/IconsFontAwesome7.jai";
 
 #scope_module
 
-UI_State :: struct {
-	imgui_context: *ImGuiContext;
-	draw_demo: bool;
-	rotation_state: Rotation_Edit_State;
-	viewport_hovered: bool;
-	viewport_focused: bool;
+UI_ICON_FONT_PATH :: "engine/assets/fonts/fontawesome/fa-solid-900.ttf";
+UI_ICON_RANGES: [3] ImWchar : .[
+    cast(ImWchar) ICON_MIN_FA,
+    cast(ImWchar) ICON_MAX_FA,
+    0,
+];
+
+UI_Icon_Label :: (icon: string, label: string) -> *u8 #expand {
+	return temp_c_string(tprint("% %", icon, label));
 }
 
+UI_Icon_Window_Title :: (icon: string, label: string, id: string) -> *u8 #expand {
+    return temp_c_string(tprint("% %###%", icon, label, id));
+}
+
+UI_State :: struct {
+    imgui_context: *ImGuiContext;
+    draw_demo: bool;
+    rotation_state: Rotation_Edit_State;
+    viewport_hovered: bool;
+    viewport_image_visible: bool;
+    viewport_screen_min: ImVec2;
+    viewport_screen_max: ImVec2;
+    viewport_size: ImVec2;
+    viewport_pixel_width: s32;
+    viewport_pixel_height: s32;
+}
+
+#scope_export
+
 ui_state: UI_State;
+
+#scope_module
+
+COLLAPSING_HEADER_FLAGS: TreeNodeFlags : .DefaultOpen | .Framed | .SpanAvailWidth;
+TABLE_FLAGS: TableFlags : .BordersInnerV | .SizingStretchProp | .NoBordersInBody;
 
 ui_init :: (window: *Window) {
 	ui_state.imgui_context = CreateContext();
@@ -35,13 +67,49 @@ ui_init :: (window: *Window) {
     }
 
     io.ConfigDpiScaleFonts = true;
-	ImFontAtlas.AddFontDefaultVector(io.Fonts);
+
+	base_font_size := 13.0;
+	icon_font_size := 11.0;
+
+	// main font config
+	base_config: ImFontConfig;
+	ImFontConfig.Constructor(*base_config);
+	base_config.SizePixels = base_font_size;
+
+	// main UI font
+	ImFontAtlas.AddFontDefaultVector(io.Fonts, *base_config);
+
+	// merge FontAwesome into previous font
+	icons_config: ImFontConfig;
+	ImFontConfig.Constructor(*icons_config);
+	icons_config.MergeMode = true;
+	icons_config.PixelSnapH = true;
+	icons_config.GlyphMinAdvanceX = icon_font_size;
+	icons_config.GlyphMaxAdvanceX = icon_font_size;
+	icons_config.RasterizerDensity = 1.0;
+
+	icon_font := ImFontAtlas.AddFontFromFileTTF(
+        io.Fonts,
+        UI_ICON_FONT_PATH,
+        icon_font_size,
+        *icons_config,
+        UI_ICON_RANGES.data
+    );
+    if !icon_font {
+        log_warning("Failed to load editor icon font: %", UI_ICON_FONT_PATH);
+    }
 
     ImplGlfw_InitForOpenGL(window.handle, true);
     ImplOpenGL3_Init("#version 330");
+
+    properties_init();
+    asset_browser_init();
 }
 
 ui_shutdown :: () {
+    asset_browser_shutdown();
+    properties_shutdown();
+	
     ImplOpenGL3_Shutdown();
     ImplGlfw_Shutdown();
 	DestroyContext(ui_state.imgui_context);
@@ -76,9 +144,25 @@ ui_draw :: () {
 }
 
 ui_end_frame :: () {
-    Render();
-    
     io := GetIO();
+    input_set_capture_policy(
+        io.WantCaptureMouse,
+        io.WantCaptureKeyboard,
+        io.WantTextInput,
+        IsAnyItemActive(),
+        IsPopupOpen(null, .AnyPopup),
+        ui_state.viewport_hovered
+    );
+
+    Render();
+
+    framebuffer_unbind();
+    renderer_set_viewport_size(
+        engine_state.window.framebuffer_width,
+        engine_state.window.framebuffer_height
+    );
+    renderer_clear(.{0.08, 0.08, 0.09, 1.0});
+    
     if io.ConfigFlags_ & .ViewportsEnable {
         backup_current_context := glfwGetCurrentContext();
         UpdatePlatformWindows();
