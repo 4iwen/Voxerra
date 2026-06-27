@@ -2,6 +2,24 @@
 
 ![Showcase](showcase.gif)
 
+Interactive game engine made from scratch in Jai using OpenGL, GLFW, Dear ImGui, Assimp and TOML.
+
+## Features
+- Cross-platform
+- OpenGL renderer
+- Host-Module separation
+- Editor
+- Nodes & components
+- Scene save & load system
+- Lighting system
+- 3D models
+- Cameras
+- Sprites, animated sprites
+- Catmull-Rom curve editing
+- Jai "scripting"
+- Console logging
+- Simple exporting as standalone game
+
 ## Cloning
 
 `git clone https://github.com/4iwen/Voxerra --recursive`
