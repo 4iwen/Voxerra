@@ -1,6 +1,6 @@
 # Voxerra
 
-![Showcase](showcase.png)
+![Showcase](showcase.gif)
 
 ## Cloning
 
